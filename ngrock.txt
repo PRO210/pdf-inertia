@@ -1,0 +1,2 @@
+ngrok http --region=us --hostname *.school-app 80
+
