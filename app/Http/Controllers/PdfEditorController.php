@@ -157,7 +157,7 @@ class PdfEditorController extends Controller
         $base64 = $request->input('imagem');
         $colunas = (int) $request->input('colunas', 2);
         $linhas = (int) $request->input('linhas', 2);
-        $orientacao = $request->input('orientacao', 'retrato');       
+        $orientacao = $request->input('orientacao', 'retrato');
         $aspecto = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
 
         // Decodifica a imagem base64
@@ -243,16 +243,17 @@ class PdfEditorController extends Controller
 
         $imagick->clear();
 
-        $debug = [
-            'aspecto'      => $aspecto,
-            'larguraImagem' => $larguraImagem,
-            'alturaImagem' => $alturaImagem,
-            'larguraParte' => $larguraParte,
-            'alturaParte' => $alturaParte,
-            'larguraAlvo'  => $larguraAlvo,
-            'alturaAlvo'   => $alturaAlvo,
-        ];
+        // $debug = [
+        //     'aspecto'      => $aspecto,
+        //     'larguraImagem' => $larguraImagem,
+        //     'alturaImagem' => $alturaImagem,
+        //     'larguraParte' => $larguraParte,
+        //     'alturaParte' => $alturaParte,
+        //     'larguraAlvo'  => $larguraAlvo,
+        //     'alturaAlvo'   => $alturaAlvo,
+        // ];
+        // return response()->json(['partes' => $partes, 'debug'  => $debug]);
 
-        return response()->json(['partes' => $partes, 'debug'  => $debug]);
+        return response()->json(['partes' => $partes]);
     }
 }
