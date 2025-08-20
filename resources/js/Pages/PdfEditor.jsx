@@ -24,6 +24,7 @@ export default function PdfEditor() {
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(0)
   const [zoom, setZoom] = useState(1)
+  const [aspecto, setAspecto] = useState(true)
 
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
@@ -39,9 +40,8 @@ export default function PdfEditor() {
     setPaginaAtual(1)
     setTotalPaginas(0)
     setZoom(1)
+    setAspecto(true)
   }
-
-
 
 
   // const recortarImagem = async (base64) => {
@@ -93,7 +93,9 @@ export default function PdfEditor() {
         colunas: ampliacao.colunas,
         linhas: ampliacao.linhas,
         orientacao,
+        aspecto,
       })
+      console.log('Resposta do backend:', response.data)
 
       const { partes } = response.data
       return partes
@@ -297,6 +299,7 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
+              {/* Orientação */}
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
                 <select
@@ -314,10 +317,26 @@ export default function PdfEditor() {
                 </select>
               </div>
               <br />
+              {/* Aspecto */}
+              <div className="w-full">
+                <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
+                <select
+                  className="px-2 w-full rounded-full pro-input"
+                  name="aspecto"
+                  id="aspecto"
+                  value={aspecto}
+                  onChange={(e) => {
+                    setAspecto(e.target.value === "true")
+                    setAlteracoesPendentes(true)
+                  }}
+                >
+                  <option value="true">Manter o aspecto original</option>
+                  <option value="false">Preencher toda a folha</option>
+                </select>
+              </div>
 
               <div className="w-full flex flex-col">
                 <label className="block mb-2 pro-label text-xl text-center">Ampliação:</label>
-
                 <div className="flex gap-4 w-full">
                   <div className="flex-1">
                     <label className="block mb-2 pro-label text-center">Colunas</label>
@@ -396,7 +415,7 @@ export default function PdfEditor() {
                         }}
                         className={alteracoesPendentes ? "pro-btn-red" : "pro-btn-purple"}
                       >
-                       Aplicar alterações
+                        Aplicar alterações
                       </button>
                     )}
 
@@ -406,23 +425,27 @@ export default function PdfEditor() {
                       </button>
                     )}
 
-                    <div className="flex justify-center gap-2 mt-2">
-                      <button
-                        onClick={() => setZoom((z) => Math.max(z - 0.1, 0.25))}
-                        disabled={zoom <= 0.25}
-                        className="pro-btn-blue px-3 py-1 rounded"
-                      >
-                        -
-                      </button>
-                      <span className="flex items-center px-2">{(zoom * 100).toFixed(0)}%</span>
-                      <button
-                        onClick={() => setZoom((z) => Math.min(z + 0.1, 3))}
-                        disabled={zoom >= 3}
-                        className="pro-btn-blue px-3 py-1 rounded"
-                      >
-                        +
-                      </button>
-                    </div>
+
+                    {pdfUrl && (
+                      <div className="flex justify-center gap-2 mt-2">
+                        <button
+                          onClick={() => setZoom((z) => Math.max(z - 0.1, 0.25))}
+                          disabled={zoom <= 0.25}
+                          className="pro-btn-blue px-3 py-1 rounded"
+                        >
+                          -
+                        </button>
+                        <span className="flex items-center px-2">{(zoom * 100).toFixed(0)}%</span>
+                        <button
+                          onClick={() => setZoom((z) => Math.min(z + 0.1, 3))}
+                          disabled={zoom >= 3}
+                          className="pro-btn-blue px-3 py-1 rounded"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                    )}
                   </>
                 )}
               </div>

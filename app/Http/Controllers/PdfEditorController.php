@@ -157,7 +157,8 @@ class PdfEditorController extends Controller
         $base64 = $request->input('imagem');
         $colunas = (int) $request->input('colunas', 2);
         $linhas = (int) $request->input('linhas', 2);
-        $orientacao = $request->input('orientacao', 'retrato');
+        $orientacao = $request->input('orientacao', 'retrato');       
+        $aspecto = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
 
         // Decodifica a imagem base64
         $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64));
@@ -178,7 +179,14 @@ class PdfEditorController extends Controller
         $alturaIdeal = $linhas * intval($alturaFolha / $linhas);
 
         // Redimensiona com filtro Lanczos (ImageMagick 6.9 é compatível)
-        $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, true);
+        // Redimensiona dependendo do aspecto
+        if ($aspecto) {
+            // Mantém proporção
+            $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, true);
+        } else {
+            // Estica para caber exatamente na folha, ignorando proporção
+            $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, false);
+        }
         // $imagick->resizeImage($larguraIdeal, 0, \Imagick::FILTER_LANCZOS, 1);
 
 
@@ -212,18 +220,39 @@ class PdfEditorController extends Controller
                 // $xOffset = intval(($larguraAlvo - $larguraParte) / 2);
                 // $yOffset = intval(($alturaAlvo - $alturaParte) / 2);
                 // $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-                $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0,0);
+
+                if ($aspecto) {
+                    // Mantendo proporção                 
+                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
+                } else {
+                    // Estica cada recorte para ocupar o canvas inteiro
+                    $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
+                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
+                }
 
                 // Exporta como base64 PNG
                 $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
 
-                $recorte->destroy();
-                $canvas->destroy();
+                // Libera recursos do recorte após uso
+                if ($recorte instanceof \Imagick) {
+                    $recorte->clear();
+                    $canvas->clear();
+                }
             }
         }
 
-        $imagick->destroy();
+        $imagick->clear();
 
-        return response()->json(['partes' => $partes]);
+        $debug = [
+            'aspecto'      => $aspecto,
+            'larguraImagem' => $larguraImagem,
+            'alturaImagem' => $alturaImagem,
+            'larguraParte' => $larguraParte,
+            'alturaParte' => $alturaParte,
+            'larguraAlvo'  => $larguraAlvo,
+            'alturaAlvo'   => $alturaAlvo,
+        ];
+
+        return response()->json(['partes' => $partes, 'debug'  => $debug]);
     }
 }
