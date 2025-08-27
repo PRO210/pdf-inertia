@@ -170,90 +170,67 @@ class PdfEditorController extends Controller
             return response()->json(['error' => 'Imagem inválida.'], 422);
         }
 
-        // Dimensões da folha A4 em 300 DPI
-        $larguraFolha = $orientacao === 'retrato' ? 2480 : 3508;
-        $alturaFolha = $orientacao === 'retrato' ? 3508 : 2480;
+        // Defina a resolução desejada (150 ou 300 DPI)
+        $dpi = (int) $request->input('dpi', 150);
 
-        // Tamanho ideal da imagem para o corte proporcional
-        $larguraIdeal = $colunas * intval($larguraFolha / $colunas);
-        $alturaIdeal = $linhas * intval($alturaFolha / $linhas);
+        // Dimensões da folha A4
+        $larguraFolha = $orientacao === 'retrato' ? intval(8.27 * $dpi) : intval(11.69 * $dpi);
+        $alturaFolha  = $orientacao === 'retrato' ? intval(11.69 * $dpi) : intval(8.27 * $dpi);
 
-        // Redimensiona com filtro Lanczos (ImageMagick 6.9 é compatível)
-        // Redimensiona dependendo do aspecto
-        if ($aspecto) {
-            // Mantém proporção
-            $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, true);
-        } else {
-            // Estica para caber exatamente na folha, ignorando proporção
-            $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, false);
-        }
-        // $imagick->resizeImage($larguraIdeal, 0, \Imagick::FILTER_LANCZOS, 1);
+        // Calcula tamanho do canvas de cada tile
+        $larguraAlvo = intval($larguraFolha / $colunas);
+        $alturaAlvo  = intval($alturaFolha / $linhas);
 
+        // Redimensiona globalmente para múltiplos exatos da grade
+        $larguraIdeal = $colunas * $larguraAlvo;
+        $alturaIdeal  = $linhas  * $alturaAlvo;
+        $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, $aspecto);
 
         $imagick->sharpenImage(0.5, 0.3);
 
         // Pega dimensões após redimensionamento
         $larguraImagem = $imagick->getImageWidth();
-        $alturaImagem = $imagick->getImageHeight();
+        $alturaImagem  = $imagick->getImageHeight();
 
-        // Tamanhos dos recortes
         $larguraParte = intval($larguraImagem / $colunas);
-        $alturaParte = intval($alturaImagem / $linhas);
-
-        $larguraAlvo = intval($larguraFolha / $colunas);
-        $alturaAlvo = intval($alturaFolha / $linhas);
+        $alturaParte  = intval($alturaImagem / $linhas);
 
         $partes = [];
 
         for ($y = 0; $y < $linhas; $y++) {
             for ($x = 0; $x < $colunas; $x++) {
-                // Recorta a parte desejada
                 $recorte = clone $imagick;
                 $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
 
-                // Cria um canvas branco no tamanho alvo
                 $canvas = new \Imagick();
                 $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
                 $canvas->setImageFormat("png");
 
-                // // Centraliza o recorte no canvas
-                // $xOffset = intval(($larguraAlvo - $larguraParte) / 2);
-                // $yOffset = intval(($alturaAlvo - $alturaParte) / 2);
-                // $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-
                 if ($aspecto) {
-                    // Mantendo proporção                 
-                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
+                    // Centraliza mantendo proporção
+                    $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
+                    $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
+                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
                 } else {
-                    // Estica cada recorte para ocupar o canvas inteiro
+                    // Estica para preencher o canvas inteiro
                     $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
                     $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
                 }
 
-                // Exporta como base64 PNG
                 $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
 
-                // Libera recursos do recorte após uso
-                if ($recorte instanceof \Imagick) {
-                    $recorte->clear();
-                    $canvas->clear();
-                }
+                $recorte->clear();
+                $canvas->clear();
             }
         }
 
         $imagick->clear();
 
-        // $debug = [
-        //     'aspecto'      => $aspecto,
-        //     'larguraImagem' => $larguraImagem,
-        //     'alturaImagem' => $alturaImagem,
-        //     'larguraParte' => $larguraParte,
-        //     'alturaParte' => $alturaParte,
-        //     'larguraAlvo'  => $larguraAlvo,
-        //     'alturaAlvo'   => $alturaAlvo,
-        // ];
-        // return response()->json(['partes' => $partes, 'debug'  => $debug]);
-
         return response()->json(['partes' => $partes]);
+    }
+
+    public function atividades()
+    {
+        return Inertia::render('PdfAtividades');
     }
 }

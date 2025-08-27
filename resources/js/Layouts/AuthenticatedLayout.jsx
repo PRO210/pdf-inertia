@@ -31,7 +31,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Dashboard
                                 </NavLink>
                                 <NavLink href={route('pdf.editor')} active={route().current('pdf.editor')} >
-                                    PDF Editor
+                                    Criar Posters
+                                </NavLink>
+                                <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
+                                    Criar Atividades
                                 </NavLink>
                             </div>
                         </div>

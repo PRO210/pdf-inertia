@@ -15,9 +15,9 @@ export default function PdfEditor() {
 
   const [pdfUrl, setPdfUrl] = useState(null)
   const [imagemBase64, setImagemBase64] = useState(null)
-  const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
+  const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 1 })
   // const [partesRecortadas, setPartesRecortadas] = useState([])
-  const [orientacao, setOrientacao] = useState('retrato')
+  const [orientacao, setOrientacao] = useState('paisagem')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [erroPdf, setErroPdf] = useState(null)
   const [paginaAtual, setPaginaAtual] = useState(1)
@@ -28,12 +28,17 @@ export default function PdfEditor() {
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
 
+  const totalSlots = Math.max(ampliacao?.colunas || 1, 1) *
+    Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1);
+
+  const [imagens, setImagens] = useState([]); // array vazio inicialmente
+
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
     setImagemBase64(null)
-    setAmpliacao({ colunas: 2, linhas: 2 })
+    setAmpliacao({ colunas: 2, linhas: 1 })
     // setPartesRecortadas([])
-    setOrientacao('retrato')
+    setOrientacao('paisagem')
     setAlteracoesPendentes(false)
     setErroPdf(null)
     setPaginaAtual(1)
@@ -41,49 +46,6 @@ export default function PdfEditor() {
     setZoom(1)
     setAspecto(true)
   }
-
-
-  // const recortarImagem = async (base64) => {
-  //   return new Promise((resolve) => {
-  //     const img = new window.Image()
-  //     img.src = base64
-  //     img.onload = () => {
-  //       const canvas = document.createElement('canvas')
-  //       const ctx = canvas.getContext('2d')
-  //       const partes = []
-  //       const larguraParte = img.width / ampliacao.colunas
-  //       const alturaParte = img.height / ampliacao.linhas  
-
-  //       // Defina o tamanho da folha conforme a orientação
-  //       const isRetrato = orientacao === 'retrato'
-  //       const larguraFolha = isRetrato ? 2480 : 3508
-  //       const alturaFolha = isRetrato ? 3508 : 2480
-
-  //       for (let y = 0; y < ampliacao.linhas; y++) {
-  //         for (let x = 0; x < ampliacao.colunas; x++) {
-  //           // Ajuste o canvas para o tamanho final de impressão
-  //           canvas.width = larguraFolha
-  //           canvas.height = alturaFolha
-
-  //           // Recorte e amplie a parte correspondente para preencher a folha
-  //           ctx.drawImage(
-  //             img,
-  //             x * larguraParte,
-  //             y * alturaParte,
-  //             larguraParte,
-  //             alturaParte,
-  //             0,
-  //             0,
-  //             larguraFolha,
-  //             alturaFolha
-  //           )
-  //           partes.push(canvas.toDataURL())
-  //         }
-  //       }
-  //       resolve(partes)
-  //     }
-  //   })
-  // }
 
   const enviarParaCorteBackend = async () => {
     try {
@@ -335,7 +297,7 @@ export default function PdfEditor() {
               </div>
 
               <div className="w-full flex flex-col">
-                <label className="block mb-2 pro-label text-xl text-center">Ampliação:</label>
+                <label className="block mb-2 pro-label text-xl text-center">Redução:</label>
                 <div className="flex gap-4 w-full">
                   <div className="flex-1">
                     <label className="block mb-2 pro-label text-center">Colunas</label>
@@ -350,11 +312,10 @@ export default function PdfEditor() {
                         setAlteracoesPendentes(true);
                       }}
                     >
-                      {[...Array(10)].map((_, i) => {
-                        const valor = i + 1;
+                      {[...Array(11)].map((_, i) => {
                         return (
-                          <option key={valor} value={valor}>
-                            {valor}
+                          <option key={i} value={i}>
+                            {i}
                           </option>
                         );
                       })}
@@ -378,11 +339,10 @@ export default function PdfEditor() {
                         setAlteracoesPendentes(true);
                       }}
                     >
-                      {[...Array(10)].map((_, i) => {
-                        const valor = i + 1;
+                      {[...Array(11)].map((_, i) => {
                         return (
-                          <option key={valor} value={valor}>
-                            {valor}
+                          <option key={i} value={i}>
+                            {i}
                           </option>
                         );
                       })}
@@ -460,7 +420,7 @@ export default function PdfEditor() {
           </div>
 
           {/* Coluna do Preview */}
-          <div className="w-full md:w-2/3 flex flex-col justify-start items-center">
+          <div className="w-full md:w-2/3 flex flex-col justify-start items-center mx-6" id="preview-column">
 
             <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview">
 
@@ -497,49 +457,62 @@ export default function PdfEditor() {
                   )}
                 </div>
 
-                <div
-                  id="pdf-preview"
+                <div id="pdf-preview"
                   className="w-full border-2 border-gray-300 rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100 relative"
                   style={{ minHeight: '600px' }}
                 >
-                  {carregando && (
-                    <div className="absolute inset-0 bg-white bg-opacity-80 flex justify-center items-center z-50">
-                      <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
 
-                  {!carregando && (
-                    pdfUrl ? (
+
+
+                  <div
+                    className={`mx-auto border bg-white rounded-lg
+    ${orientacao === "retrato" ? "w-[595px] h-[842px]" : "w-[842px] h-[595px]"}
+  `}
+                    style={{
+                      display: "grid",
+                      gap: "0.5rem",
+                      gridTemplateColumns: `repeat(${Math.max(ampliacao?.colunas || 1, 1)}, 1fr)`,
+                      gridTemplateRows: `repeat(${Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1)}, 1fr)`,
+                    }}
+                  >
+                    {Array.from({ length: totalSlots }).map((_, i) => (
                       <div
-                        key={pdfUrl}
-                        ref={pdfContainerRef}
-                        className="w-full  overflow-auto flex flex-col"
-                      />
-                    ) : imagemBase64 ? (
-                      <img
-                        src={imagemBase64}
-                        alt="Pré-visualização da imagem carregada"
-                        className="max-h-[500px] object-contain rounded-md shadow-md"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center min-h-[400px]">
-                        <div>
-                          <label className="pro-label text-center text-xl">Nenhuma Imagem Selecionada:</label>
+                        key={i}
+                        className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative"
+                      >
+                        {imagens[i] ? (
+                          <img
+                            src={imagens[i]}
+                            alt={`Imagem ${i + 1}`}
+                            className="w-full h-full object-cover rounded-md"
+                          />
+                        ) : (
                           <input
                             type="file"
                             accept="image/png, image/jpeg"
-                            onChange={handleFileChange}
-                            className="pro-btn-blue
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-full file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100 cursor-pointer"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setImagens((prev) => {
+                                    const novas = [...prev];
+                                    novas[i] = reader.result;
+                                    return novas;
+                                  });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                           />
-                        </div>
+                        )}
                       </div>
-                    )
-                  )}
+                    ))}
+                  </div>
+
+
+
 
                   {erroPdf && !carregando && (
                     <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
