@@ -233,4 +233,64 @@ class PdfEditorController extends Controller
     {
         return Inertia::render('PdfAtividades');
     }
+
+
+    public function colarImagem(Request $request)
+    {
+        $imagens = $request->input('imagens', []); // array de imagens base64 vindas do front
+        $colunas = (int) $request->input('colunas', 2);
+        $linhas = (int) $request->input('linhas', 2);
+        $orientacao = $request->input('orientacao', 'retrato');
+        $aspecto = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
+
+        if (empty($imagens)) {
+            return response()->json(['error' => 'Nenhuma imagem enviada.'], 422);
+        }
+
+        $dpi = (int) $request->input('dpi', 150);
+
+        // Dimensões da folha A4 em pixels
+        $larguraFolha = $orientacao === 'retrato' ? intval(8.27 * $dpi) : intval(11.69 * $dpi);
+        $alturaFolha  = $orientacao === 'retrato' ? intval(11.69 * $dpi) : intval(8.27 * $dpi);
+
+        // cria um "álbum" com várias páginas
+        $pdf = new \Imagick();
+        $pdf->setResolution($dpi, $dpi);
+
+        foreach ($imagens as $imgBase64) {
+            $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $imgBase64));
+
+            try {
+                $imagick = new \Imagick();
+                $imagick->readImageBlob($imageData);
+            } catch (\ImagickException $e) {
+                continue; // pula imagens inválidas
+            }
+
+            // Redimensiona a imagem para caber na folha
+            $imagick->resizeImage($larguraFolha, $alturaFolha, \Imagick::FILTER_LANCZOS, 1, $aspecto);
+
+            // Cria uma página A4 branca
+            $pagina = new \Imagick();
+            $pagina->newImage($larguraFolha, $alturaFolha, new \ImagickPixel("white"));
+            $pagina->setImageFormat("pdf");
+
+            // Centraliza a imagem na folha
+            $xOffset = intval(($larguraFolha - $imagick->getImageWidth()) / 2);
+            $yOffset = intval(($alturaFolha - $imagick->getImageHeight()) / 2);
+            $pagina->compositeImage($imagick, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
+
+            $pdf->addImage($pagina);
+
+            $imagick->clear();
+            $pagina->clear();
+        }
+
+        $pdf->setImageFormat("pdf");
+
+        // Retorna como download inline (para abrir no navegador)
+        return response($pdf, 200)
+            ->header('Content-Type', 'application/pdf')
+            ->header('Content-Disposition', 'inline; filename="documento.pdf"');
+    }
 }

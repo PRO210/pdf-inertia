@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard/pdf-editor', [PdfEditorController::class, 'index'])->name('pdf.editor');
     Route::post('/dashboard/pdf-editor', [PdfEditorController::class, 'store'])->name('pdf.editor.store');
+
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
 });
 
@@ -40,6 +41,7 @@ Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])-
 Route::post('/reset-password', [NewPasswordController::class, 'store'])->middleware('guest')->name('password.update');
 
 Route::post('/cortar-imagem', [PdfEditorController::class, 'cortarImagem']);
+Route::post('/colar-imagem', [PdfEditorController::class, 'colarImagem']);
 
 
 require __DIR__ . '/auth.php';
