@@ -5,10 +5,167 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
 import * as EXIF from 'exif-js'
+import piexifjs from 'piexifjs';
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
+
+// Função auxiliar para converter Data URL em Array de Bytes
+const dataURLToUint8Array = async (dataUrl) => {
+  const response = await fetch(dataUrl);
+  return new Uint8Array(await response.arrayBuffer());
+};
+
+const gerarPDF = async (imagens, ampliacao, orientacao, aspecto, setCarregando, setPdfUrl, setPaginaAtual, setAlteracoesPendentes, setErroPdf) => {
+  if (!imagens || !imagens.some(Boolean)) {
+    alert('Nenhuma imagem para gerar o PDF.');
+    return;
+  }
+
+  try {
+    setCarregando(true);
+
+    const pdfDoc = await PDFDocument.create();
+
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
+    const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+    const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+
+    const CM_TO_POINTS = 28.3465;
+    const margin = 1 * CM_TO_POINTS;
+    const gap = 6;
+
+    const cols = Math.max(ampliacao?.colunas || 1, 1);
+    const rows = Math.max(ampliacao?.linhas || 1, 1);
+    const usableW = pageWidth - margin * 2;
+    const usableH = pageHeight - margin * 2;
+    const cellW = (usableW - (cols - 1) * gap) / cols;
+    const cellH = (usableH - (rows - 1) * gap) / rows;
+    const slotsPerPage = cols * rows;
+
+    let page = null;
+    let pageSlot = 0;
+
+    for (let i = 0; i < imagens.length; i++) {
+      const dataUrl = imagens[i];
+      if (!dataUrl) continue;
+
+      if (pageSlot % slotsPerPage === 0) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        pageSlot = 0;
+      }
+
+      const imgBytes = await dataURLToUint8Array(dataUrl);
+
+      let orientation = 1;
+
+      try {
+        // A conversão para string binária para piexifjs.load() foi ajustada
+        const binaryString = String.fromCharCode.apply(null, imgBytes);
+        const exifObj = piexifjs.load(binaryString);
+        // ---------------------
+
+        if (exifObj && exifObj['0th'] && exifObj['0th'][piexifjs.ImageIFD.Orientation]) {
+          orientation = exifObj['0th'][piexifjs.ImageIFD.Orientation];
+        }
+      } catch (err) {
+        console.error("Erro ao ler EXIF com piexifjs:", err);
+      }
+
+      const img = new Image();
+      const loadedImg = await new Promise((resolve) => {
+        img.onload = () => resolve(img);
+        img.src = dataUrl;
+      });
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      let imgW = loadedImg.width;
+      let imgH = loadedImg.height;
+
+      if (orientation >= 5 && orientation <= 8) {
+        canvas.width = imgH;
+        canvas.height = imgW;
+      } else {
+        canvas.width = imgW;
+        canvas.height = imgH;
+      }
+
+      switch (orientation) {
+        case 2: ctx.transform(-1, 0, 0, 1, imgW, 0); break;
+        case 3: ctx.transform(-1, 0, 0, -1, imgW, imgH); break;
+        case 4: ctx.transform(1, 0, 0, -1, 0, imgH); break;
+        case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+        case 6: ctx.transform(0, 1, -1, 0, imgH, 0); break;
+        case 7: ctx.transform(0, -1, -1, 0, imgH, imgW); break;
+        case 8: ctx.transform(0, -1, 1, 0, 0, imgW); break;
+      }
+
+      ctx.drawImage(loadedImg, 0, 0);
+
+      const rotatedDataUrl = canvas.toDataURL('image/jpeg');
+
+      const base64 = rotatedDataUrl.split(',')[1];
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+      let embeddedImg;
+      if (/data:image\/png/i.test(rotatedDataUrl)) {
+        embeddedImg = await pdfDoc.embedPng(bytes);
+      } else {
+        embeddedImg = await pdfDoc.embedJpg(bytes);
+      }
+
+      const embeddedW = embeddedImg.width;
+      const embeddedH = embeddedImg.height;
+
+      const col = pageSlot % cols;
+      const row = Math.floor(pageSlot / cols);
+      const cellLeftX = margin + col * (cellW + gap);
+      const cellTopY = pageHeight - margin - row * (cellH + gap);
+      const cellBottomY = cellTopY - cellH;
+
+      let drawW, drawH, drawX, drawY;
+
+      if (aspecto) {
+        const scale = Math.min(cellW / embeddedW, cellH / embeddedH);
+        drawW = embeddedW * scale;
+        drawH = embeddedH * scale;
+        drawX = cellLeftX + (cellW - drawW) / 2;
+        drawY = cellBottomY + (cellH - drawH) / 2;
+      } else {
+        drawW = cellW;
+        drawH = cellH;
+        drawX = cellLeftX;
+        drawY = cellBottomY;
+      }
+
+      page.drawImage(embeddedImg, {
+        x: drawX,
+        y: drawY,
+        width: drawW,
+        height: drawH,
+      });
+
+      pageSlot++;
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    setPdfUrl(url);
+    setPaginaAtual(1);
+    setAlteracoesPendentes(false);
+  } catch (err) {
+    console.error('Erro gerando PDF:', err);
+    setErroPdf('Erro ao gerar o PDF no front-end.');
+  } finally {
+    setCarregando(false);
+  }
+};
+
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -199,124 +356,124 @@ export default function PdfEditor() {
   // };
 
 
-  const gerarPDF = async () => {
-    if (!imagens || !imagens.some(Boolean)) {
-      alert('Nenhuma imagem para gerar o PDF.');
-      return;
-    }
+  // const gerarPDF = async () => {
+  //   if (!imagens || !imagens.some(Boolean)) {
+  //     alert('Nenhuma imagem para gerar o PDF.');
+  //     return;
+  //   }
 
-    try {
-      setCarregando(true);
+  //   try {
+  //     setCarregando(true);
 
-      const pdfDoc = await PDFDocument.create();
+  //     const pdfDoc = await PDFDocument.create();
 
-      const A4_WIDTH = 595.28;
-      const A4_HEIGHT = 841.89;
-      const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
-      const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+  //     const A4_WIDTH = 595.28;
+  //     const A4_HEIGHT = 841.89;
+  //     const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+  //     const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
 
-      const CM_TO_POINTS = 28.3465;
-      const margin = 1 * CM_TO_POINTS;
-      const gap = 6;
+  //     const CM_TO_POINTS = 28.3465;
+  //     const margin = 1 * CM_TO_POINTS;
+  //     const gap = 6;
 
-      const cols = Math.max(ampliacao?.colunas || 1, 1);
-      const rows = Math.max(ampliacao?.linhas || 1, 1);
-      const usableW = pageWidth - margin * 2;
-      const usableH = pageHeight - margin * 2;
-      const cellW = (usableW - (cols - 1) * gap) / cols;
-      const cellH = (usableH - (rows - 1) * gap) / rows;
-      const slotsPerPage = cols * rows;
+  //     const cols = Math.max(ampliacao?.colunas || 1, 1);
+  //     const rows = Math.max(ampliacao?.linhas || 1, 1);
+  //     const usableW = pageWidth - margin * 2;
+  //     const usableH = pageHeight - margin * 2;
+  //     const cellW = (usableW - (cols - 1) * gap) / cols;
+  //     const cellH = (usableH - (rows - 1) * gap) / rows;
+  //     const slotsPerPage = cols * rows;
 
-      let page = null;
-      let pageSlot = 0;
+  //     let page = null;
+  //     let pageSlot = 0;
 
-      for (let i = 0; i < imagens.length; i++) {
-        const dataUrl = imagens[i];
-        if (!dataUrl) continue;
+  //     for (let i = 0; i < imagens.length; i++) {
+  //       const dataUrl = imagens[i];
+  //       if (!dataUrl) continue;
 
-        if (pageSlot % slotsPerPage === 0) {
-          page = pdfDoc.addPage([pageWidth, pageHeight]);
-          pageSlot = 0;
-        }
+  //       if (pageSlot % slotsPerPage === 0) {
+  //         page = pdfDoc.addPage([pageWidth, pageHeight]);
+  //         pageSlot = 0;
+  //       }
 
-        // ---- Corrige rotação ----
-        const rotatedDataUrl = await new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+  //       // ---- Corrige rotação ----
+  //       const rotatedDataUrl = await new Promise((resolve) => {
+  //         const img = new Image();
+  //         img.onload = () => {
+  //           const canvas = document.createElement('canvas');
+  //           const ctx = canvas.getContext('2d');
 
-            // inverter largura/altura se estiver deitada
-            const needSwap = img.width > img.height && cellH > cellW;
-            canvas.width = needSwap ? img.height : img.width;
-            canvas.height = needSwap ? img.width : img.height;
+  //           // inverter largura/altura se estiver deitada
+  //           const needSwap = img.width > img.height && cellH > cellW;
+  //           canvas.width = needSwap ? img.height : img.width;
+  //           canvas.height = needSwap ? img.width : img.height;
 
-            // rotaciona 90° se necessário
-            if (needSwap) {
-              ctx.translate(canvas.width / 2, canvas.height / 2);
-              ctx.rotate((90 * Math.PI) / 180);
-              ctx.drawImage(img, -img.width / 2, -img.height / 2);
-            } else {
-              ctx.drawImage(img, 0, 0);
-            }
+  //           // rotaciona 90° se necessário
+  //           if (needSwap) {
+  //             ctx.translate(canvas.width / 2, canvas.height / 2);
+  //             ctx.rotate((90 * Math.PI) / 180);
+  //             ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  //           } else {
+  //             ctx.drawImage(img, 0, 0);
+  //           }
 
-            resolve(canvas.toDataURL('image/jpeg'));
-          };
-          img.src = dataUrl;
-        });
+  //           resolve(canvas.toDataURL('image/jpeg'));
+  //         };
+  //         img.src = dataUrl;
+  //       });
 
-        const base64 = rotatedDataUrl.split(',')[1];
-        const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+  //       const base64 = rotatedDataUrl.split(',')[1];
+  //       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 
-        let embeddedImg;
-        if (/data:image\/png/i.test(rotatedDataUrl)) {
-          embeddedImg = await pdfDoc.embedPng(bytes);
-        } else {
-          embeddedImg = await pdfDoc.embedJpg(bytes);
-        }
+  //       let embeddedImg;
+  //       if (/data:image\/png/i.test(rotatedDataUrl)) {
+  //         embeddedImg = await pdfDoc.embedPng(bytes);
+  //       } else {
+  //         embeddedImg = await pdfDoc.embedJpg(bytes);
+  //       }
 
-        const imgW = embeddedImg.width;
-        const imgH = embeddedImg.height;
+  //       const imgW = embeddedImg.width;
+  //       const imgH = embeddedImg.height;
 
-        const col = pageSlot % cols;
-        const row = Math.floor(pageSlot / cols);
-        const cellLeftX = margin + col * (cellW + gap);
-        const cellTopY = pageHeight - margin - row * (cellH + gap);
-        const cellBottomY = cellTopY - cellH;
+  //       const col = pageSlot % cols;
+  //       const row = Math.floor(pageSlot / cols);
+  //       const cellLeftX = margin + col * (cellW + gap);
+  //       const cellTopY = pageHeight - margin - row * (cellH + gap);
+  //       const cellBottomY = cellTopY - cellH;
 
-        let drawW, drawH, drawX, drawY;
+  //       let drawW, drawH, drawX, drawY;
 
-        if (aspecto) {
-          const scale = Math.min(cellW / imgW, cellH / imgH);
-          drawW = imgW * scale;
-          drawH = imgH * scale;
-          drawX = cellLeftX + (cellW - drawW) / 2;
-          drawY = cellBottomY + (cellH - drawH) / 2;
-        } else {
-          drawW = cellW;
-          drawH = cellH;
-          drawX = cellLeftX;
-          drawY = cellBottomY;
-        }
+  //       if (aspecto) {
+  //         const scale = Math.min(cellW / imgW, cellH / imgH);
+  //         drawW = imgW * scale;
+  //         drawH = imgH * scale;
+  //         drawX = cellLeftX + (cellW - drawW) / 2;
+  //         drawY = cellBottomY + (cellH - drawH) / 2;
+  //       } else {
+  //         drawW = cellW;
+  //         drawH = cellH;
+  //         drawX = cellLeftX;
+  //         drawY = cellBottomY;
+  //       }
 
-        page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
-        pageSlot++;
-      }
+  //       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+  //       pageSlot++;
+  //     }
 
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
+  //     const pdfBytes = await pdfDoc.save();
+  //     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  //     const url = URL.createObjectURL(blob);
 
-      setPdfUrl(url);
-      setPaginaAtual(1);
-      setAlteracoesPendentes(false);
-    } catch (err) {
-      console.error('Erro gerando PDF:', err);
-      setErroPdf('Erro ao gerar o PDF no front-end.');
-    } finally {
-      setCarregando(false);
-    }
-  };
+  //     setPdfUrl(url);
+  //     setPaginaAtual(1);
+  //     setAlteracoesPendentes(false);
+  //   } catch (err) {
+  //     console.error('Erro gerando PDF:', err);
+  //     setErroPdf('Erro ao gerar o PDF no front-end.');
+  //   } finally {
+  //     setCarregando(false);
+  //   }
+  // };
 
 
   useEffect(() => {
@@ -469,7 +626,17 @@ export default function PdfEditor() {
                         onClick={async () => {
                           setCarregando(true);
 
-                          await gerarPDF();
+                          await gerarPDF(
+                            imagens,
+                            ampliacao,
+                            orientacao,
+                            aspecto,
+                            setCarregando,
+                            setPdfUrl,
+                            setPaginaAtual,
+                            setAlteracoesPendentes,
+                            setErroPdf
+                          );
 
                           setCarregando(false);
                         }}

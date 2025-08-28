@@ -26,6 +26,7 @@
         "exif-js": "^2.3.0",
         "pdf-lib": "^1.17.1",
         "pdfjs-dist": "^5.3.31",
+        "piexifjs": "^1.0.6",
         "react-spinners": "^0.17.0"
     }
 }

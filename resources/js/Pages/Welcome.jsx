@@ -95,10 +95,15 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 
                                             <div className="pt-10 sm:pt-5 lg:pt-0">
                                                 <p className="mt-4 text-2xl/relaxed text-justify">
-                                                    Nosso app transforma qualquer imagem em um pôster ampliado em PDF, pronto para impressão. É fácil de usar,
-                                                    não precisa instalar nada e funciona direto do navegador, em qualquer dispositivo. Ideal para quem quer
-                                                    criar pôsteres grandes sem complicação basta fazer o login e pronto :).
+                                                    Nosso app transforma sua imagem em um pôster ampliado em PDF, pronto para impressão. É simples de usar,
+                                                    não precisa instalar nada e funciona direto do navegador, em qualquer dispositivo. Ideal para quem deseja
+                                                    criar pôsteres grandes sem complicação: basta fazer login e pronto! 🙂
                                                 </p>
+
+                                                <p className="mt-4 text-2xl/relaxed text-justify">
+                                                    Também é possível fazer o inverso: usar suas imagens para montar um mosaico com a mesma facilidade! 🙂
+                                                </p>
+
                                             </div>
                                         </div>
                                     </div>
