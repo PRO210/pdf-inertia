@@ -4,8 +4,7 @@ import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
-import * as EXIF from 'exif-js'
-import piexifjs from 'piexifjs';
+import { adicionarBorda } from '@/pdfUtils'
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
@@ -17,17 +16,157 @@ const dataURLToUint8Array = async (dataUrl) => {
   return new Uint8Array(await response.arrayBuffer());
 };
 
+
+// const gerarPDF = async (
+//   imagens,
+//   ampliacao,
+//   orientacao,
+//   aspecto,
+//   setCarregando,
+//   setPdfUrl,
+//   setPaginaAtual,
+//   setAlteracoesPendentes,
+//   setErroPdf,
+//   bordaDataUrl
+// ) => {
+//   // A validação inicial continua a mesma
+//   if (!imagens || !imagens.some(Boolean)) {
+//     alert('Nenhuma imagem para gerar o PDF.');
+//     return;
+//   }
+
+//   try {
+//     setCarregando(true);
+
+//     const pdfDoc = await PDFDocument.create();
+
+
+//     const A4_WIDTH = 595.28;
+//     const A4_HEIGHT = 841.89;
+//     const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+//     const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+
+
+//     const CM_TO_POINTS = 28.3465;
+//     const margin = 1 * CM_TO_POINTS;
+//     const gap = 6;
+
+//     const cols = Math.max(ampliacao?.colunas || 1, 1);
+//     const rows = Math.max(ampliacao?.linhas || 1, 1);
+//     const slotsPerPage = cols * rows;
+
+//     const usableW = pageWidth - margin * 2;
+//     const usableH = pageHeight - margin * 2;
+//     const cellW = (usableW - (cols - 1) * gap) / cols;
+//     const cellH = (usableH - (rows - 1) * gap) / rows;
+
+//     // A função confia no array de imagens, então o total de slots é o tamanho do array.
+//     const totalSlots = imagens.length;
+//     let page = null;
+
+//     page = pdfDoc.addPage([pageWidth, pageHeight]);
+//     await adicionarBorda(pdfDoc, page, bordaDataUrl, 5);
+
+
+//     const canvas = document.createElement('canvas');
+//     const ctx = canvas.getContext('2d');
+
+
+//     for (let i = 0; i < totalSlots; i++) {
+//       const slotIndexInPage = i % slotsPerPage;
+//       const col = slotIndexInPage % cols;
+//       const row = Math.floor(slotIndexInPage / cols);
+
+//       // Cria nova página se necessário
+//       if (slotIndexInPage === 0) {
+//         page = pdfDoc.addPage([pageWidth, pageHeight]);
+//       }
+
+//       const dataUrl = imagens[i];
+//       // Se a imagem for nula, o loop continua para a próxima iteração.
+//       // Isso deixa o slot em branco no PDF.
+//       if (!dataUrl) {
+//         continue;
+//       }
+
+//       // Converte dataUrl em bytes
+//       const imgBytes = await dataURLToUint8Array(dataUrl);
+
+//       const img = new Image();
+//       const loadedImg = await new Promise((resolve) => {
+//         img.onload = () => resolve(img);
+//         img.src = dataUrl;
+//       });
+
+//       // Ajusta o tamanho conforme a imagem atual
+//       canvas.width = loadedImg.width;
+//       canvas.height = loadedImg.height;
+
+//       ctx.clearRect(0, 0, canvas.width, canvas.height);
+//       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+
+//       const rotatedDataUrl = canvas.toDataURL('image/png');
+//       const base64 = rotatedDataUrl.split(',')[1];
+//       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+//       let embeddedImg;
+//       if (/data:image\/png/i.test(rotatedDataUrl)) {
+//         embeddedImg = await pdfDoc.embedPng(bytes);
+//       } else {
+//         embeddedImg = await pdfDoc.embedJpg(bytes);
+//       }
+
+//       const embeddedW = embeddedImg.width;
+//       const embeddedH = embeddedImg.height;
+
+//       // Calcula posição e tamanho (não há mudanças aqui)
+//       let drawW, drawH, drawX, drawY;
+
+//       const cellLeftX = margin + col * (cellW + gap);
+//       const cellTopY = pageHeight - margin - row * (cellH + gap);
+//       const cellBottomY = cellTopY - cellH;
+
+//       if (aspecto) {
+//         const scale = Math.min(cellW / embeddedW, cellH / embeddedH);
+//         drawW = embeddedW * scale;
+//         drawH = embeddedH * scale;
+//         drawX = cellLeftX + (cellW - drawW) / 2;
+//         drawY = cellBottomY + (cellH - drawH) / 2;
+//       } else {
+//         drawW = cellW;
+//         drawH = cellH;
+//         drawX = cellLeftX;
+//         drawY = cellBottomY;
+//       }
+
+//       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+//     }
+
+//     const pdfBytes = await pdfDoc.save();
+//     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+//     const url = URL.createObjectURL(blob);
+
+//     setPdfUrl(url);
+//     setPaginaAtual(1);
+//     setAlteracoesPendentes(false);
+//   } catch (err) {
+//     console.error('Erro gerando PDF:', err);
+//     setErroPdf('Erro ao gerar o PDF no front-end.');
+//   } finally {
+//     setCarregando(false);
+//   }
+// };
+
 const gerarPDF = async (
   imagens,
   ampliacao,
   orientacao,
   aspecto,
-  repeatMode,
   setCarregando,
   setPdfUrl,
   setPaginaAtual,
   setAlteracoesPendentes,
-  setErroPdf
+  setErroPdf,
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
@@ -57,41 +196,24 @@ const gerarPDF = async (
     const cellW = (usableW - (cols - 1) * gap) / cols;
     const cellH = (usableH - (rows - 1) * gap) / rows;
 
-    const imagensAtivas = imagens.filter(Boolean);
-    if (imagensAtivas.length === 0) return;
-
-    // Calcula quantas vezes repetir para preencher todas as páginas
-    let totalSlots;
-    if (repeatMode === "all") {
-      // número de slots necessário para preencher pelo menos 1 página
-      totalSlots = Math.ceil(imagensAtivas.length / slotsPerPage) * slotsPerPage;
-      // garante pelo menos 1 página completa
-      totalSlots = Math.max(totalSlots, slotsPerPage);
-    } else {
-      totalSlots = imagens.length;
-    }
-
+    const totalSlots = imagens.length;
     let page = null;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
     for (let i = 0; i < totalSlots; i++) {
       const slotIndexInPage = i % slotsPerPage;
-      const pageIndex = Math.floor(i / slotsPerPage);
       const col = slotIndexInPage % cols;
       const row = Math.floor(slotIndexInPage / cols);
 
       // Cria nova página se necessário
       if (slotIndexInPage === 0) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        page = pdfDoc.addPage([pageWidth, pageHeight]);      
       }
 
-      // Seleciona a imagem
-      let dataUrl;
-      if (repeatMode === "all") {
-        dataUrl = imagensAtivas[i % imagensAtivas.length];
-      } else {
-        dataUrl = imagens[i];
-        if (!dataUrl) continue;
-      }
+      const dataUrl = imagens[i];
+      if (!dataUrl) continue;
 
       // Converte dataUrl em bytes
       const imgBytes = await dataURLToUint8Array(dataUrl);
@@ -102,12 +224,11 @@ const gerarPDF = async (
         img.src = dataUrl;
       });
 
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
       canvas.width = loadedImg.width;
       canvas.height = loadedImg.height;
-      ctx.drawImage(loadedImg, 0, 0);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
       const rotatedDataUrl = canvas.toDataURL('image/png');
       const base64 = rotatedDataUrl.split(',')[1];
@@ -125,7 +246,6 @@ const gerarPDF = async (
 
       // Calcula posição e tamanho
       let drawW, drawH, drawX, drawY;
-
       const cellLeftX = margin + col * (cellW + gap);
       const cellTopY = pageHeight - margin - row * (cellH + gap);
       const cellBottomY = cellTopY - cellH;
@@ -153,6 +273,7 @@ const gerarPDF = async (
     setPdfUrl(url);
     setPaginaAtual(1);
     setAlteracoesPendentes(false);
+
   } catch (err) {
     console.error('Erro gerando PDF:', err);
     setErroPdf('Erro ao gerar o PDF no front-end.');
@@ -186,22 +307,35 @@ export default function PdfEditor() {
   const [imagens, setImagens] = useState([]);
   const [repeatMode, setRepeatMode] = useState("none");
 
-  // Sincroniza o tamanho do array `imagens` com totalSlots ao mudar ampliação
   useEffect(() => {
     setImagens((prev) => {
-      const atual = [...prev];
-      // corta se houver a menos slots que antes
-      if (atual.length > totalSlots) {
-        atual.length = totalSlots;
-        return atual;
+      const imagensExistentes = prev.filter(Boolean);
+
+      if (repeatMode === "all" && imagensExistentes.length > 0) {
+        // Preenche repetindo
+        const novoArray = [];
+        for (let i = 0; i < totalSlots; i++) {
+          novoArray.push(imagensExistentes[i % imagensExistentes.length]);
+        }
+        return novoArray;
+      } else {
+        // Não repetir: apenas mantém as primeiras imagens, completa com nulls
+        const novoArray = [imagensExistentes[0] || null];
+
+        while (novoArray.length < totalSlots) {
+          novoArray.push(null);
+        }
+        if (novoArray.length > totalSlots) {
+          novoArray.length = totalSlots;
+        }
+        return novoArray;
       }
-      // acrescenta nulls até totalSlots
-      while (atual.length < totalSlots) atual.push(null);
-      return atual;
     });
-    // desmarca alterações pendentes quando mudam colunas/linhas
+
     setAlteracoesPendentes(true);
-  }, [ampliacao.colunas, ampliacao.linhas]);
+  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode]);
+
+
 
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
@@ -218,11 +352,16 @@ export default function PdfEditor() {
 
   // remover imagem de um slot (mantém o slot, apenas zera)
   const removerImagem = (index) => {
+    console.log(imagens)
+    console.log('-----------------')
     setImagens((prev) => {
       const copia = [...prev];
       copia[index] = null;
       return copia;
     });
+    console.log(index)
+    console.log('-----------------')
+    console.log(imagens)
     setAlteracoesPendentes(true);
   }
 
@@ -404,7 +543,6 @@ export default function PdfEditor() {
                             ampliacao,
                             orientacao,
                             aspecto,
-                            repeatMode,
                             setCarregando,
                             setPdfUrl,
                             setPaginaAtual,
@@ -469,14 +607,7 @@ export default function PdfEditor() {
                     }}
                   >
                     {Array.from({ length: totalSlots }).map((_, i) => {
-                      // seleciona a imagem para este slot
-                      let imgSrc;
-                      if (repeatMode === "all") {
-                        const imagensExistentes = imagens.filter(Boolean);
-                        imgSrc = imagensExistentes.length > 0 ? imagensExistentes[i % imagensExistentes.length] : null;
-                      } else {
-                        imgSrc = imagens[i] || null;
-                      }
+                      const imgSrc = imagens[i] || null; // Simples e direto
 
                       return (
                         <div key={i} className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative overflow-hidden">
