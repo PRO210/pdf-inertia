@@ -4,7 +4,8 @@ import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
-import { adicionarBorda } from '@/pdfUtils'
+
+
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
@@ -17,145 +18,6 @@ const dataURLToUint8Array = async (dataUrl) => {
 };
 
 
-// const gerarPDF = async (
-//   imagens,
-//   ampliacao,
-//   orientacao,
-//   aspecto,
-//   setCarregando,
-//   setPdfUrl,
-//   setPaginaAtual,
-//   setAlteracoesPendentes,
-//   setErroPdf,
-//   bordaDataUrl
-// ) => {
-//   // A validação inicial continua a mesma
-//   if (!imagens || !imagens.some(Boolean)) {
-//     alert('Nenhuma imagem para gerar o PDF.');
-//     return;
-//   }
-
-//   try {
-//     setCarregando(true);
-
-//     const pdfDoc = await PDFDocument.create();
-
-
-//     const A4_WIDTH = 595.28;
-//     const A4_HEIGHT = 841.89;
-//     const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
-//     const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
-
-
-//     const CM_TO_POINTS = 28.3465;
-//     const margin = 1 * CM_TO_POINTS;
-//     const gap = 6;
-
-//     const cols = Math.max(ampliacao?.colunas || 1, 1);
-//     const rows = Math.max(ampliacao?.linhas || 1, 1);
-//     const slotsPerPage = cols * rows;
-
-//     const usableW = pageWidth - margin * 2;
-//     const usableH = pageHeight - margin * 2;
-//     const cellW = (usableW - (cols - 1) * gap) / cols;
-//     const cellH = (usableH - (rows - 1) * gap) / rows;
-
-//     // A função confia no array de imagens, então o total de slots é o tamanho do array.
-//     const totalSlots = imagens.length;
-//     let page = null;
-
-//     page = pdfDoc.addPage([pageWidth, pageHeight]);
-//     await adicionarBorda(pdfDoc, page, bordaDataUrl, 5);
-
-
-//     const canvas = document.createElement('canvas');
-//     const ctx = canvas.getContext('2d');
-
-
-//     for (let i = 0; i < totalSlots; i++) {
-//       const slotIndexInPage = i % slotsPerPage;
-//       const col = slotIndexInPage % cols;
-//       const row = Math.floor(slotIndexInPage / cols);
-
-//       // Cria nova página se necessário
-//       if (slotIndexInPage === 0) {
-//         page = pdfDoc.addPage([pageWidth, pageHeight]);
-//       }
-
-//       const dataUrl = imagens[i];
-//       // Se a imagem for nula, o loop continua para a próxima iteração.
-//       // Isso deixa o slot em branco no PDF.
-//       if (!dataUrl) {
-//         continue;
-//       }
-
-//       // Converte dataUrl em bytes
-//       const imgBytes = await dataURLToUint8Array(dataUrl);
-
-//       const img = new Image();
-//       const loadedImg = await new Promise((resolve) => {
-//         img.onload = () => resolve(img);
-//         img.src = dataUrl;
-//       });
-
-//       // Ajusta o tamanho conforme a imagem atual
-//       canvas.width = loadedImg.width;
-//       canvas.height = loadedImg.height;
-
-//       ctx.clearRect(0, 0, canvas.width, canvas.height);
-//       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
-
-//       const rotatedDataUrl = canvas.toDataURL('image/png');
-//       const base64 = rotatedDataUrl.split(',')[1];
-//       const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-
-//       let embeddedImg;
-//       if (/data:image\/png/i.test(rotatedDataUrl)) {
-//         embeddedImg = await pdfDoc.embedPng(bytes);
-//       } else {
-//         embeddedImg = await pdfDoc.embedJpg(bytes);
-//       }
-
-//       const embeddedW = embeddedImg.width;
-//       const embeddedH = embeddedImg.height;
-
-//       // Calcula posição e tamanho (não há mudanças aqui)
-//       let drawW, drawH, drawX, drawY;
-
-//       const cellLeftX = margin + col * (cellW + gap);
-//       const cellTopY = pageHeight - margin - row * (cellH + gap);
-//       const cellBottomY = cellTopY - cellH;
-
-//       if (aspecto) {
-//         const scale = Math.min(cellW / embeddedW, cellH / embeddedH);
-//         drawW = embeddedW * scale;
-//         drawH = embeddedH * scale;
-//         drawX = cellLeftX + (cellW - drawW) / 2;
-//         drawY = cellBottomY + (cellH - drawH) / 2;
-//       } else {
-//         drawW = cellW;
-//         drawH = cellH;
-//         drawX = cellLeftX;
-//         drawY = cellBottomY;
-//       }
-
-//       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
-//     }
-
-//     const pdfBytes = await pdfDoc.save();
-//     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-//     const url = URL.createObjectURL(blob);
-
-//     setPdfUrl(url);
-//     setPaginaAtual(1);
-//     setAlteracoesPendentes(false);
-//   } catch (err) {
-//     console.error('Erro gerando PDF:', err);
-//     setErroPdf('Erro ao gerar o PDF no front-end.');
-//   } finally {
-//     setCarregando(false);
-//   }
-// };
 
 const gerarPDF = async (
   imagens,
@@ -167,6 +29,7 @@ const gerarPDF = async (
   setPaginaAtual,
   setAlteracoesPendentes,
   setErroPdf,
+  repeatBorder = "none"
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
@@ -178,13 +41,30 @@ const gerarPDF = async (
 
     const pdfDoc = await PDFDocument.create();
 
+    // Carregar borda (se houver)
+    let bordaX = null;
+    let bordaY = null;
+
+    if (repeatBorder && repeatBorder !== "none") {
+      // horizontal
+      const respX = await fetch(`/imagens/bordas/${repeatBorder}.png`);
+      const bytesX = new Uint8Array(await respX.arrayBuffer());
+      bordaX = await pdfDoc.embedPng(bytesX);
+
+      // vertical
+      const respY = await fetch(`/imagens/bordas/${repeatBorder}Y.png`);
+      const bytesY = new Uint8Array(await respY.arrayBuffer());
+      bordaY = await pdfDoc.embedPng(bytesY);
+    }
+
+
     const A4_WIDTH = 595.28;
     const A4_HEIGHT = 841.89;
     const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
     const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
 
     const CM_TO_POINTS = 28.3465;
-    const margin = 1 * CM_TO_POINTS;
+    const margin = 0.5 * CM_TO_POINTS;
     const gap = 6;
 
     const cols = Math.max(ampliacao?.colunas || 1, 1);
@@ -209,7 +89,7 @@ const gerarPDF = async (
 
       // Cria nova página se necessário
       if (slotIndexInPage === 0) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);      
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
       }
 
       const dataUrl = imagens[i];
@@ -250,20 +130,69 @@ const gerarPDF = async (
       const cellTopY = pageHeight - margin - row * (cellH + gap);
       const cellBottomY = cellTopY - cellH;
 
+
+      const tileSize = 100; // mesmo que no HTML
+
+      const bordaExtra = tileSize - 90; // espaço para a borda
+
       if (aspecto) {
-        const scale = Math.min(cellW / embeddedW, cellH / embeddedH);
+        const scale = Math.min((cellW - bordaExtra) / embeddedW, (cellH - bordaExtra) / embeddedH);
         drawW = embeddedW * scale;
         drawH = embeddedH * scale;
         drawX = cellLeftX + (cellW - drawW) / 2;
         drawY = cellBottomY + (cellH - drawH) / 2;
       } else {
-        drawW = cellW;
-        drawH = cellH;
-        drawX = cellLeftX;
-        drawY = cellBottomY;
+        drawW = cellW - bordaExtra;
+        drawH = cellH - bordaExtra;
+        drawX = cellLeftX + bordaExtra / 2;
+        drawY = cellBottomY + bordaExtra / 2;
       }
 
+
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+
+
+      // Topo
+      for (let x = 0; x < drawW; x += tileSize) {
+        page.drawImage(bordaX, {
+          x: drawX + x,
+          y: drawY + drawH,
+          width: tileSize,
+          height: (bordaX.height / bordaX.width) * tileSize,
+        });
+      }
+
+      // Base
+      for (let x = 0; x < drawW; x += tileSize) {
+        page.drawImage(bordaX, {
+          x: drawX + x,
+          y: drawY - (bordaX.height / bordaX.width) * tileSize,
+          width: tileSize,
+          height: (bordaX.height / bordaX.width) * tileSize,
+        });
+      }
+
+      // Lateral esquerda
+      for (let y = 0; y < drawH; y += tileSize) {
+        page.drawImage(bordaY, {
+          x: drawX - (bordaY.width / bordaY.height) * tileSize,
+          y: drawY + y,
+          width: (bordaY.width / bordaY.height) * tileSize,
+          height: tileSize,
+        });
+      }
+
+      // Lateral direita
+      for (let y = 0; y < drawH; y += tileSize) {
+        page.drawImage(bordaY, {
+          x: drawX + drawW,
+          y: drawY + y,
+          width: (bordaY.width / bordaY.height) * tileSize,
+          height: tileSize,
+        });
+      }
+     
+
     }
 
     const pdfBytes = await pdfDoc.save();
@@ -281,7 +210,6 @@ const gerarPDF = async (
     setCarregando(false);
   }
 };
-
 
 
 export default function PdfEditor() {
@@ -306,6 +234,10 @@ export default function PdfEditor() {
 
   const [imagens, setImagens] = useState([]);
   const [repeatMode, setRepeatMode] = useState("none");
+
+  const [repeatBorder, setBorder] = useState("none");
+  const espessuraBorda = 150;   // grossura da moldura, em px
+  const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
 
   useEffect(() => {
     setImagens((prev) => {
@@ -333,7 +265,7 @@ export default function PdfEditor() {
     });
 
     setAlteracoesPendentes(true);
-  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode]);
+  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
 
 
 
@@ -348,6 +280,7 @@ export default function PdfEditor() {
     setAspecto(true)
     setImagens([])
     setRepeatMode("none");
+    setBorder("none");
   }
 
   // remover imagem de um slot (mantém o slot, apenas zera)
@@ -359,9 +292,6 @@ export default function PdfEditor() {
       copia[index] = null;
       return copia;
     });
-    console.log(index)
-    console.log('-----------------')
-    console.log(imagens)
     setAlteracoesPendentes(true);
   }
 
@@ -529,6 +459,20 @@ export default function PdfEditor() {
                 </select>
               </div>
 
+              {/* Bordas com imagens */}
+              <div className="w-full">
+                <label className="block mb-1 pro-label text-center text-xl">Bordas:</label>
+                <select
+                  value={repeatBorder}
+                  onChange={(e) => setBorder(e.target.value)}
+                  className="px-2 w-full rounded-full pro-input"
+                >
+                  <option value="none">Sem bordas</option>
+                  <option value="coracao">Corações</option>
+                  <option value="coracaoVazado">Corações (Vazado)</option>
+                </select>
+              </div>
+
               <div className="flex flex-col gap-2 w-full">
                 {user && (
                   <>
@@ -548,6 +492,7 @@ export default function PdfEditor() {
                             setPaginaAtual,
                             setAlteracoesPendentes,
                             setErroPdf,
+                            repeatBorder
                           );
 
                           setCarregando(false);
@@ -590,10 +535,60 @@ export default function PdfEditor() {
 
                 </div>
 
-                <div id="pdf-preview"
-                  className="w-full border-2 border-gray-300 rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100 relative"
-                  style={{ minHeight: '600px' }}
+                <div
+                  id="pdf-preview"
+                  className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100"
+                  style={{ minHeight: "600px" }}
                 >
+                  {/* Moldura com 4 faixas */}
+                  {repeatBorder !== "none" && (
+                    <>
+                      {/* Topo */}
+                      <div
+                        className="absolute left-0 right-0 top-0 pointer-events-none"
+                        style={{
+                          height: espessuraBorda,
+                          backgroundImage: `url(/imagens/bordas/${repeatBorder}.png)`,
+                          backgroundRepeat: "repeat-x",
+                          backgroundSize: `${tamanhoTile}px auto`,
+                          backgroundPosition: "top left",
+                        }}
+                      />
+                      {/* Baixo */}
+                      <div
+                        className="absolute left-0 right-0 bottom-0 pointer-events-none"
+                        style={{
+                          height: espessuraBorda,
+                          backgroundImage: `url(/imagens/bordas/${repeatBorder}.png)`,
+                          backgroundRepeat: "repeat-x",
+                          backgroundSize: `${tamanhoTile}px auto`,
+                          backgroundPosition: "bottom left",
+                        }}
+                      />
+                      {/* Esquerda */}
+                      <div
+                        className="absolute top-0 bottom-0 left-0 pointer-events-none"
+                        style={{
+                          width: espessuraBorda,
+                          backgroundImage: `url(/imagens/bordas/${repeatBorder}Y.png)`,
+                          backgroundRepeat: "repeat-y",
+                          backgroundSize: `auto ${tamanhoTile}px`,
+                          backgroundPosition: "top left",
+                        }}
+                      />
+                      {/* Direita */}
+                      <div
+                        className="absolute top-0 bottom-0 right-0 pointer-events-none"
+                        style={{
+                          width: espessuraBorda,
+                          backgroundImage: `url(/imagens/bordas/${repeatBorder}Y.png)`,
+                          backgroundRepeat: "repeat-y",
+                          backgroundSize: `auto ${tamanhoTile}px`,
+                          backgroundPosition: "top right",
+                        }}
+                      />
+                    </>
+                  )}
 
                   <div
                     className={`mx-auto border bg-white rounded-lg
@@ -607,7 +602,7 @@ export default function PdfEditor() {
                     }}
                   >
                     {Array.from({ length: totalSlots }).map((_, i) => {
-                      const imgSrc = imagens[i] || null; // Simples e direto
+                      const imgSrc = imagens[i] || null;
 
                       return (
                         <div key={i} className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative overflow-hidden">
@@ -662,6 +657,7 @@ export default function PdfEditor() {
                   {erroPdf && !carregando && (
                     <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
                   )}
+
                 </div>
 
               </div>
