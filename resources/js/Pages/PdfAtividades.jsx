@@ -131,16 +131,20 @@ const gerarPDF = async (
       const cellBottomY = cellTopY - cellH;
 
 
-      const tileSize = 100; // mesmo que no HTML
+      const bordaMargin = 14.173; // 5mm em pontos
+      const bordaExtra = bordaX ? (bordaX.height + bordaMargin) : 0; // altura da borda + margem
 
-      const bordaExtra = tileSize - 90; // espaço para a borda
-
+      // Redimensiona a imagem respeitando espaço da borda
       if (aspecto) {
-        const scale = Math.min((cellW - bordaExtra) / embeddedW, (cellH - bordaExtra) / embeddedH);
+        const scale = Math.min(
+          (cellW - bordaExtra) / embeddedW,
+          (cellH - bordaExtra) / embeddedH
+        );
         drawW = embeddedW * scale;
         drawH = embeddedH * scale;
         drawX = cellLeftX + (cellW - drawW) / 2;
-        drawY = cellBottomY + (cellH - drawH) / 2;
+        // desloca verticalmente para caber borda no topo e margem embaixo
+        drawY = cellBottomY + bordaExtra / 2;
       } else {
         drawW = cellW - bordaExtra;
         drawH = cellH - bordaExtra;
@@ -148,50 +152,72 @@ const gerarPDF = async (
         drawY = cellBottomY + bordaExtra / 2;
       }
 
-
+      // Desenhar a imagem principal
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
 
+      // Desenhar borda no topo
+      if (bordaX) {
+        const tileWidth = bordaX.width;
+        const tileHeight = bordaX.height;
+        const tilesX = Math.ceil(drawW / tileWidth);
+        const scaleX = drawW / (tilesX * tileWidth);
 
-      // Topo
-      for (let x = 0; x < drawW; x += tileSize) {
-        page.drawImage(bordaX, {
-          x: drawX + x,
-          y: drawY + drawH,
-          width: tileSize,
-          height: (bordaX.height / bordaX.width) * tileSize,
-        });
+        for (let x = 0; x < tilesX; x++) {
+          page.drawImage(bordaX, {
+            x: drawX + x * tileWidth * scaleX,
+            y: drawY + drawH, // topo, acima da imagem
+            width: tileWidth * scaleX,
+            height: tileHeight * scaleX,
+          });
+        }
       }
 
-      // Base
-      for (let x = 0; x < drawW; x += tileSize) {
-        page.drawImage(bordaX, {
-          x: drawX + x,
-          y: drawY - (bordaX.height / bordaX.width) * tileSize,
-          width: tileSize,
-          height: (bordaX.height / bordaX.width) * tileSize,
-        });
+      // Desenhar borda na base
+      if (bordaX) {
+        const tileWidth = bordaX.width;
+        const tileHeight = bordaX.height;
+        const tilesX = Math.ceil(drawW / tileWidth);
+        const scaleX = drawW / (tilesX * tileWidth);
+
+        for (let x = 0; x < tilesX; x++) {
+          page.drawImage(bordaX, {
+            x: drawX + x * tileWidth * scaleX,
+            y: drawY - tileHeight * scaleX, // abaixo da imagem
+            width: tileWidth * scaleX,
+            height: tileHeight * scaleX,
+          });
+        }
       }
 
-      // Lateral esquerda
-      for (let y = 0; y < drawH; y += tileSize) {
-        page.drawImage(bordaY, {
-          x: drawX - (bordaY.width / bordaY.height) * tileSize,
-          y: drawY + y,
-          width: (bordaY.width / bordaY.height) * tileSize,
-          height: tileSize,
-        });
+      // Lateral esquerda e direita
+      if (bordaY) {
+        const tileWidth = bordaY.width;
+        const tileHeight = bordaY.height;
+
+        // Altura disponível da imagem principal
+        const availableH = drawH;
+        const tilesY = Math.ceil(availableH / tileHeight);
+        const scaleY = availableH / (tilesY * tileHeight);
+
+        for (let y = 0; y < tilesY; y++) {
+          // Lateral esquerda
+          page.drawImage(bordaY, {
+            x: drawX - tileWidth * scaleY, // deslocado para a esquerda da imagem
+            y: drawY + y * tileHeight * scaleY,
+            width: tileWidth * scaleY,
+            height: tileHeight * scaleY,
+          });
+
+          // Lateral direita
+          page.drawImage(bordaY, {
+            x: drawX + drawW, // começa exatamente na borda direita da imagem
+            y: drawY + y * tileHeight * scaleY,
+            width: tileWidth * scaleY,
+            height: tileHeight * scaleY,
+          });
+        }
       }
 
-      // Lateral direita
-      for (let y = 0; y < drawH; y += tileSize) {
-        page.drawImage(bordaY, {
-          x: drawX + drawW,
-          y: drawY + y,
-          width: (bordaY.width / bordaY.height) * tileSize,
-          height: tileSize,
-        });
-      }
-     
 
     }
 
