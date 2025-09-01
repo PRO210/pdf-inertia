@@ -6,19 +6,11 @@ import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
 
 
-
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
-// Função auxiliar para converter Data URL em Array de Bytes
-const dataURLToUint8Array = async (dataUrl) => {
-  const response = await fetch(dataUrl);
-  return new Uint8Array(await response.arrayBuffer());
-};
-
-
-
+/* 
 const gerarPDF = async (
   imagens,
   ampliacao,
@@ -95,8 +87,6 @@ const gerarPDF = async (
       const dataUrl = imagens[i];
       if (!dataUrl) continue;
 
-      // Converte dataUrl em bytes
-      const imgBytes = await dataURLToUint8Array(dataUrl);
 
       const img = new Image();
       const loadedImg = await new Promise((resolve) => {
@@ -155,7 +145,7 @@ const gerarPDF = async (
       // Desenhar a imagem principal
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-      // Desenhar borda no topo
+      // Desenhar borda no topo e na base
       if (bordaX) {
         const tileWidth = bordaX.width;
         const tileHeight = bordaX.height;
@@ -163,26 +153,20 @@ const gerarPDF = async (
         const scaleX = drawW / (tilesX * tileWidth);
 
         for (let x = 0; x < tilesX; x++) {
+          const tileX = drawX + x * tileWidth * scaleX;
+
+          // Borda do TOPO: a posição Y está acima da imagem
           page.drawImage(bordaX, {
-            x: drawX + x * tileWidth * scaleX,
-            y: drawY + drawH, // topo, acima da imagem
+            x: tileX,
+            y: drawY + drawH, // y é a posição superior da imagem
             width: tileWidth * scaleX,
             height: tileHeight * scaleX,
           });
-        }
-      }
 
-      // Desenhar borda na base
-      if (bordaX) {
-        const tileWidth = bordaX.width;
-        const tileHeight = bordaX.height;
-        const tilesX = Math.ceil(drawW / tileWidth);
-        const scaleX = drawW / (tilesX * tileWidth);
-
-        for (let x = 0; x < tilesX; x++) {
+          // Borda da BASE: a posição Y está abaixo da imagem
           page.drawImage(bordaX, {
-            x: drawX + x * tileWidth * scaleX,
-            y: drawY - tileHeight * scaleX, // abaixo da imagem
+            x: tileX,
+            y: drawY - tileHeight * scaleX, // y é a posição inferior da imagem
             width: tileWidth * scaleX,
             height: tileHeight * scaleX,
           });
@@ -237,6 +221,227 @@ const gerarPDF = async (
   }
 };
 
+ */
+
+
+const gerarPDF = async (
+  imagens,
+  ampliacao,
+  orientacao,
+  aspecto,
+  setCarregando,
+  setPdfUrl,
+  setPaginaAtual,
+  setAlteracoesPendentes,
+  setErroPdf,
+  repeatBorder = "none",
+  alturaBorda = 5,
+  larguraBorda = 5
+) => {
+  if (!imagens || !imagens.some(Boolean)) {
+    alert('Nenhuma imagem para gerar o PDF.');
+    return;
+  }
+
+  try {
+    setCarregando(true);
+
+    const pdfDoc = await PDFDocument.create();
+
+    // Carregar borda (se houver)
+    let bordaX = null;
+    let bordaY = null;
+
+    if (repeatBorder && repeatBorder !== "none") {
+      // Borda horizontal (topo/base)
+      const respX = await fetch(`/imagens/bordas/${repeatBorder}.png`);
+      const bytesX = new Uint8Array(await respX.arrayBuffer());
+      bordaX = await pdfDoc.embedPng(bytesX);
+
+      // Borda vertical (laterais)
+      const respY = await fetch(`/imagens/bordas/${repeatBorder}Y.png`);
+      const bytesY = new Uint8Array(await respY.arrayBuffer());
+      bordaY = await pdfDoc.embedPng(bytesY);
+    }
+
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
+    const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+    const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+
+    const CM_TO_POINTS = 28.3465;
+    const margin = 0.5 * CM_TO_POINTS;
+    const gap = 6;
+
+    const cols = Math.max(ampliacao?.colunas || 1, 1);
+    const rows = Math.max(ampliacao?.linhas || 1, 1);
+    const slotsPerPage = cols * rows;
+
+    const usableW = pageWidth - margin * 2;
+    const usableH = pageHeight - margin * 2;
+    const cellW = (usableW - (cols - 1) * gap) / cols;
+    const cellH = (usableH - (rows - 1) * gap) / rows;
+
+    const totalSlots = imagens.length;
+    let page = null;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // **NOVAS VARIÁVEIS** para as dimensões fixas das bordas (convertidas de mm para pontos)
+    const fixedBorderHeight = alturaBorda * CM_TO_POINTS / 10;
+    const fixedBorderWidth = larguraBorda * CM_TO_POINTS / 10;
+    const totalBorderW = bordaY ? fixedBorderWidth * 2 : 0;
+    const totalBorderH = bordaX ? fixedBorderHeight * 2 : 0;
+
+
+    for (let i = 0; i < totalSlots; i++) {
+      const slotIndexInPage = i % slotsPerPage;
+      const col = slotIndexInPage % cols;
+      const row = Math.floor(slotIndexInPage / cols);
+
+      if (slotIndexInPage === 0) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+      }
+
+      const dataUrl = imagens[i];
+      if (!dataUrl) continue;
+
+      const img = new Image();
+      const loadedImg = await new Promise((resolve) => {
+        img.onload = () => resolve(img);
+        img.src = dataUrl;
+      });
+
+      canvas.width = loadedImg.width;
+      canvas.height = loadedImg.height;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+
+      const rotatedDataUrl = canvas.toDataURL('image/png');
+      const base64 = rotatedDataUrl.split(',')[1];
+      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+      let embeddedImg;
+      if (/data:image\/png/i.test(rotatedDataUrl)) {
+        embeddedImg = await pdfDoc.embedPng(bytes);
+      } else {
+        embeddedImg = await pdfDoc.embedJpg(bytes);
+      }
+
+      const embeddedW = embeddedImg.width;
+      const embeddedH = embeddedImg.height;
+
+      // Calcula a posição e o tamanho da célula
+      const cellLeftX = margin + col * (cellW + gap);
+      const cellBottomY = pageHeight - margin - row * (cellH + gap) - cellH;
+
+
+      // **NOVA LÓGICA** para o dimensionamento da imagem, respeitando o espaço das bordas fixas
+      let drawW, drawH, drawX, drawY;
+
+      if (aspecto) {
+        // Redimensiona para caber na célula após remover o espaço das bordas
+        const availableW = cellW - totalBorderW;
+        const availableH = cellH - totalBorderH;
+
+        const scale = Math.min(
+          availableW / embeddedW,
+          availableH / embeddedH
+        );
+        drawW = embeddedW * scale;
+        drawH = embeddedH * scale;
+
+        // Centraliza a imagem no espaço disponível
+        drawX = cellLeftX + (cellW - drawW) / 2;
+        drawY = cellBottomY + (cellH - drawH) / 2;
+
+      } else {
+        // Preenche o espaço disponível após remover o espaço das bordas
+        drawW = cellW - totalBorderW;
+        drawH = cellH - totalBorderH;
+        drawX = cellLeftX + totalBorderW / 2;
+        drawY = cellBottomY + totalBorderH / 2;
+      }
+
+
+      // Desenhar a imagem principal (lógica inalterada)
+      page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
+
+      // Desenhar borda no topo e na base (agora repetindo)
+      if (bordaX) {
+        // Calcula quantas 'telhas' (tiles) cabem na largura da imagem principal.
+        // O tamanho da 'telha' é a largura original da imagem da borda.
+        const tileWidth = bordaX.width;
+        const tilesX = Math.ceil(drawW / tileWidth);
+        const scaleX = drawW / (tilesX * tileWidth); // Ajusta a escala para não sobrar espaço
+
+        for (let x = 0; x < tilesX; x++) {
+          const tileX = drawX + x * tileWidth * scaleX;
+
+          // Borda do TOPO: desenhada com a altura fixa que você quer
+          page.drawImage(bordaX, {
+            x: tileX,
+            y: drawY + drawH, // Acima da imagem
+            width: tileWidth * scaleX,
+            height: fixedBorderHeight, // **USANDO A ALTURA FIXA AQUI**
+          });
+
+          // Borda da BASE: desenhada com a altura fixa que você quer
+          page.drawImage(bordaX, {
+            x: tileX,
+            y: drawY - fixedBorderHeight, // Abaixo da imagem
+            width: tileWidth * scaleX,
+            height: fixedBorderHeight, // **USANDO A ALTURA FIXA AQUI**
+          });
+        }
+      }
+
+      // Desenhar borda nas laterais (agora repetindo)
+      if (bordaY) {
+        // Calcula quantas 'telhas' (tiles) cabem na altura da imagem principal.
+        const tileHeight = bordaY.height;
+        const tilesY = Math.ceil(drawH / tileHeight);
+        const scaleY = drawH / (tilesY * tileHeight);
+
+        for (let y = 0; y < tilesY; y++) {
+          const tileY = drawY + y * tileHeight * scaleY;
+
+          // Borda ESQUERDA: desenhada com a largura fixa que você quer
+          page.drawImage(bordaY, {
+            x: drawX - fixedBorderWidth, // À esquerda da imagem
+            y: tileY,
+            width: fixedBorderWidth, // **USANDO A LARGURA FIXA AQUI**
+            height: tileHeight * scaleY,
+          });
+
+          // Borda DIREITA: desenhada com a largura fixa que você quer
+          page.drawImage(bordaY, {
+            x: drawX + drawW, // À direita da imagem
+            y: tileY,
+            width: fixedBorderWidth, // **USANDO A LARGURA FIXA AQUI**
+            height: tileHeight * scaleY,
+          });
+        }
+      }
+      
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    setPdfUrl(url);
+    setPaginaAtual(1);
+    setAlteracoesPendentes(false);
+  } catch (err) {
+    console.error('Erro gerando PDF:', err);
+    setErroPdf('Erro ao gerar o PDF no front-end.');
+  } finally {
+    setCarregando(false);
+  }
+};
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -249,7 +454,7 @@ export default function PdfEditor() {
   const [erroPdf, setErroPdf] = useState(null)
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [zoom, setZoom] = useState(1)
-  const [aspecto, setAspecto] = useState(true)
+  const [aspecto, setAspecto] = useState(false)
 
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
@@ -259,11 +464,35 @@ export default function PdfEditor() {
     Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1);
 
   const [imagens, setImagens] = useState([]);
-  const [repeatMode, setRepeatMode] = useState("none");
+  const [repeatMode, setRepeatMode] = useState("all");
 
   const [repeatBorder, setBorder] = useState("none");
   const espessuraBorda = 150;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
+
+
+  const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
+    setImagens((prev) => {
+      const imagensExistentes = prev.filter(Boolean);
+      const novaListaComImagem = [...imagensExistentes, novaImagem];
+
+      // Agora, usamos o parâmetro 'modoRepeticao'
+      if (modoRepeticao === "all") {
+        const novoArrayRepetido = [];
+        for (let i = 0; i < totalSlots; i++) {
+          novoArrayRepetido.push(novaListaComImagem[i % novaListaComImagem.length]);
+        }
+        return novoArrayRepetido;
+      } else {
+        const novoArraySemRepetir = [...novaListaComImagem];
+        while (novoArraySemRepetir.length < totalSlots) {
+          novoArraySemRepetir.push(null);
+        }
+        return novoArraySemRepetir;
+      }
+    });
+    setAlteracoesPendentes(true);
+  };
 
   useEffect(() => {
     setImagens((prev) => {
@@ -275,6 +504,7 @@ export default function PdfEditor() {
         for (let i = 0; i < totalSlots; i++) {
           novoArray.push(imagensExistentes[i % imagensExistentes.length]);
         }
+
         return novoArray;
       } else {
         // Não repetir: apenas mantém as primeiras imagens, completa com nulls
@@ -286,6 +516,7 @@ export default function PdfEditor() {
         if (novoArray.length > totalSlots) {
           novoArray.length = totalSlots;
         }
+
         return novoArray;
       }
     });
@@ -303,9 +534,9 @@ export default function PdfEditor() {
     setErroPdf(null)
     setPaginaAtual(1)
     setZoom(1)
-    setAspecto(true)
+    setAspecto(false)
     setImagens([])
-    setRepeatMode("none");
+    setRepeatMode("all");
     setBorder("none");
   }
 
@@ -332,6 +563,7 @@ export default function PdfEditor() {
 
 
   useEffect(() => {
+
     if (!pdfUrl) return;
     setErroPdf(null);
 
@@ -469,6 +701,7 @@ export default function PdfEditor() {
                       })}
                     </select>
                   </div>
+
                 </div>
               </div>
 
@@ -658,6 +891,7 @@ export default function PdfEditor() {
                                   if (file) {
                                     const reader = new FileReader();
                                     reader.onloadend = () => {
+                                      adicionarPrimeiraImagem(reader.result, repeatMode);
                                       setImagens((prev) => {
                                         const novas = [...prev];
                                         novas[i] = reader.result;
