@@ -211,7 +211,7 @@ const gerarPDF = async (
           });
         }
       }
-      
+
     }
 
     const pdfBytes = await pdfDoc.save();
@@ -311,7 +311,6 @@ export default function PdfEditor() {
   }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
 
 
-
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
     setAmpliacao({ colunas: 2, linhas: 1 })
@@ -327,9 +326,7 @@ export default function PdfEditor() {
   }
 
   // remover imagem de um slot (mantém o slot, apenas zera)
-  const removerImagem = (index) => {
-    console.log(imagens)
-    console.log('-----------------')
+  const removerImagem = (index) => {   
     setImagens((prev) => {
       const copia = [...prev];
       copia[index] = null;
@@ -345,7 +342,6 @@ export default function PdfEditor() {
     a.download = 'documento.pdf'
     a.click()
   }
-
 
 
   useEffect(() => {
@@ -388,12 +384,13 @@ export default function PdfEditor() {
   return (
     <AuthenticatedLayout>
       <Head title="Editor" />
+      {/* <div class="xs:bg-blue-700  sm:bg-gray-900  md:bg-red-600  lg:bg-blue-600 h-6 mx-8"></div> */}
 
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row items-start gap-4 min-h-screen">
-          {/* ... coluna de opções permanece igual, porém alterei o botão Aplicar para checar `imagens` ... */}
 
-          <div className="w-full md:w-1/3 flex flex-col justify-start items-center" id="opcoes">
+        <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
+
+          <div className="w-full lg:w-1/3 flex flex-col justify-start items-center" id="opcoes">
             <div className="flex flex-col items-center justify-center gap-4 w-full" >
               <div className="w-full text-center text-2xl font-bold mt-4">
                 <h1>Opções</h1>
@@ -435,10 +432,10 @@ export default function PdfEditor() {
               </div>
 
               {/* Ampliacao (colunas / linhas) - mantém igual */}
-              <div className="w-full flex flex-col">
-                <label className="block mb-2 pro-label text-xl text-center">Redução:</label>
-                <div className="flex gap-4 w-full">
-                  <div className="flex-1">
+              <label className="block  pro-label text-xl text-center">Redução:</label>
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <div className="flex gap-2 w-full">
+                  <div className="flex-1" id='colunas-input'>
                     <label className="block mb-2 pro-label text-center">Colunas</label>
                     <select
                       className="pro-input rounded-full w-full"
@@ -465,7 +462,7 @@ export default function PdfEditor() {
                     <span className="text-xl font-bold">×</span>
                   </div>
 
-                  <div className="flex-1">
+                  <div className="flex-1" id='linhas-select'>
                     <label className="block mb-2 pro-label text-center">Linhas</label>
                     <select
                       className="pro-input rounded-full w-full"
@@ -548,7 +545,7 @@ export default function PdfEditor() {
                       </button>
                     )}
 
-                    {pdfUrl && (
+                    {pdfUrl && !alteracoesPendentes && (
                       <button onClick={downloadPDF} className="pro-btn-green mt-2" disabled={!pdfUrl}>
                         Baixar PDF
                       </button>
@@ -567,9 +564,10 @@ export default function PdfEditor() {
           </div>
 
           {/* Coluna do Preview */}
-          <div className="w-full md:w-2/3 flex flex-col justify-start items-center mx-6" id="preview-column">
+          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center " id="preview-column">
             <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview">
               <div className="my-2" id="preview">
+
                 <div className="mx-auto mb-4 p-2 rounded-2xl ">
                   <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
                     Preview {" "}
@@ -577,7 +575,6 @@ export default function PdfEditor() {
                       {pdfUrl ? "do PDF" : "da Imagem"}
                     </span>
                   </h1>
-
                 </div>
 
                 <div
@@ -637,7 +634,8 @@ export default function PdfEditor() {
 
                   <div
                     className={`mx-auto border bg-white rounded-lg
-                      ${orientacao === "retrato" ? "w-[595px] h-[842px]" : "w-[842px] h-[595px]"}
+                      ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
+                      w-full max-w-[842px]
                     `}
                     style={{
                       display: "grid",
@@ -650,13 +648,17 @@ export default function PdfEditor() {
                       const imgSrc = imagens[i] || null;
 
                       return (
-                        <div key={i} className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative overflow-hidden">
+                        <div
+                          key={i}
+                          className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative overflow-hidden"
+                        >
                           {imgSrc ? (
                             <>
                               <img
                                 src={imgSrc}
                                 alt={`Imagem ${i + 1}`}
-                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-cover"}`}
+                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-cover"
+                                  }`}
                               />
                               <button
                                 title="Remover imagem"
@@ -667,8 +669,7 @@ export default function PdfEditor() {
                               </button>
                             </>
                           ) : (
-                            <div className="flex flex-col items-center justify-center gap-2">
-                              <div className="text-center text-xs text-gray-400"></div>
+                            <div className="flex flex-col items-center justify-center gap-2 px-2">
                               <input
                                 type="file"
                                 accept="image/png, image/jpeg"
@@ -695,9 +696,8 @@ export default function PdfEditor() {
                         </div>
                       );
                     })}
-
-
                   </div>
+
 
 
                   {erroPdf && !carregando && (
@@ -709,6 +709,7 @@ export default function PdfEditor() {
               </div>
             </div>
           </div>
+
         </div>
       </div>
 
