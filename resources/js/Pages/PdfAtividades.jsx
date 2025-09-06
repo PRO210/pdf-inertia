@@ -8,6 +8,7 @@ import { router } from '@inertiajs/react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 import CircularSpinner from '@/Components/Spinner'
+import FullScreenSpinner from '@/Components/FullScreenSpinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
 
@@ -554,32 +555,7 @@ export default function PdfEditor() {
                     )}
 
                     {carregando && (
-                      <div
-                        style={{
-                          position: "fixed",
-                          top: 0,
-                          left: 0,
-                          width: "100vw",
-                          height: "100dvh",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: "rgba(0,0,0,0.3)",
-                          zIndex: 9999,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "80px",
-                            height: "80px",
-                            borderRadius: "50%",
-                            border: "8px solid transparent",
-                            borderTopColor: "red",
-                            borderBottomColor: "blue",
-                            animation: "spin 1s linear infinite",
-                          }}
-                        ></div>
-                      </div>
+                      <FullScreenSpinner />
                     )}
 
                   </>
