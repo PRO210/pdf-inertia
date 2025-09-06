@@ -7,6 +7,7 @@ import { router } from '@inertiajs/react'
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
+import CircularSpinner from '@/Components/Spinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
 
@@ -325,8 +326,9 @@ export default function PdfEditor() {
     setBorder("none");
   }
 
+
   // remover imagem de um slot (mantém o slot, apenas zera)
-  const removerImagem = (index) => {   
+  const removerImagem = (index) => {
     setImagens((prev) => {
       const copia = [...prev];
       copia[index] = null;
@@ -551,6 +553,35 @@ export default function PdfEditor() {
                       </button>
                     )}
 
+                    {carregando && (
+                      <div
+                        style={{
+                          position: "fixed",
+                          top: 0,
+                          left: 0,
+                          width: "100vw",
+                          height: "100dvh",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: "rgba(0,0,0,0.3)",
+                          zIndex: 9999,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "80px",
+                            height: "80px",
+                            borderRadius: "50%",
+                            border: "8px solid transparent",
+                            borderTopColor: "red",
+                            borderBottomColor: "blue",
+                            animation: "spin 1s linear infinite",
+                          }}
+                        ></div>
+                      </div>
+                    )}
+
                   </>
                 )}
               </div>
@@ -580,7 +611,6 @@ export default function PdfEditor() {
                 <div
                   id="pdf-preview"
                   className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100"
-                  style={{ minHeight: "600px" }}
                 >
                   {/* Moldura com 4 faixas */}
                   {repeatBorder !== "none" && (
@@ -657,9 +687,10 @@ export default function PdfEditor() {
                               <img
                                 src={imgSrc}
                                 alt={`Imagem ${i + 1}`}
-                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-cover"
+                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
                                   }`}
                               />
+                              <p>{aspecto}</p>
                               <button
                                 title="Remover imagem"
                                 onClick={() => removerImagem(i)}
@@ -692,6 +723,7 @@ export default function PdfEditor() {
                                 className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                               />
                             </div>
+
                           )}
                         </div>
                       );
