@@ -7,8 +7,9 @@ import { router } from '@inertiajs/react'
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
-import CircularSpinner from '@/Components/Spinner'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
+import Spinner from '@/Components/Spinner'
+
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
 

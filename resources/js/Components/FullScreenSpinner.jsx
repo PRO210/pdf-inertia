@@ -1,7 +1,6 @@
 import React from "react";
 
-export default function FullScreenSpinner({ carregando, size = 80, borderWidth = 8 }) {
-  if (!carregando) return null; // não renderiza nada se não estiver carregando
+export default function FullScreenSpinner({ size = 80, borderWidth = 8 }) {
 
   return (
     <div
