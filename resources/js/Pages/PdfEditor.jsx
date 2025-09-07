@@ -7,6 +7,7 @@ import { router } from '@inertiajs/react'
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
+import FullScreenSpinner from '@/Components/FullScreenSpinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
 export default function PdfEditor() {
@@ -42,48 +43,6 @@ export default function PdfEditor() {
     setAspecto(true)
   }
 
-
-  // const recortarImagem = async (base64) => {
-  //   return new Promise((resolve) => {
-  //     const img = new window.Image()
-  //     img.src = base64
-  //     img.onload = () => {
-  //       const canvas = document.createElement('canvas')
-  //       const ctx = canvas.getContext('2d')
-  //       const partes = []
-  //       const larguraParte = img.width / ampliacao.colunas
-  //       const alturaParte = img.height / ampliacao.linhas  
-
-  //       // Defina o tamanho da folha conforme a orientação
-  //       const isRetrato = orientacao === 'retrato'
-  //       const larguraFolha = isRetrato ? 2480 : 3508
-  //       const alturaFolha = isRetrato ? 3508 : 2480
-
-  //       for (let y = 0; y < ampliacao.linhas; y++) {
-  //         for (let x = 0; x < ampliacao.colunas; x++) {
-  //           // Ajuste o canvas para o tamanho final de impressão
-  //           canvas.width = larguraFolha
-  //           canvas.height = alturaFolha
-
-  //           // Recorte e amplie a parte correspondente para preencher a folha
-  //           ctx.drawImage(
-  //             img,
-  //             x * larguraParte,
-  //             y * alturaParte,
-  //             larguraParte,
-  //             alturaParte,
-  //             0,
-  //             0,
-  //             larguraFolha,
-  //             alturaFolha
-  //           )
-  //           partes.push(canvas.toDataURL())
-  //         }
-  //       }
-  //       resolve(partes)
-  //     }
-  //   })
-  // }
 
   const enviarParaCorteBackend = async () => {
     try {
@@ -418,7 +377,7 @@ export default function PdfEditor() {
                       </button>
                     )}
 
-                    {pdfUrl && (
+                    {pdfUrl && !alteracoesPendentes && (
                       <button onClick={downloadPDF} className="pro-btn-green mt-2" disabled={!pdfUrl}>
                         Baixar PDF
                       </button>
@@ -459,20 +418,18 @@ export default function PdfEditor() {
             </div>
           </div>
 
+
           {/* Coluna do Preview */}
-          <div className="w-full md:w-2/3 flex flex-col justify-start items-center">
+          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center">
+            <div className="flex flex-col items-center justify-center gap-4 w-full" id="preview">
+              <div className="my-2">
 
-            <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview">
-
-              {/* Preview */}
-              <div className="my-2" id="preview">
-                <div className="mx-auto mb-4 p-2 rounded-2xl ">
-                  <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
+                <div className="mx-auto mb-4 p-2 rounded-2xl">
+                  <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
                     Preview do{" "}
-                    <span>
-                      {pdfUrl ? "Banner em PDF" : "da Imagem"}
-                    </span>
+                    <span>{pdfUrl ? "Banner em PDF" : "da Imagem"}</span>
                   </h1>
+
                   {/* Paginação */}
                   {pdfUrl && totalPaginas > 1 && (
                     <div className="mt-4 px-4 flex justify-center items-center gap-4">
@@ -499,57 +456,79 @@ export default function PdfEditor() {
 
                 <div
                   id="pdf-preview"
-                  className="w-full border-2 border-gray-300 rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100 relative"
-                  style={{ minHeight: '600px' }}
+                  className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center"
                 >
-                  {carregando && (
-                    <div className="absolute inset-0 bg-white bg-opacity-80 flex justify-center items-center z-50">
-                      <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
+                  {carregando && (<FullScreenSpinner />)}
 
-                  {!carregando && (
-                    pdfUrl ? (
-                      <div
-                        key={pdfUrl}
-                        ref={pdfContainerRef}
-                        className="w-full  overflow-auto flex flex-col"
-                      />
-                    ) : imagemBase64 ? (
-                      <img
-                        src={imagemBase64}
-                        alt="Pré-visualização da imagem carregada"
-                        className="max-h-[500px] object-contain rounded-md shadow-md"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center min-h-[400px]">
-                        <div>
-                          <label className="pro-label text-center text-xl">Nenhuma Imagem Selecionada:</label>
-                          <input
-                            type="file"
-                            accept="image/png, image/jpeg"
-                            onChange={handleFileChange}
-                            className="pro-btn-blue
-                        file:mr-4 file:py-2 file:px-4
-                        file:rounded-full file:border-0
-                        file:text-sm file:font-semibold
-                        file:bg-blue-50 file:text-blue-700
-                        hover:file:bg-blue-100 cursor-pointer"
-                          />
+                  <div
+                    className={`mx-auto border bg-white rounded-lg
+                    ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
+                    w-full max-w-[842px]
+                    flex items-center justify-center
+                  `}
+                  >
+                    {!carregando && (
+                      pdfUrl ? (
+                        <div
+                          key={pdfUrl}
+                          ref={pdfContainerRef}
+                          className="overflow-auto flex flex-col w-full h-full"
+                        />
+                      ) : imagemBase64 ? (
+                        <img
+                          src={imagemBase64}
+                          alt="Pré-visualização da imagem carregada"
+                          className="rounded-md mx-auto"
+                          style={{
+                            // retrato = largura fixa e altura calculada
+                            ...(orientacao === "retrato"
+                              ? {
+                                width: "100%",
+                                maxWidth: "595px", // não passa do A4 real
+                                aspectRatio: "595 / 842", // mantém proporção
+                              }
+                              : {
+                                width: "100%",
+                                maxWidth: "842px", // não passa do A4 real
+                                aspectRatio: "842 / 595", // mantém proporção
+                              }),
+                            objectFit: aspecto ? "contain" : "fill",
+                            display: "block",
+                          }}
+                        />
+
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-2 px-2">
+                          <label className="pro-label text-center text-xl">
+                            Nenhuma Imagem Selecionada:
+                          </label>
+                          <div className="flex justify-center w-full">
+                            <input
+                              type="file"
+                              accept="image/png, image/jpeg"
+                              onChange={handleFileChange}
+                              className="
+                              pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+                              file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
+                              hover:file:bg-blue-100 cursor-pointer
+                            "
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )
-                  )}
+                      )
+                    )}
+                  </div>
+
 
                   {erroPdf && !carregando && (
                     <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
                   )}
                 </div>
 
-
               </div>
             </div>
           </div>
+
 
         </div>
       </div>
