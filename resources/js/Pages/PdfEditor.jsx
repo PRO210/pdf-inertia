@@ -64,6 +64,49 @@ export default function PdfEditor() {
     }
   }
 
+  function desenharPreviewDividido(imagemBase64, colunas, linhas, containerId = "previewCanvas") {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById(containerId);
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+
+      // Ajusta tamanho do canvas para caber a imagem
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // Desenha a imagem
+      ctx.drawImage(img, 0, 0, img.width, img.height);
+
+      // Configuração das linhas pontilhadas
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 10]); // pontilhado
+
+      // Linhas verticais (colunas)
+      const largura = img.width / colunas;
+      for (let i = 1; i < colunas; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * largura, 0);
+        ctx.lineTo(i * largura, img.height);
+        ctx.stroke();
+      }
+
+      // Linhas horizontais (linhas)
+      const altura = img.height / linhas;
+      for (let j = 1; j < linhas; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * altura);
+        ctx.lineTo(img.width, j * altura);
+        ctx.stroke();
+      }
+
+      ctx.setLineDash([]); // reseta pontilhado
+    };
+    img.src = imagemBase64;
+  }
+
+
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
@@ -151,9 +194,12 @@ export default function PdfEditor() {
     for (const parte of partesRecortadasParaUsar) {
       const page = pdfDoc.addPage([pageWidth, pageHeight])
       const imageBytes = await fetch(parte).then(res => res.arrayBuffer())
-      const image = parte.includes('png')
-        ? await pdfDoc.embedPng(imageBytes)
-        : await pdfDoc.embedJpg(imageBytes)
+
+      // const image = parte.includes('png')
+      //   ? await pdfDoc.embedPng(imageBytes)
+      //   : await pdfDoc.embedJpg(imageBytes)
+      // 🔹 Sempre JPEG
+      const image = await pdfDoc.embedJpg(imageBytes)
 
       const escala = Math.min(
         (pageWidth - margem * 2) / image.width,
@@ -422,7 +468,7 @@ export default function PdfEditor() {
           {/* Coluna do Preview */}
           <div className="w-full lg:w-2/3 flex flex-col justify-center items-center">
             <div className="flex flex-col items-center justify-center gap-4 w-full" id="preview">
-              <div className="my-2">
+              <div className="">
 
                 <div className="mx-auto mb-4 p-2 rounded-2xl">
                   <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
@@ -454,76 +500,72 @@ export default function PdfEditor() {
                   )}
                 </div>
 
+
                 <div
-                  id="pdf-preview"
-                  className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center"
+                  className={`mx-auto w-full max-w-[842px] flex items-center justify-center relative
+                        ${!pdfUrl ? "border bg-white rounded-lg" : ""} 
+                        ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
+                      `}
                 >
-                  {carregando && (<FullScreenSpinner />)}
-
-                  <div
-                    className={`mx-auto border bg-white rounded-lg
-                    ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
-                    w-full max-w-[842px]
-                    flex items-center justify-center
-                  `}
-                  >
-                    {!carregando && (
-                      pdfUrl ? (
-                        <div
-                          key={pdfUrl}
-                          ref={pdfContainerRef}
-                          className="overflow-auto flex flex-col w-full h-full"
+                  {/* Conteúdo (sempre renderiza; PDF tem prioridade se existir) */}
+                  {pdfUrl ? (
+                    <div
+                      key={pdfUrl}
+                      ref={pdfContainerRef}
+                      style={{ display: "flex", justifyContent: "center" }}
+                    />
+                  ) : imagemBase64 ? (
+                    <img
+                      src={imagemBase64}
+                      alt="Pré-visualização da imagem carregada"
+                      className="rounded-md mx-auto"
+                      style={{
+                        ...(orientacao === "retrato"
+                          ? {
+                            width: "100%",
+                            maxWidth: "595px",
+                            aspectRatio: "595 / 842",
+                          }
+                          : {
+                            width: "100%",
+                            maxWidth: "842px",
+                            aspectRatio: "842 / 595",
+                          }),
+                        objectFit: aspecto ? "contain" : "fill",
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 px-2">
+                      <label className="pro-label text-center text-xl">
+                        Nenhuma Imagem Selecionada:
+                      </label>
+                      <div className="flex justify-center w-full">
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg"
+                          onChange={handleFileChange}
+                          className="
+                            pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+                            file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
+                            hover:file:bg-blue-100 cursor-pointer
+                          "
                         />
-                      ) : imagemBase64 ? (
-                        <img
-                          src={imagemBase64}
-                          alt="Pré-visualização da imagem carregada"
-                          className="rounded-md mx-auto"
-                          style={{
-                            // retrato = largura fixa e altura calculada
-                            ...(orientacao === "retrato"
-                              ? {
-                                width: "100%",
-                                maxWidth: "595px", // não passa do A4 real
-                                aspectRatio: "595 / 842", // mantém proporção
-                              }
-                              : {
-                                width: "100%",
-                                maxWidth: "842px", // não passa do A4 real
-                                aspectRatio: "842 / 595", // mantém proporção
-                              }),
-                            objectFit: aspecto ? "contain" : "fill",
-                            display: "block",
-                          }}
-                        />
+                      </div>
+                    </div>
+                  )}
 
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-2 px-2">
-                          <label className="pro-label text-center text-xl">
-                            Nenhuma Imagem Selecionada:
-                          </label>
-                          <div className="flex justify-center w-full">
-                            <input
-                              type="file"
-                              accept="image/png, image/jpeg"
-                              onChange={handleFileChange}
-                              className="
-                              pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
-                              file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
-                              hover:file:bg-blue-100 cursor-pointer
-                            "
-                            />
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-
-
-                  {erroPdf && !carregando && (
-                    <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
+                  {/* Overlay de carregamento — aparece por cima sem esconder o conteúdo */}
+                  {carregando && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60">
+                      <FullScreenSpinner />
+                    </div>
                   )}
                 </div>
+
+                {erroPdf && (
+                  <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
+                )}
 
               </div>
             </div>

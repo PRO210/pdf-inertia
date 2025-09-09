@@ -34,121 +34,7 @@ class PdfEditorController extends Controller
         return response()->json(['error' => 'Nenhum arquivo enviado.'], 400);
     }
 
-
-    public function cortarImagem(Request $request)
-    {
-        $base64 = $request->input('imagem');
-        $colunas = (int) $request->input('colunas', 2);
-        $linhas = (int) $request->input('linhas', 2);
-        $orientacao = $request->input('orientacao', 'retrato');
-        $aspecto = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
-
-        // Decodifica a imagem base64
-        $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64));
-
-        try {
-            $imagick = new \Imagick();
-            $imagick->readImageBlob($imageData);
-        } catch (\ImagickException $e) {
-            return response()->json(['error' => 'Imagem inválida.'], 422);
-        }
-
-        // Dimensões da folha A4 em polegadas
-        $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
-        $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
-
-        // Pixels da imagem original
-        $imgWidthPx = $imagick->getImageWidth();
-        $imgHeightPx = $imagick->getImageHeight();
-
-        // Calcula DPI mínimo baseado na imagem original e tamanho do pôster
-        $dpiLargura = intval($imgWidthPx / ($larguraFolhaIn * $colunas));
-        $dpiAltura  = intval($imgHeightPx / ($alturaFolhaIn * $linhas));
-        $dpi = max($dpiLargura, $dpiAltura, 150); // garante pelo menos 150 DPI
-
-        // Converte tamanho do pôster para pixels com base no DPI calculado
-        $larguraFolhaPx = intval($larguraFolhaIn * $dpi);
-        $alturaFolhaPx  = intval($alturaFolhaIn * $dpi);
-
-        // Tamanho de cada tile
-        $larguraAlvo = intval($larguraFolhaPx / $colunas);
-        $alturaAlvo  = intval($alturaFolhaPx / $linhas);
-
-        // Redimensiona a imagem inteira para múltiplos exatos da grade
-        $larguraIdeal = $colunas * $larguraAlvo;
-        $alturaIdeal  = $linhas  * $alturaAlvo;
-        $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, false);
-
-        $imagick->sharpenImage(0.5, 0.3);
-
-        $larguraParte = intval($imagick->getImageWidth() / $colunas);
-        $alturaParte  = intval($imagick->getImageHeight() / $linhas);
-
-        $partes = [];
-
-        // for ($y = 0; $y < $linhas; $y++) {
-        //     for ($x = 0; $x < $colunas; $x++) {
-        //         $recorte = clone $imagick;
-        //         $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
-
-        //         $canvas = new \Imagick();
-        //         $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
-        //         $canvas->setImageFormat("png");
-
-        //         if ($aspecto) {
-        //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
-        //             $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
-        //             $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
-        //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-        //         } else {
-        //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
-        //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
-        //         }
-
-        //         $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
-
-        //         $recorte->clear();
-        //         $canvas->clear();
-        //     }
-        // }
-        for ($y = 0; $y < $linhas; $y++) {
-            for ($x = 0; $x < $colunas; $x++) {
-                $recorte = clone $imagick;
-                $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
-
-                // 🔹 Aplica uma borda mínima branca e leve desfoque nas bordas
-                $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
-                $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
-
-                $canvas = new \Imagick();
-                $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
-                $canvas->setImageFormat("png");
-
-                if ($aspecto) {
-                    $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
-                    $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
-                    $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
-                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-                } else {
-                    $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
-                    $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
-                }
-
-                $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
-
-                $recorte->clear();
-                $canvas->clear();
-            }
-        }
-
-        $imagick->clear();
-
-        return response()->json([
-            'partes' => $partes,
-            'dpi' => $dpi
-        ]);
-    }
-
+    /* Em produção e muita rápida mas pixeliza em cartaz maior que 6 */
     // public function cortarImagem(Request $request)
     // {
     //     $base64 = $request->input('imagem');
@@ -167,53 +53,83 @@ class PdfEditorController extends Controller
     //         return response()->json(['error' => 'Imagem inválida.'], 422);
     //     }
 
-    //     // Pega dimensões originais
-    //     $larguraImagem = $imagick->getImageWidth();
-    //     $alturaImagem  = $imagick->getImageHeight();
+    //     // Dimensões da folha A4 em polegadas
+    //     $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
+    //     $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
 
-    //     // Dimensões A4 em polegadas
-    //     $larguraFolhaInch = $orientacao === 'retrato' ? 8.27 : 11.69;
-    //     $alturaFolhaInch  = $orientacao === 'retrato' ? 11.69 : 8.27;
+    //     // Pixels da imagem original
+    //     $imgWidthPx = $imagick->getImageWidth();
+    //     $imgHeightPx = $imagick->getImageHeight();
 
-    //     // Calcula largura/altura de cada tile em pixels
-    //     $larguraTile = intval($larguraImagem / $colunas);
-    //     $alturaTile  = intval($alturaImagem / $linhas);
+    //     // Calcula DPI mínimo baseado na imagem original e tamanho do pôster
+    //     $dpiLargura = intval($imgWidthPx / ($larguraFolhaIn * $colunas));
+    //     $dpiAltura  = intval($imgHeightPx / ($alturaFolhaIn * $linhas));
+    //     $dpi = max($dpiLargura, $dpiAltura, 150); // garante pelo menos 150 DPI
 
-    //     // Calcula DPI baseado no tile e tamanho físico
-    //     $dpi_largura = $larguraTile / $larguraFolhaInch;
-    //     $dpi_altura  = $alturaTile / $alturaFolhaInch;
-    //     $dpi_final   = min($dpi_largura, $dpi_altura);
+    //     // Converte tamanho do pôster para pixels com base no DPI calculado
+    //     $larguraFolhaPx = intval($larguraFolhaIn * $dpi);
+    //     $alturaFolhaPx  = intval($alturaFolhaIn * $dpi);
 
-    //     // Permite que o usuário ainda escolha DPI base, mas nunca diminui do calculado
-    //     $dpi_solicitado = max((int)$request->input('dpi', 150), $dpi_final);
+    //     // Tamanho de cada tile
+    //     $larguraAlvo = intval($larguraFolhaPx / $colunas);
+    //     $alturaAlvo  = intval($alturaFolhaPx / $linhas);
 
-    //     // Aplica resolução no Imagick
-    //     $imagick->setImageResolution($dpi_solicitado, $dpi_solicitado);
-    //     $imagick->resampleImage($dpi_solicitado, $dpi_solicitado, \Imagick::FILTER_LANCZOS, 1);
+    //     // Redimensiona a imagem inteira para múltiplos exatos da grade
+    //     $larguraIdeal = $colunas * $larguraAlvo;
+    //     $alturaIdeal  = $linhas  * $alturaAlvo;
+    //     $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, false);
 
-    //     // Define tamanho do canvas de cada tile
-    //     $larguraAlvo = intval($larguraImagem / $colunas);
-    //     $alturaAlvo  = intval($alturaImagem / $linhas);
+    //     $imagick->sharpenImage(0.5, 0.3);
+
+    //     $larguraParte = intval($imagick->getImageWidth() / $colunas);
+    //     $alturaParte  = intval($imagick->getImageHeight() / $linhas);
 
     //     $partes = [];
 
+    //     // for ($y = 0; $y < $linhas; $y++) {
+    //     //     for ($x = 0; $x < $colunas; $x++) {
+    //     //         $recorte = clone $imagick;
+    //     //         $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
+
+    //     //         $canvas = new \Imagick();
+    //     //         $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
+    //     //         $canvas->setImageFormat("png");
+
+    //     //         if ($aspecto) {
+    //     //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
+    //     //             $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
+    //     //             $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
+    //     //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
+    //     //         } else {
+    //     //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
+    //     //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
+    //     //         }
+
+    //     //         $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
+
+    //     //         $recorte->clear();
+    //     //         $canvas->clear();
+    //     //     }
+    //     // }
     //     for ($y = 0; $y < $linhas; $y++) {
     //         for ($x = 0; $x < $colunas; $x++) {
     //             $recorte = clone $imagick;
-    //             $recorte->cropImage($larguraAlvo, $alturaAlvo, $x * $larguraAlvo, $y * $alturaAlvo);
+    //             $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
+
+    //             // 🔹 Aplica uma borda mínima branca e leve desfoque nas bordas
+    //             $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
+    //             $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
 
     //             $canvas = new \Imagick();
     //             $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
     //             $canvas->setImageFormat("png");
 
     //             if ($aspecto) {
-    //                 // Mantém proporção dentro do tile
     //                 $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
     //                 $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
     //                 $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
     //                 $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
     //             } else {
-    //                 // Estica para preencher o canvas inteiro
     //                 $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
     //                 $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
     //             }
@@ -229,9 +145,106 @@ class PdfEditorController extends Controller
 
     //     return response()->json([
     //         'partes' => $partes,
-    //         'dpi_final' => round($dpi_solicitado, 2),
+    //         'dpi' => $dpi
     //     ]);
     // }
+
+
+    public function cortarImagem(Request $request)
+    {
+        $base64     = $request->input('imagem');
+        $colunas    = (int) $request->input('colunas', 2);
+        $linhas     = (int) $request->input('linhas', 2);
+        $orientacao = $request->input('orientacao', 'retrato');
+        $aspecto    = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
+
+        // Decodifica qualquer imagem base64
+        $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64));
+
+        try {
+            $imagick = new \Imagick();
+            $imagick->readImageBlob($imageData);
+            $imagick->setImageColorspace(\Imagick::COLORSPACE_RGB);
+        } catch (\ImagickException $e) {
+            return response()->json(['error' => 'Imagem inválida.'], 422);
+        }
+
+        // Dimensões A4 em polegadas
+        $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
+        $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
+
+        $imgWidthPx  = $imagick->getImageWidth();
+        $imgHeightPx = $imagick->getImageHeight();
+
+        // Calcula DPI baseado no menor lado do tile
+        $dpiX = $imgWidthPx / ($larguraFolhaIn * $colunas);
+        $dpiY = $imgHeightPx / ($alturaFolhaIn * $linhas);
+        $dpi  = (int) max(72, floor(min($dpiX, $dpiY)));
+
+        $larguraAlvo = (int) round($larguraFolhaIn * $dpi);
+        $alturaAlvo  = (int) round($alturaFolhaIn  * $dpi);
+
+        // Define limites de corte
+        $xBounds = [];
+        $yBounds = [];
+        for ($i = 0; $i <= $colunas; $i++) $xBounds[$i] = (int) round($i * $imgWidthPx / $colunas);
+        for ($j = 0; $j <= $linhas; $j++) $yBounds[$j] = (int) round($j * $imgHeightPx / $linhas);
+
+        $imagick->sharpenImage(0.5, 0.3);
+
+        $partes = [];
+
+        for ($y = 0; $y < $linhas; $y++) {
+            for ($x = 0; $x < $colunas; $x++) {
+
+                $x0 = $xBounds[$x];
+                $x1 = $xBounds[$x + 1];
+                $y0 = $yBounds[$y];
+                $y1 = $yBounds[$y + 1];
+
+                $recorte = $imagick->getImageRegion($x1 - $x0, $y1 - $y0, $x0, $y0);
+
+                // 🔹 Aplica uma borda mínima branca e leve desfoque nas bordas
+                $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
+
+                // Redimensiona somente o recorte
+                if ($aspecto) {
+                    $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
+                } else {
+                    $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
+                }
+
+                $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
+
+                // Canvas JPEG
+                $canvas = new \Imagick();
+                $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
+                $canvas->setImageFormat('jpeg');
+                $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
+                $canvas->setImageCompressionQuality(100);
+                $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
+                $canvas->setImageResolution($dpi, $dpi);
+
+                // Centraliza se aspecto
+                $xOffset = (int) floor(($larguraAlvo - $recorte->getImageWidth()) / 2);
+                $yOffset = (int) floor(($alturaAlvo - $recorte->getImageHeight()) / 2);
+                $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
+
+                $partes[] = 'data:image/jpeg;base64,' . base64_encode($canvas->getImageBlob());
+
+                $recorte->clear();
+                $canvas->clear();
+            }
+        }
+
+        $imagick->clear();
+
+        return response()->json([
+            'partes' => $partes,
+            'dpi' => $dpi,
+            'tile_px' => ['largura' => $larguraAlvo, 'altura' => $alturaAlvo],
+        ]);
+    }
 
 
 
