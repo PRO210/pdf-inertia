@@ -677,13 +677,72 @@ export default function PdfEditor() {
                               </button>
                             </>
                           ) : (
+                            // <div className="flex flex-col items-center justify-center gap-2 px-2">
+                            //   <input
+                            //     type="file"
+                            //     accept="image/png, image/jpeg"
+                            //     onChange={(e) => {
+                            //       const file = e.target.files[0];
+                            //       if (file) {
+                            //         const reader = new FileReader();
+                            //         reader.onloadend = () => {
+                            //           adicionarPrimeiraImagem(reader.result, repeatMode);
+                            //           setImagens((prev) => {
+                            //             const novas = [...prev];
+                            //             novas[i] = reader.result;
+                            //             return novas;
+                            //           });
+                            //           setAlteracoesPendentes(true);
+                            //         };
+                            //         reader.readAsDataURL(file);
+                            //       }
+                            //     }}
+                            //     className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                            //   />
+                            // </div>
                             <div className="flex flex-col items-center justify-center gap-2 px-2">
                               <input
                                 type="file"
-                                accept="image/png, image/jpeg"
+                                accept="image/*,application/pdf"
                                 onChange={(e) => {
                                   const file = e.target.files[0];
-                                  if (file) {
+                                  if (!file) return;
+
+                                  if (file.type === "application/pdf") {
+                                    // 📄 Carregar PDF com pdfjsLib
+                                    const reader = new FileReader();
+                                    reader.onload = async () => {
+                                      const typedArray = new Uint8Array(reader.result);
+                                      try {
+                                        const loadingTask = pdfjsLib.getDocument({ data: typedArray });
+                                        const pdf = await loadingTask.promise;
+                                        const page = await pdf.getPage(1); // primeira página
+                                        const viewport = page.getViewport({ scale: 1.0 });
+
+                                        const canvas = document.createElement("canvas");
+                                        const context = canvas.getContext("2d");
+                                        canvas.height = viewport.height;
+                                        canvas.width = viewport.width;
+
+                                        await page.render({ canvasContext: context, viewport }).promise;
+
+                                        // Convertemos o canvas em base64 p/ tratar igual imagem
+                                        const pdfPreviewImg = canvas.toDataURL("image/png");
+
+                                        adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
+                                        setImagens((prev) => {
+                                          const novas = [...prev];
+                                          novas[i] = pdfPreviewImg;
+                                          return novas;
+                                        });
+                                        setAlteracoesPendentes(true);
+                                      } catch (err) {
+                                        console.error("Erro ao carregar PDF:", err);
+                                      }
+                                    };
+                                    reader.readAsArrayBuffer(file);
+                                  } else if (file.type.startsWith("image/")) {
+                                    // 🖼️ Mantém sua lógica de imagem
                                     const reader = new FileReader();
                                     reader.onloadend = () => {
                                       adicionarPrimeiraImagem(reader.result, repeatMode);
@@ -695,9 +754,15 @@ export default function PdfEditor() {
                                       setAlteracoesPendentes(true);
                                     };
                                     reader.readAsDataURL(file);
+                                  } else {
+                                    alert("Formato não suportado. Envie imagem ou PDF.");
                                   }
                                 }}
-                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
+                                  file:rounded-full file:border-0 file:text-sm 
+                                  file:font-semibold file:bg-blue-50 
+                                  file:text-blue-700 hover:file:bg-blue-100 
+                                  cursor-pointer"
                               />
                             </div>
 
