@@ -10,6 +10,8 @@ import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
+
+
 export default function PdfEditor() {
   const { props } = usePage()
   const user = props.auth.user
@@ -64,48 +66,6 @@ export default function PdfEditor() {
     }
   }
 
-  function desenharPreviewDividido(imagemBase64, colunas, linhas, containerId = "previewCanvas") {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.getElementById(containerId);
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-
-      // Ajusta tamanho do canvas para caber a imagem
-      canvas.width = img.width;
-      canvas.height = img.height;
-
-      // Desenha a imagem
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-
-      // Configuração das linhas pontilhadas
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 10]); // pontilhado
-
-      // Linhas verticais (colunas)
-      const largura = img.width / colunas;
-      for (let i = 1; i < colunas; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * largura, 0);
-        ctx.lineTo(i * largura, img.height);
-        ctx.stroke();
-      }
-
-      // Linhas horizontais (linhas)
-      const altura = img.height / linhas;
-      for (let j = 1; j < linhas; j++) {
-        ctx.beginPath();
-        ctx.moveTo(0, j * altura);
-        ctx.lineTo(img.width, j * altura);
-        ctx.stroke();
-      }
-
-      ctx.setLineDash([]); // reseta pontilhado
-    };
-    img.src = imagemBase64;
-  }
-
 
 
   const handleFileChange = async (e) => {
@@ -116,8 +76,6 @@ export default function PdfEditor() {
     const reader = new FileReader()
     reader.onload = async (e) => {
       const base64 = e.target.result
-      // const partes = await recortarImagem(base64)
-      // setPartesRecortadas(partes)
 
       setCarregando(false)
 
@@ -294,10 +252,10 @@ export default function PdfEditor() {
       <Head title="Editor" />
 
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row items-start gap-4 min-h-screen">
+        <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
           {/* Coluna das Opções */}
-          <div className="w-full md:w-1/3 flex flex-col justify-start items-center" id="opcoes">
+          <div className="w-full lg:w-1/3 flex flex-col justify-start items-center" id="opcoes">
             <div className="flex flex-col items-center justify-center gap-4 w-full" >
               <div className="w-full text-center text-2xl font-bold mt-4">
                 <h1>Opções</h1>
@@ -464,9 +422,8 @@ export default function PdfEditor() {
             </div>
           </div>
 
-
           {/* Coluna do Preview */}
-          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center">
+          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center mb-4">
             <div className="flex flex-col items-center justify-center gap-4 w-full" id="preview">
               <div className="">
 

@@ -205,7 +205,7 @@ class PdfEditorController extends Controller
                 $recorte = $imagick->getImageRegion($x1 - $x0, $y1 - $y0, $x0, $y0);
 
                 // 🔹 Aplica uma borda mínima branca e leve desfoque nas bordas
-                $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
+                // $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
 
                 // Redimensiona somente o recorte
                 if ($aspecto) {
@@ -214,7 +214,7 @@ class PdfEditorController extends Controller
                     $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
                 }
 
-                $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
+                // $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
 
                 // Canvas JPEG
                 $canvas = new \Imagick();
