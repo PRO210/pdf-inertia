@@ -516,6 +516,10 @@ export default function PdfEditor() {
                   <option value="none">Sem bordas</option>
                   <option value="coracao">Corações</option>
                   <option value="coracaoVazado">Corações (Vazado)</option>
+                  <option value="abelhas">Abelhas</option>
+                  <option value="lapis">Lápis</option>
+                  <option value="baloes">Balões</option>
+                  <option value="baloesVazado">Balões (Vazado)</option>
                 </select>
               </div>
 
@@ -677,30 +681,9 @@ export default function PdfEditor() {
                               </button>
                             </>
                           ) : (
-                            // <div className="flex flex-col items-center justify-center gap-2 px-2">
-                            //   <input
-                            //     type="file"
-                            //     accept="image/png, image/jpeg"
-                            //     onChange={(e) => {
-                            //       const file = e.target.files[0];
-                            //       if (file) {
-                            //         const reader = new FileReader();
-                            //         reader.onloadend = () => {
-                            //           adicionarPrimeiraImagem(reader.result, repeatMode);
-                            //           setImagens((prev) => {
-                            //             const novas = [...prev];
-                            //             novas[i] = reader.result;
-                            //             return novas;
-                            //           });
-                            //           setAlteracoesPendentes(true);
-                            //         };
-                            //         reader.readAsDataURL(file);
-                            //       }
-                            //     }}
-                            //     className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                            //   />
-                            // </div>
+                          
                             <div className="flex flex-col items-center justify-center gap-2 px-2">
+                              <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
                               <input
                                 type="file"
                                 accept="image/*,application/pdf"

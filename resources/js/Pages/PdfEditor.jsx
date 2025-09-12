@@ -204,7 +204,7 @@ export default function PdfEditor() {
       pageIndex++; // Não esqueça de incrementar o índice da página
 
       // Pontilhado nas bordas
-      const desenharLinhaPontilhada = (x1, y1, x2, y2, segmento = 5, espaco = 3) => {
+      const desenharLinhaPontilhada = (x1, y1, x2, y2, segmento = 5, espaco = 20) => {
         const dx = x2 - x1
         const dy = y2 - y1
         const comprimento = Math.sqrt(dx * dx + dy * dy)
@@ -220,7 +220,7 @@ export default function PdfEditor() {
             start: { x: inicioX, y: inicioY },
             end: { x: fimX, y: fimY },
             thickness: 0.5,
-            color: rgb(0, 0, 0),
+            color: rgb(0.7, 0.7, 0.7),
           })
         }
       }
@@ -251,7 +251,7 @@ export default function PdfEditor() {
     <AuthenticatedLayout>
       <Head title="Editor" />
 
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto">
         <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
           {/* Coluna das Opções */}
