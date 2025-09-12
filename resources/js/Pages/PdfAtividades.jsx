@@ -520,6 +520,7 @@ export default function PdfEditor() {
                   <option value="lapis">Lápis</option>
                   <option value="baloes">Balões</option>
                   <option value="baloesVazado">Balões (Vazado)</option>
+                  <option value="fogueira">Fogueirinha</option>
                 </select>
               </div>
 
