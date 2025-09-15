@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { PDFDocument, rgb } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
@@ -13,6 +13,7 @@ import Spinner from '@/Components/Spinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
 
+// Função para gerar o PDF com pdf-lib
 const gerarPDF = async (
   imagens,
   ampliacao,
@@ -25,7 +26,8 @@ const gerarPDF = async (
   setErroPdf,
   repeatBorder = "none",
   alturaBorda = 5,
-  larguraBorda = 5
+  larguraBorda = 5,
+  cabecalhoTexto = ""
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
@@ -40,14 +42,11 @@ const gerarPDF = async (
     // Carregar borda (se houver)
     let bordaX = null;
     let bordaY = null;
-
     if (repeatBorder && repeatBorder !== "none") {
-      // Borda horizontal (topo/base)
       const respX = await fetch(`/imagens/bordas/${repeatBorder}.png`);
       const bytesX = new Uint8Array(await respX.arrayBuffer());
       bordaX = await pdfDoc.embedPng(bytesX);
 
-      // Borda vertical (laterais)
       const respY = await fetch(`/imagens/bordas/${repeatBorder}Y.png`);
       const bytesY = new Uint8Array(await respY.arrayBuffer());
       bordaY = await pdfDoc.embedPng(bytesY);
@@ -66,6 +65,7 @@ const gerarPDF = async (
     const rows = Math.max(ampliacao?.linhas || 1, 1);
     const slotsPerPage = cols * rows;
 
+    // espaço útil só com margens
     const usableW = pageWidth - margin * 2;
     const usableH = pageHeight - margin * 2;
     const cellW = (usableW - (cols - 1) * gap) / cols;
@@ -77,25 +77,57 @@ const gerarPDF = async (
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    // **NOVAS VARIÁVEIS** para as dimensões fixas das bordas (convertidas de mm para pontos)
+    // bordas fixas em pontos
     const fixedBorderHeight = alturaBorda * CM_TO_POINTS / 10;
     const fixedBorderWidth = larguraBorda * CM_TO_POINTS / 10;
     const totalBorderW = bordaY ? fixedBorderWidth * 2 : 0;
     const totalBorderH = bordaX ? fixedBorderHeight * 2 : 0;
 
 
+    //Cabeçalho
+    // Header font (embed uma vez)
+    let headerFont = null;
+    if (cabecalhoTexto) {
+      headerFont = await pdfDoc.embedFont(StandardFonts.Courier);
+    }
+
+    // Altura do cabeçalho baseada no número de linhas
+    const linhasCab = cabecalhoTexto ? cabecalhoTexto.split("\n").length : 0;
+    let cabecalhoAltura = 0;
+
+    if (linhasCab === 1) {
+      cabecalhoAltura = 20; // altura em pontos para 1 linha
+    } else if (linhasCab === 2) {
+      cabecalhoAltura = 36; // 18 por linha
+    } else if (linhasCab === 3) {
+      cabecalhoAltura = 52; // ~17.3 por linha
+    } else if (linhasCab === 4) {
+      cabecalhoAltura = 68; // 17 por linha
+    } else if (linhasCab === 5) {
+      cabecalhoAltura = 84;
+    } else {
+      // padrão caso mais de 5 linhas
+      cabecalhoAltura = linhasCab * 16; // 16pt por linha
+    }
+
+    // Carregue a fonte em negrito apenas uma vez, fora do loop
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    // --- loop de slots ---
     for (let i = 0; i < totalSlots; i++) {
       const slotIndexInPage = i % slotsPerPage;
       const col = slotIndexInPage % cols;
       const row = Math.floor(slotIndexInPage / cols);
 
-      if (slotIndexInPage === 0) {
+      // criar página se necessário
+      if (!page || slotIndexInPage === 0) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
       }
 
       const dataUrl = imagens[i];
       if (!dataUrl) continue;
 
+      // carregar imagem -> canvas -> embedded
       const img = new Image();
       const loadedImg = await new Promise((resolve) => {
         img.onload = () => resolve(img);
@@ -104,7 +136,6 @@ const gerarPDF = async (
 
       canvas.width = loadedImg.width;
       canvas.height = loadedImg.height;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
@@ -119,103 +150,168 @@ const gerarPDF = async (
         embeddedImg = await pdfDoc.embedJpg(bytes);
       }
 
-      const embeddedW = embeddedImg.width;
-      const embeddedH = embeddedImg.height;
+      const embeddedW = embeddedImg.width || 1;
+      const embeddedH = embeddedImg.height || 1;
 
-      // Calcula a posição e o tamanho da célula
+      // topo da grade
+      const topStartY = pageHeight - margin;
       const cellLeftX = margin + col * (cellW + gap);
-      const cellBottomY = pageHeight - margin - row * (cellH + gap) - cellH;
+      const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
 
+      // verifica se existe cabeçalho
+      const temCabecalho = cabecalhoAltura > 0;
 
-      // **NOVA LÓGICA** para o dimensionamento da imagem, respeitando o espaço das bordas fixas
+      // dimensionamento da imagem respeitando bordas e cabeçalho
+      const availableW = Math.max(1, cellW - totalBorderW);
+      const availableH = Math.max(1, cellH - totalBorderH - (temCabecalho ? cabecalhoAltura : 0));
+
       let drawW, drawH, drawX, drawY;
 
       if (aspecto) {
-        // Redimensiona para caber na célula após remover o espaço das bordas
-        const availableW = cellW - totalBorderW;
-        const availableH = cellH - totalBorderH;
+        const scaleW = embeddedW > 0 ? availableW / embeddedW : 1;
+        const scaleH = embeddedH > 0 ? availableH / embeddedH : 1;
+        const scale = Math.min(scaleW, scaleH, 1.0);
 
-        const scale = Math.min(
-          availableW / embeddedW,
-          availableH / embeddedH
-        );
         drawW = embeddedW * scale;
         drawH = embeddedH * scale;
-
-        // Centraliza a imagem no espaço disponível
         drawX = cellLeftX + (cellW - drawW) / 2;
-        drawY = cellBottomY + (cellH - drawH) / 2;
-
+        drawY = cellBottomY + (cellH - drawH) / 2 - (temCabecalho ? cabecalhoAltura / 2 : 0);
       } else {
-        // Preenche o espaço disponível após remover o espaço das bordas
-        drawW = cellW - totalBorderW;
-        drawH = cellH - totalBorderH;
+        // estica sem manter proporção
+        drawW = availableW;
+        drawH = availableH;
         drawX = cellLeftX + totalBorderW / 2;
-        drawY = cellBottomY + totalBorderH / 2;
+        drawY = cellBottomY + totalBorderH / 2 - (0);
       }
 
 
-      // Desenhar a imagem principal (lógica inalterada)
+      // desenha imagem
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
 
-      // Desenhar borda no topo e na base (agora repetindo)
+      // bordas horizontais
       if (bordaX) {
-        // Calcula quantas 'telhas' (tiles) cabem na largura da imagem principal.
-        // O tamanho da 'telha' é a largura original da imagem da borda.
-        const tileWidth = bordaX.width;
-        const tilesX = Math.ceil(drawW / tileWidth);
-        const scaleX = drawW / (tilesX * tileWidth); // Ajusta a escala para não sobrar espaço
+        const tileWidth = bordaX.width || 1;
+        const tilesX = Math.max(1, Math.ceil(drawW / tileWidth));
+        const scaleX = Math.max(0.01, drawW / (tilesX * tileWidth));
+
+        // topo e base da célula (respeitando borda e margem)
+        const yTopo = cellBottomY + cellH - fixedBorderHeight; // topo da célula
+        const yBase = cellBottomY; // base da célula
 
         for (let x = 0; x < tilesX; x++) {
           const tileX = drawX + x * tileWidth * scaleX;
-
-          // Borda do TOPO: desenhada com a altura fixa que você quer
           page.drawImage(bordaX, {
             x: tileX,
-            y: drawY + drawH, // Acima da imagem
+            y: yTopo,
             width: tileWidth * scaleX,
-            height: fixedBorderHeight, // **USANDO A ALTURA FIXA AQUI**
+            height: fixedBorderHeight,
           });
-
-          // Borda da BASE: desenhada com a altura fixa que você quer
           page.drawImage(bordaX, {
             x: tileX,
-            y: drawY - fixedBorderHeight, // Abaixo da imagem
+            y: yBase,
             width: tileWidth * scaleX,
-            height: fixedBorderHeight, // **USANDO A ALTURA FIXA AQUI**
+            height: fixedBorderHeight,
           });
         }
       }
 
-      // Desenhar borda nas laterais (agora repetindo)
+      // bordas laterais
       if (bordaY) {
-        // Calcula quantas 'telhas' (tiles) cabem na altura da imagem principal.
-        const tileHeight = bordaY.height;
-        const tilesY = Math.ceil(drawH / tileHeight);
-        const scaleY = drawH / (tilesY * tileHeight);
+        const tileHeight = bordaY.height || 1;
+        // usa a altura da célula inteira em vez da imagem
+        const tilesY = Math.max(1, Math.ceil(cellH / tileHeight));
+        const scaleY = Math.max(0.01, cellH / (tilesY * tileHeight));
 
-        for (let y = 0; y < tilesY; y++) {
-          const tileY = drawY + y * tileHeight * scaleY;
+        for (let yi = 0; yi < tilesY; yi++) {
+          const tileY = cellBottomY + yi * tileHeight * scaleY;
 
-          // Borda ESQUERDA: desenhada com a largura fixa que você quer
+          // borda esquerda
           page.drawImage(bordaY, {
-            x: drawX - fixedBorderWidth, // À esquerda da imagem
+            x: cellLeftX,
             y: tileY,
-            width: fixedBorderWidth, // **USANDO A LARGURA FIXA AQUI**
+            width: fixedBorderWidth,
             height: tileHeight * scaleY,
           });
 
-          // Borda DIREITA: desenhada com a largura fixa que você quer
+          // borda direita
           page.drawImage(bordaY, {
-            x: drawX + drawW, // À direita da imagem
+            x: cellLeftX + cellW - fixedBorderWidth,
             y: tileY,
-            width: fixedBorderWidth, // **USANDO A LARGURA FIXA AQUI**
+            width: fixedBorderWidth,
             height: tileHeight * scaleY,
           });
         }
       }
 
-    }
+
+      // --- desenhar cabeçalho ---
+      // if (cabecalhoTexto && headerFont) {
+      //   const fontSizeCab = 13;   // tamanho base
+      //   const lineHeight = 16;    // altura de linha
+      //   const leftMargin = 5 + fixedBorderWidth;    // margem esquerda
+      //   const rightMargin = 5 + fixedBorderWidth;   // margem direita
+
+      //   const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
+      //   const maxWidth = cellW - leftMargin - rightMargin;
+
+      //   const linhas = cabecalhoTexto.split("\n");
+
+
+      //   // Mapeia a fonte correta para cada linha
+      //   linhas.forEach((linha, idx) => {
+      //     let texto = linha.trim();
+      //     let size = fontSizeCab;
+      //     const fontToUse = boldFont; // Use a fonte negrita para o cálculo e o desenho
+
+      //     // mede largura do texto na fonte correta
+      //     let largura = fontToUse.widthOfTextAtSize(texto, size);
+
+      //     // se for maior que a célula, ajusta o tamanho até caber
+      //     if (largura > maxWidth) {
+      //       const fator = maxWidth / largura;
+      //       size = size * fator;
+      //     }
+
+      //     const y = cellTop - lineHeight * (idx + 1);
+
+      //     page.drawText(texto, {
+      //       x: cellLeftX + leftMargin,
+      //       y,
+      //       size,
+      //       font: fontToUse, // Use a mesma fonte aqui
+      //       color: rgb(0, 0, 0),
+      //     });
+      //   });
+      // }
+
+      // --- desenhar cabeçalho ---
+      if (cabecalhoTexto && headerFont) {
+        const fontSizeCab = 12;   // tamanho base
+        const lineHeight = 16;    // altura de linha
+        const leftMargin = 5 + fixedBorderWidth;    // margem esquerda
+        const rightMargin = 5 + fixedBorderWidth;   // margem direita
+
+        const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
+        const maxWidth = cellW - leftMargin - rightMargin;
+
+        // Apenas garanta que cada linha é desenhada na posição correta.
+        const linhas = cabecalhoTexto.split("\n");
+
+        linhas.forEach((linha, idx) => {
+          let texto = linha.trim();
+
+          const y = cellTop - lineHeight * (idx + 1);
+
+          page.drawText(texto, {
+            x: cellLeftX + leftMargin,
+            y,
+            size: fontSizeCab, // use o tamanho base, sem ajustes
+            font: boldFont,
+            color: rgb(0, 0, 0),
+          });
+        });
+      }
+    } // fim loop
 
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -231,6 +327,10 @@ const gerarPDF = async (
     setCarregando(false);
   }
 };
+
+
+
+
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -258,6 +358,8 @@ export default function PdfEditor() {
   const [repeatBorder, setBorder] = useState("none");
   const espessuraBorda = 150;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
+  const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
+  const [cabecalhoTexto, setCabecalhoTexto] = useState("");
 
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
@@ -311,7 +413,7 @@ export default function PdfEditor() {
     });
 
     setAlteracoesPendentes(true);
-  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
+  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder, cabecalhoAtivo, cabecalhoTexto]);
 
 
   const resetarConfiguracoes = () => {
@@ -326,6 +428,8 @@ export default function PdfEditor() {
     setImagens([])
     setRepeatMode("all");
     setBorder("none");
+    setCabecalhoAtivo(false);
+    setCabecalhoTexto("");
   }
 
 
@@ -524,6 +628,52 @@ export default function PdfEditor() {
                 </select>
               </div>
 
+              {/* Cabeçalho */}
+              <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cabecalhoAtivo}
+                  onChange={(e) => setCabecalhoAtivo(e.target.checked)}
+                />
+                Mostrar cabeçalho
+              </label>
+
+              <div className="w-full">
+                {cabecalhoAtivo && (
+                  <textarea
+                    value={cabecalhoTexto}
+                    onChange={(e) => {
+                      const valor = e.target.value;
+
+                      // limite de caracteres por linha de acordo com orientação (bordas não fazem diferença aqui)
+                      // Mantemos o original: sem borda: const maxPorLinha = orientacao === "paisagem" ? 60 : 42;
+                      const maxPorLinha = orientacao === "paisagem" ? 58 : 40;
+
+                      // força cada linha a não passar do limite
+                      const ajustado = valor
+                        .split("\n")
+                        .map((linha) => linha.slice(0, maxPorLinha)) // corta extra
+                        .join("\n");
+
+                      setCabecalhoTexto(ajustado);
+                    }}
+                    rows={4}
+                    className="w-full h-min[6rem] border rounded p-2 mt-2 pro-input resize-y overflow-hidden"
+                    placeholder="Digite o texto do cabeçalho (pode usar quebras de linha)"
+                  />
+                )}
+
+                {cabecalhoAtivo && (
+                  <p className="text-gray-500 mt-1">
+                    {/* A mensagem de máximo de caracteres é dinâmica com base na orientação, mas não em repeatBorder */}
+                    Máximo de {orientacao === "paisagem" ? 58 : 40} caracteres por linha.
+                    Use a tecla  {" \u23CE "}  para quebrar linhas.
+                  </p>
+                )}
+
+              </div>
+
+
               <div className="flex flex-col gap-2 w-full">
                 {user && (
                   <>
@@ -543,7 +693,10 @@ export default function PdfEditor() {
                             setPaginaAtual,
                             setAlteracoesPendentes,
                             setErroPdf,
-                            repeatBorder
+                            repeatBorder,
+                            5,
+                            5,
+                            cabecalhoTexto
                           );
 
                           setCarregando(false);
@@ -659,18 +812,145 @@ export default function PdfEditor() {
                     {Array.from({ length: totalSlots }).map((_, i) => {
                       const imgSrc = imagens[i] || null;
 
+                      // return (
+                      //   <div
+                      //     key={i}
+                      //     className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
+                      //   >
+
+                      //     {/* Cabeçalho dinâmico */}
+                      //     {cabecalhoAtivo && (
+                      //       <div
+                      //         className="w-full text-start text-gray-700 text-sm p-2 m-2 "
+                      //         style={{
+                      //           minHeight: "10%",   // espaço fixo
+                      //           display: "flex",
+                      //           flexDirection: "column",
+                      //           justifyContent: "center",
+                      //           whiteSpace: "pre-wrap", // 🔑 preserva espaços e quebras
+                      //           wordBreak: "break-word", // evita sumir pra fora da tela
+                      //         }}
+                      //       >
+                      //         {cabecalhoTexto}
+                      //       </div>
+                      //     )}
+
+                      //     {imgSrc ? (
+                      //       <>
+                      //         <img
+                      //           src={imgSrc}
+                      //           alt={`Imagem ${i + 1}`}
+                      //           className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
+                      //             }`}
+                      //         />
+                      //         <p>{aspecto}</p>
+                      //         <button
+                      //           title="Remover imagem"
+                      //           onClick={() => removerImagem(i)}
+                      //           className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
+                      //         >
+                      //           Remover
+                      //         </button>
+                      //       </>
+                      //     ) : (
+
+                      //       <div className="flex flex-col items-center justify-center gap-2 px-2">
+                      //         <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
+                      //         <input
+                      //           type="file"
+                      //           accept="image/*,application/pdf"
+                      //           onChange={(e) => {
+                      //             const file = e.target.files[0];
+                      //             if (!file) return;
+
+                      //             if (file.type === "application/pdf") {
+                      //               // 📄 Carregar PDF com pdfjsLib
+                      //               const reader = new FileReader();
+                      //               reader.onload = async () => {
+                      //                 const typedArray = new Uint8Array(reader.result);
+                      //                 try {
+                      //                   const loadingTask = pdfjsLib.getDocument({ data: typedArray });
+                      //                   const pdf = await loadingTask.promise;
+                      //                   const page = await pdf.getPage(1); // primeira página
+                      //                   const viewport = page.getViewport({ scale: 1.0 });
+
+                      //                   const canvas = document.createElement("canvas");
+                      //                   const context = canvas.getContext("2d");
+                      //                   canvas.height = viewport.height;
+                      //                   canvas.width = viewport.width;
+
+                      //                   await page.render({ canvasContext: context, viewport }).promise;
+
+                      //                   // Convertemos o canvas em base64 p/ tratar igual imagem
+                      //                   const pdfPreviewImg = canvas.toDataURL("image/png");
+
+                      //                   adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
+                      //                   setImagens((prev) => {
+                      //                     const novas = [...prev];
+                      //                     novas[i] = pdfPreviewImg;
+                      //                     return novas;
+                      //                   });
+                      //                   setAlteracoesPendentes(true);
+                      //                 } catch (err) {
+                      //                   console.error("Erro ao carregar PDF:", err);
+                      //                 }
+                      //               };
+                      //               reader.readAsArrayBuffer(file);
+                      //             } else if (file.type.startsWith("image/")) {
+                      //               // 🖼️ Mantém sua lógica de imagem
+                      //               const reader = new FileReader();
+                      //               reader.onloadend = () => {
+                      //                 adicionarPrimeiraImagem(reader.result, repeatMode);
+                      //                 setImagens((prev) => {
+                      //                   const novas = [...prev];
+                      //                   novas[i] = reader.result;
+                      //                   return novas;
+                      //                 });
+                      //                 setAlteracoesPendentes(true);
+                      //               };
+                      //               reader.readAsDataURL(file);
+                      //             } else {
+                      //               alert("Formato não suportado. Envie imagem ou PDF.");
+                      //             }
+                      //           }}
+                      //           className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
+                      //             file:rounded-full file:border-0 file:text-sm 
+                      //             file:font-semibold file:bg-blue-50 
+                      //             file:text-blue-700 hover:file:bg-blue-100 
+                      //             cursor-pointer"
+                      //         />
+                      //       </div>
+
+                      //     )}
+                      //   </div>
+                      // );
                       return (
                         <div
                           key={i}
-                          className="w-full h-full border-2 border-dashed rounded-md flex items-center justify-center text-xs text-gray-400 relative overflow-hidden"
+                          className="w-full h-full border-2 border-dashed rounded-md text-xs text-gray-400 relative overflow-hidden"
                         >
+
+                          {/* Cabeçalho dinâmico */}
+                          {cabecalhoAtivo && (
+                            <div
+                              className="w-full text-start text-gray-700 text-sm p-2  overflow-hidden"
+                              style={{
+                                minHeight: "10%", // espaço fixo
+                                whiteSpace: "pre-wrap", // preserva espaços e quebras
+                                wordBreak: "break-word", // evita sumir pra fora da tela
+                              }}
+                            >
+                              {cabecalhoTexto}
+                            </div>
+                          )}
+
+                          {/* Imagem ou PDF */}
                           {imgSrc ? (
-                            <>
+                            <div className="relative w-full h-full">
                               <img
                                 src={imgSrc}
                                 alt={`Imagem ${i + 1}`}
-                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
-                                  }`}
+                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}
                               />
                               <p>{aspecto}</p>
                               <button
@@ -680,11 +960,10 @@ export default function PdfEditor() {
                               >
                                 Remover
                               </button>
-                            </>
+                            </div>
                           ) : (
-                          
-                            <div className="flex flex-col items-center justify-center gap-2 px-2">
-                              <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
+                            <div className="px-2 py-4 text-center">
+                              <p className="text-base sm:text-xl">Envie imagem ou PDF :)</p>
                               <input
                                 type="file"
                                 accept="image/*,application/pdf"
@@ -693,14 +972,13 @@ export default function PdfEditor() {
                                   if (!file) return;
 
                                   if (file.type === "application/pdf") {
-                                    // 📄 Carregar PDF com pdfjsLib
                                     const reader = new FileReader();
                                     reader.onload = async () => {
                                       const typedArray = new Uint8Array(reader.result);
                                       try {
                                         const loadingTask = pdfjsLib.getDocument({ data: typedArray });
                                         const pdf = await loadingTask.promise;
-                                        const page = await pdf.getPage(1); // primeira página
+                                        const page = await pdf.getPage(1);
                                         const viewport = page.getViewport({ scale: 1.0 });
 
                                         const canvas = document.createElement("canvas");
@@ -710,7 +988,6 @@ export default function PdfEditor() {
 
                                         await page.render({ canvasContext: context, viewport }).promise;
 
-                                        // Convertemos o canvas em base64 p/ tratar igual imagem
                                         const pdfPreviewImg = canvas.toDataURL("image/png");
 
                                         adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
@@ -726,7 +1003,6 @@ export default function PdfEditor() {
                                     };
                                     reader.readAsArrayBuffer(file);
                                   } else if (file.type.startsWith("image/")) {
-                                    // 🖼️ Mantém sua lógica de imagem
                                     const reader = new FileReader();
                                     reader.onloadend = () => {
                                       adicionarPrimeiraImagem(reader.result, repeatMode);
@@ -742,18 +1018,15 @@ export default function PdfEditor() {
                                     alert("Formato não suportado. Envie imagem ou PDF.");
                                   }
                                 }}
-                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
-                                  file:rounded-full file:border-0 file:text-sm 
-                                  file:font-semibold file:bg-blue-50 
-                                  file:text-blue-700 hover:file:bg-blue-100 
-                                  cursor-pointer"
+                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
                               />
                             </div>
-
                           )}
                         </div>
                       );
+
                     })}
+
                   </div>
 
 
