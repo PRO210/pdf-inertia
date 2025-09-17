@@ -9,6 +9,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import Spinner from '@/Components/Spinner'
+import PdfPreview from './Atividades/Partials/PdfPreview'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -92,7 +93,7 @@ const gerarPDF = async (
     }
 
     // Altura do cabeçalho baseada no número de linhas
-    const linhasCab = cabecalhoTexto ? cabecalhoTexto.split("\n").length : 0;
+    const linhasCab = cabecalhoTexto ? cabecalhoTexto.length : 0;
     let cabecalhoAltura = 0;
 
     if (linhasCab === 1) {
@@ -109,6 +110,7 @@ const gerarPDF = async (
       // padrão caso mais de 5 linhas
       cabecalhoAltura = linhasCab * 16; // 16pt por linha
     }
+
 
     // Carregue a fonte em negrito apenas uma vez, fora do loop
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -243,74 +245,32 @@ const gerarPDF = async (
         }
       }
 
-
-      // --- desenhar cabeçalho ---
-      // if (cabecalhoTexto && headerFont) {
-      //   const fontSizeCab = 13;   // tamanho base
-      //   const lineHeight = 16;    // altura de linha
-      //   const leftMargin = 5 + fixedBorderWidth;    // margem esquerda
-      //   const rightMargin = 5 + fixedBorderWidth;   // margem direita
-
-      //   const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
-      //   const maxWidth = cellW - leftMargin - rightMargin;
-
-      //   const linhas = cabecalhoTexto.split("\n");
-
-
-      //   // Mapeia a fonte correta para cada linha
-      //   linhas.forEach((linha, idx) => {
-      //     let texto = linha.trim();
-      //     let size = fontSizeCab;
-      //     const fontToUse = boldFont; // Use a fonte negrita para o cálculo e o desenho
-
-      //     // mede largura do texto na fonte correta
-      //     let largura = fontToUse.widthOfTextAtSize(texto, size);
-
-      //     // se for maior que a célula, ajusta o tamanho até caber
-      //     if (largura > maxWidth) {
-      //       const fator = maxWidth / largura;
-      //       size = size * fator;
-      //     }
-
-      //     const y = cellTop - lineHeight * (idx + 1);
-
-      //     page.drawText(texto, {
-      //       x: cellLeftX + leftMargin,
-      //       y,
-      //       size,
-      //       font: fontToUse, // Use a mesma fonte aqui
-      //       color: rgb(0, 0, 0),
-      //     });
-      //   });
-      // }
-
       // --- desenhar cabeçalho ---
       if (cabecalhoTexto && headerFont) {
-        const fontSizeCab = 12;   // tamanho base
-        const lineHeight = 16;    // altura de linha
-        const leftMargin = 5 + fixedBorderWidth;    // margem esquerda
-        const rightMargin = 5 + fixedBorderWidth;   // margem direita
+        const fontSizeCab = 12;   // tamanho da fonte
+        const lineHeight = 15;    // altura da linha
+        const leftMargin = 2 + (bordaX ? fixedBorderHeight + 2 : 0);
+        const rightMargin = 0;
 
         const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
         const maxWidth = cellW - leftMargin - rightMargin;
 
-        // Apenas garanta que cada linha é desenhada na posição correta.
-        const linhas = cabecalhoTexto.split("\n");
-
-        linhas.forEach((linha, idx) => {
-          let texto = linha.trim();
+        cabecalhoTexto.forEach((linha, idx) => {
+          const texto = linha.trim();
 
           const y = cellTop - lineHeight * (idx + 1);
 
           page.drawText(texto, {
             x: cellLeftX + leftMargin,
             y,
-            size: fontSizeCab, // use o tamanho base, sem ajustes
+            size: fontSizeCab,
             font: boldFont,
             color: rgb(0, 0, 0),
           });
         });
       }
+
+
     } // fim loop
 
     const pdfBytes = await pdfDoc.save();
@@ -359,8 +319,7 @@ export default function PdfEditor() {
   const espessuraBorda = 150;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
   const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
-  const [cabecalhoTexto, setCabecalhoTexto] = useState("");
-
+  const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     setImagens((prev) => {
@@ -429,7 +388,7 @@ export default function PdfEditor() {
     setRepeatMode("all");
     setBorder("none");
     setCabecalhoAtivo(false);
-    setCabecalhoTexto("");
+    setCabecalhoTexto(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
   }
 
 
@@ -640,39 +599,38 @@ export default function PdfEditor() {
 
               <div className="w-full">
                 {cabecalhoAtivo && (
-                  <textarea
-                    value={cabecalhoTexto}
-                    onChange={(e) => {
-                      const valor = e.target.value;
+                  <>
+                    {cabecalhoTexto.map((linha, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        value={linha}
+                        onChange={(e) => {
+                          const valor = e.target.value;
 
-                      // limite de caracteres por linha de acordo com orientação (bordas não fazem diferença aqui)
-                      // Mantemos o original: sem borda: const maxPorLinha = orientacao === "paisagem" ? 60 : 42;
-                      const maxPorLinha = orientacao === "paisagem" ? 58 : 40;
+                          // máximo por linha de acordo com orientação
+                          const maxPorLinha = orientacao === "paisagem" ? 54 : 42;
 
-                      // força cada linha a não passar do limite
-                      const ajustado = valor
-                        .split("\n")
-                        .map((linha) => linha.slice(0, maxPorLinha)) // corta extra
-                        .join("\n");
+                          // corta o excesso (se quiser confiar no maxLength pode remover slice)
+                          const ajustado = valor.slice(0, maxPorLinha);
 
-                      setCabecalhoTexto(ajustado);
-                    }}
-                    rows={4}
-                    className="w-full h-min[6rem] border rounded p-2 mt-2 pro-input resize-y overflow-hidden"
-                    placeholder="Digite o texto do cabeçalho (pode usar quebras de linha)"
-                  />
+                          // atualiza apenas a linha editada
+                          const novoTexto = [...cabecalhoTexto];
+                          novoTexto[index] = ajustado;
+                          setCabecalhoTexto(novoTexto);
+                        }}
+                        maxLength={orientacao === "paisagem" ? 54 : 42} // 🔑 limita direto no input
+                        className="w-full border rounded p-2 mt-2 pro-input"
+                        placeholder={`Linha ${index + 1}`}
+                      />
+                    ))}
+
+                    <p className="text-gray-500 mt-1">
+                      Máximo de {orientacao === "paisagem" ? 54 : 42} caracteres por linha.
+                    </p>
+                  </>
                 )}
-
-                {cabecalhoAtivo && (
-                  <p className="text-gray-500 mt-1">
-                    {/* A mensagem de máximo de caracteres é dinâmica com base na orientação, mas não em repeatBorder */}
-                    Máximo de {orientacao === "paisagem" ? 58 : 40} caracteres por linha.
-                    Use a tecla  {" \u23CE "}  para quebrar linhas.
-                  </p>
-                )}
-
               </div>
-
 
               <div className="flex flex-col gap-2 w-full">
                 {user && (
@@ -743,6 +701,7 @@ export default function PdfEditor() {
                   </h1>
                 </div>
 
+
                 <div
                   id="pdf-preview"
                   className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100"
@@ -812,145 +771,40 @@ export default function PdfEditor() {
                     {Array.from({ length: totalSlots }).map((_, i) => {
                       const imgSrc = imagens[i] || null;
 
-                      // return (
-                      //   <div
-                      //     key={i}
-                      //     className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
-                      //   >
-
-                      //     {/* Cabeçalho dinâmico */}
-                      //     {cabecalhoAtivo && (
-                      //       <div
-                      //         className="w-full text-start text-gray-700 text-sm p-2 m-2 "
-                      //         style={{
-                      //           minHeight: "10%",   // espaço fixo
-                      //           display: "flex",
-                      //           flexDirection: "column",
-                      //           justifyContent: "center",
-                      //           whiteSpace: "pre-wrap", // 🔑 preserva espaços e quebras
-                      //           wordBreak: "break-word", // evita sumir pra fora da tela
-                      //         }}
-                      //       >
-                      //         {cabecalhoTexto}
-                      //       </div>
-                      //     )}
-
-                      //     {imgSrc ? (
-                      //       <>
-                      //         <img
-                      //           src={imgSrc}
-                      //           alt={`Imagem ${i + 1}`}
-                      //           className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
-                      //             }`}
-                      //         />
-                      //         <p>{aspecto}</p>
-                      //         <button
-                      //           title="Remover imagem"
-                      //           onClick={() => removerImagem(i)}
-                      //           className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
-                      //         >
-                      //           Remover
-                      //         </button>
-                      //       </>
-                      //     ) : (
-
-                      //       <div className="flex flex-col items-center justify-center gap-2 px-2">
-                      //         <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
-                      //         <input
-                      //           type="file"
-                      //           accept="image/*,application/pdf"
-                      //           onChange={(e) => {
-                      //             const file = e.target.files[0];
-                      //             if (!file) return;
-
-                      //             if (file.type === "application/pdf") {
-                      //               // 📄 Carregar PDF com pdfjsLib
-                      //               const reader = new FileReader();
-                      //               reader.onload = async () => {
-                      //                 const typedArray = new Uint8Array(reader.result);
-                      //                 try {
-                      //                   const loadingTask = pdfjsLib.getDocument({ data: typedArray });
-                      //                   const pdf = await loadingTask.promise;
-                      //                   const page = await pdf.getPage(1); // primeira página
-                      //                   const viewport = page.getViewport({ scale: 1.0 });
-
-                      //                   const canvas = document.createElement("canvas");
-                      //                   const context = canvas.getContext("2d");
-                      //                   canvas.height = viewport.height;
-                      //                   canvas.width = viewport.width;
-
-                      //                   await page.render({ canvasContext: context, viewport }).promise;
-
-                      //                   // Convertemos o canvas em base64 p/ tratar igual imagem
-                      //                   const pdfPreviewImg = canvas.toDataURL("image/png");
-
-                      //                   adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
-                      //                   setImagens((prev) => {
-                      //                     const novas = [...prev];
-                      //                     novas[i] = pdfPreviewImg;
-                      //                     return novas;
-                      //                   });
-                      //                   setAlteracoesPendentes(true);
-                      //                 } catch (err) {
-                      //                   console.error("Erro ao carregar PDF:", err);
-                      //                 }
-                      //               };
-                      //               reader.readAsArrayBuffer(file);
-                      //             } else if (file.type.startsWith("image/")) {
-                      //               // 🖼️ Mantém sua lógica de imagem
-                      //               const reader = new FileReader();
-                      //               reader.onloadend = () => {
-                      //                 adicionarPrimeiraImagem(reader.result, repeatMode);
-                      //                 setImagens((prev) => {
-                      //                   const novas = [...prev];
-                      //                   novas[i] = reader.result;
-                      //                   return novas;
-                      //                 });
-                      //                 setAlteracoesPendentes(true);
-                      //               };
-                      //               reader.readAsDataURL(file);
-                      //             } else {
-                      //               alert("Formato não suportado. Envie imagem ou PDF.");
-                      //             }
-                      //           }}
-                      //           className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
-                      //             file:rounded-full file:border-0 file:text-sm 
-                      //             file:font-semibold file:bg-blue-50 
-                      //             file:text-blue-700 hover:file:bg-blue-100 
-                      //             cursor-pointer"
-                      //         />
-                      //       </div>
-
-                      //     )}
-                      //   </div>
-                      // );
                       return (
                         <div
                           key={i}
-                          className="w-full h-full border-2 border-dashed rounded-md text-xs text-gray-400 relative overflow-hidden"
+                          className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
                         >
 
                           {/* Cabeçalho dinâmico */}
                           {cabecalhoAtivo && (
-                            <div
-                              className="w-full text-start text-gray-700 text-sm p-2  overflow-hidden"
-                              style={{
-                                minHeight: "10%", // espaço fixo
-                                whiteSpace: "pre-wrap", // preserva espaços e quebras
-                                wordBreak: "break-word", // evita sumir pra fora da tela
-                              }}
-                            >
-                              {cabecalhoTexto}
+                            <div className="w-full flex flex-col gap-1 p-2">
+                              {cabecalhoTexto.map((linha, index) => (
+                                <div
+                                  key={index}
+                                  className="w-full"
+                                  style={{
+                                    whiteSpace: "nowrap",        // força 1 linha
+                                    overflow: "hidden",          // corta o excesso
+                                    textOverflow: "ellipsis",    // mostra "..."
+                                  }}
+                                  title={linha} // mostra o texto completo ao passar o mouse
+                                >
+                                  {linha}
+                                </div>
+                              ))}
                             </div>
+
                           )}
 
-                          {/* Imagem ou PDF */}
                           {imgSrc ? (
-                            <div className="relative w-full h-full">
+                            <>
                               <img
                                 src={imgSrc}
                                 alt={`Imagem ${i + 1}`}
-                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}
+                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
+                                  }`}
                               />
                               <p>{aspecto}</p>
                               <button
@@ -960,10 +814,11 @@ export default function PdfEditor() {
                               >
                                 Remover
                               </button>
-                            </div>
+                            </>
                           ) : (
-                            <div className="px-2 py-4 text-center">
-                              <p className="text-base sm:text-xl">Envie imagem ou PDF :)</p>
+
+                            <div className="flex flex-col items-center justify-center gap-2 px-2">
+                              <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
                               <input
                                 type="file"
                                 accept="image/*,application/pdf"
@@ -972,13 +827,14 @@ export default function PdfEditor() {
                                   if (!file) return;
 
                                   if (file.type === "application/pdf") {
+                                    // 📄 Carregar PDF com pdfjsLib
                                     const reader = new FileReader();
                                     reader.onload = async () => {
                                       const typedArray = new Uint8Array(reader.result);
                                       try {
                                         const loadingTask = pdfjsLib.getDocument({ data: typedArray });
                                         const pdf = await loadingTask.promise;
-                                        const page = await pdf.getPage(1);
+                                        const page = await pdf.getPage(1); // primeira página
                                         const viewport = page.getViewport({ scale: 1.0 });
 
                                         const canvas = document.createElement("canvas");
@@ -988,6 +844,7 @@ export default function PdfEditor() {
 
                                         await page.render({ canvasContext: context, viewport }).promise;
 
+                                        // Convertemos o canvas em base64 p/ tratar igual imagem
                                         const pdfPreviewImg = canvas.toDataURL("image/png");
 
                                         adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
@@ -1003,6 +860,7 @@ export default function PdfEditor() {
                                     };
                                     reader.readAsArrayBuffer(file);
                                   } else if (file.type.startsWith("image/")) {
+                                    // 🖼️ Mantém sua lógica de imagem
                                     const reader = new FileReader();
                                     reader.onloadend = () => {
                                       adicionarPrimeiraImagem(reader.result, repeatMode);
@@ -1018,15 +876,19 @@ export default function PdfEditor() {
                                     alert("Formato não suportado. Envie imagem ou PDF.");
                                   }
                                 }}
-                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
+                                  file:rounded-full file:border-0 file:text-sm 
+                                  file:font-semibold file:bg-blue-50 
+                                  file:text-blue-700 hover:file:bg-blue-100 
+                                  cursor-pointer"
                               />
                             </div>
+
                           )}
                         </div>
                       );
 
                     })}
-
                   </div>
 
 
@@ -1036,6 +898,35 @@ export default function PdfEditor() {
                   )}
 
                 </div>
+
+                <PdfPreview
+                  imagens={imagens}
+                  setImagens={setImagens}
+                  cabecalhoAtivo={cabecalhoAtivo}
+                  cabecalhoTexto={cabecalhoTexto}
+                  repeatBorder={repeatBorder}
+                  espessuraBorda={espessuraBorda}
+                  tamanhoTile={tamanhoTile}
+                  orientacao={orientacao}
+                  ampliacao={ampliacao}
+                  totalSlots={totalSlots}
+                  aspecto={aspecto}
+                  removerImagem={(index) => {
+                    setImagens((prev) => {
+                      const novas = [...prev];
+                      novas[index] = null;
+                      return novas;
+                    });
+                  }}
+                  setAlteracoesPendentes={setAlteracoesPendentes}
+                  erroPdf={erroPdf}
+                  carregando={carregando}
+                  adicionarPrimeiraImagem={adicionarPrimeiraImagem}
+                  repeatMode={repeatMode}
+
+                />
+
+
 
               </div>
             </div>
