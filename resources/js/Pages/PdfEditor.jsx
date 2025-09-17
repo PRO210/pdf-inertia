@@ -251,7 +251,7 @@ export default function PdfEditor() {
     <AuthenticatedLayout>
       <Head title="Editor" />
 
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4">
         <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
           {/* Coluna das Opções */}

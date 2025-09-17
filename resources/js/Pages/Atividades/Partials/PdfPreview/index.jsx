@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = "/js/pdf.worker.min.js";
 
@@ -21,16 +20,6 @@ export default function PdfPreview({
   adicionarPrimeiraImagem,
   repeatMode,
 }) {
-  // Garante que imagens tenha o mesmo tamanho que totalSlots
-  useEffect(() => {
-    setImagens((prev = []) => {
-      const novas = Array(totalSlots).fill(null);
-      for (let i = 0; i < Math.min(prev.length, totalSlots); i++) {
-        novas[i] = prev[i];
-      }
-      return novas;
-    });
-  }, [totalSlots, setImagens]);
 
   // Função de upload de imagem/PDF (usa adicionarPrimeiraImagem e repeatMode)
   const handleFileChange = async (e, index) => {
@@ -41,6 +30,7 @@ export default function PdfPreview({
       const reader = new FileReader();
       reader.onload = async () => {
         const typedArray = new Uint8Array(reader.result);
+
         try {
           const loadingTask = pdfjsLib.getDocument({ data: typedArray });
           const pdf = await loadingTask.promise;
@@ -106,7 +96,7 @@ export default function PdfPreview({
   return (
     <div
       id="pdf-preview"
-      className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100"
+      className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center pb-4 bg-gray-100"
     >
       {/* Moldura com 4 faixas (com backgroundPosition corrigido) */}
       {repeatBorder !== "none" && (
@@ -175,6 +165,7 @@ export default function PdfPreview({
 
           return (
             <div
+              id="preview-column-grid"
               key={i}
               className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
             >
@@ -214,6 +205,7 @@ export default function PdfPreview({
                   </button>
                 </>
               ) : (
+
                 <div className="flex flex-col items-center justify-center gap-2 px-2">
                   <p className="text-base sm:text-xl">Envie imagem ou PDF :)</p>
                   <input
@@ -227,8 +219,11 @@ export default function PdfPreview({
                       cursor-pointer"
                   />
                 </div>
+
               )}
+
             </div>
+
           );
         })}
       </div>

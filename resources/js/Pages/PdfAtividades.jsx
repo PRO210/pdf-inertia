@@ -8,7 +8,6 @@ import { router } from '@inertiajs/react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
-import Spinner from '@/Components/Spinner'
 import PdfPreview from './Atividades/Partials/PdfPreview'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
@@ -290,8 +289,6 @@ const gerarPDF = async (
 
 
 
-
-
 export default function PdfEditor() {
   const { props } = usePage()
   const user = props.auth.user
@@ -344,35 +341,40 @@ export default function PdfEditor() {
     setAlteracoesPendentes(true);
   };
 
+
   useEffect(() => {
-    setImagens((prev) => {
-      const imagensExistentes = prev.filter(Boolean);
+    setImagens((prev = []) => {
+      // Se já tem o tamanho certo, não mexe (preserva posições)
+      if (prev.length === totalSlots) return prev;
 
-      if (repeatMode === "all" && imagensExistentes.length > 0) {
-        // Preenche repetindo
-        const novoArray = [];
-        for (let i = 0; i < totalSlots; i++) {
-          novoArray.push(imagensExistentes[i % imagensExistentes.length]);
+      // Copia preservando índices (não compacta)
+      const novas = Array.from({ length: totalSlots }, (_, idx) => prev[idx] ?? null);
+
+      // Se o modo for "all" e existir ao menos 1 imagem, preenche repetindo as existentes
+      if (repeatMode === "all") {
+        const imagensExistentes = prev.filter(Boolean);
+        if (imagensExistentes.length > 0) {
+          for (let i = 0; i < totalSlots; i++) {
+            novas[i] = imagensExistentes[i % imagensExistentes.length];
+          }
         }
-
-        return novoArray;
-      } else {
-        // Não repetir: apenas mantém as primeiras imagens, completa com nulls
-        const novoArray = [imagensExistentes[0] || null];
-
-        while (novoArray.length < totalSlots) {
-          novoArray.push(null);
-        }
-        if (novoArray.length > totalSlots) {
-          novoArray.length = totalSlots;
-        }
-
-        return novoArray;
       }
+
+      return novas;
     });
 
+  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
+
+
+  // remover imagem específica
+  const removerImagem = (index) => {
+    setImagens((prev) => {
+      const novas = [...prev];
+      novas[index] = null;
+      return novas;
+    });
     setAlteracoesPendentes(true);
-  }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder, cabecalhoAtivo, cabecalhoTexto]);
+  };
 
 
   const resetarConfiguracoes = () => {
@@ -391,16 +393,6 @@ export default function PdfEditor() {
     setCabecalhoTexto(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
   }
 
-
-  // remover imagem de um slot (mantém o slot, apenas zera)
-  const removerImagem = (index) => {
-    setImagens((prev) => {
-      const copia = [...prev];
-      copia[index] = null;
-      return copia;
-    });
-    setAlteracoesPendentes(true);
-  }
 
   const downloadPDF = () => {
     if (!pdfUrl) return
@@ -592,9 +584,12 @@ export default function PdfEditor() {
                 <input
                   type="checkbox"
                   checked={cabecalhoAtivo}
-                  onChange={(e) => setCabecalhoAtivo(e.target.checked)}
+                  onChange={(e) => {
+                    setCabecalhoAtivo(e.target.checked);
+                    setAlteracoesPendentes(true);
+                  }}
                 />
-                Mostrar cabeçalho
+                Mostrar cabeçalho:
               </label>
 
               <div className="w-full">
@@ -618,6 +613,7 @@ export default function PdfEditor() {
                           const novoTexto = [...cabecalhoTexto];
                           novoTexto[index] = ajustado;
                           setCabecalhoTexto(novoTexto);
+                          setAlteracoesPendentes(true);
                         }}
                         maxLength={orientacao === "paisagem" ? 54 : 42} // 🔑 limita direto no input
                         className="w-full border rounded p-2 mt-2 pro-input"
@@ -688,247 +684,47 @@ export default function PdfEditor() {
           </div>
 
           {/* Coluna do Preview */}
-          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center " id="preview-column">
-            <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview">
-              <div className="my-2" id="preview">
+          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center " id="preview">
+            <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview-column">
 
-                <div className="mx-auto mb-4 p-2 rounded-2xl ">
-                  <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
-                    Preview {" "}
-                    <span>
-                      {pdfUrl ? "do PDF" : "da Imagem"}
-                    </span>
-                  </h1>
-                </div>
-
-
-                <div
-                  id="pdf-preview"
-                  className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center p-4 bg-gray-100"
-                >
-                  {/* Moldura com 4 faixas */}
-                  {repeatBorder !== "none" && (
-                    <>
-                      {/* Topo */}
-                      <div
-                        className="absolute left-0 right-0 top-0 pointer-events-none"
-                        style={{
-                          height: espessuraBorda,
-                          backgroundImage: `url(/imagens/bordas/${repeatBorder}.png)`,
-                          backgroundRepeat: "repeat-x",
-                          backgroundSize: `${tamanhoTile}px auto`,
-                          backgroundPosition: "top left",
-                        }}
-                      />
-                      {/* Baixo */}
-                      <div
-                        className="absolute left-0 right-0 bottom-0 pointer-events-none"
-                        style={{
-                          height: espessuraBorda,
-                          backgroundImage: `url(/imagens/bordas/${repeatBorder}.png)`,
-                          backgroundRepeat: "repeat-x",
-                          backgroundSize: `${tamanhoTile}px auto`,
-                          backgroundPosition: "bottom left",
-                        }}
-                      />
-                      {/* Esquerda */}
-                      <div
-                        className="absolute top-0 bottom-0 left-0 pointer-events-none"
-                        style={{
-                          width: espessuraBorda,
-                          backgroundImage: `url(/imagens/bordas/${repeatBorder}Y.png)`,
-                          backgroundRepeat: "repeat-y",
-                          backgroundSize: `auto ${tamanhoTile}px`,
-                          backgroundPosition: "top left",
-                        }}
-                      />
-                      {/* Direita */}
-                      <div
-                        className="absolute top-0 bottom-0 right-0 pointer-events-none"
-                        style={{
-                          width: espessuraBorda,
-                          backgroundImage: `url(/imagens/bordas/${repeatBorder}Y.png)`,
-                          backgroundRepeat: "repeat-y",
-                          backgroundSize: `auto ${tamanhoTile}px`,
-                          backgroundPosition: "top right",
-                        }}
-                      />
-                    </>
-                  )}
-
-                  <div
-                    className={`mx-auto border bg-white rounded-lg
-                      ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
-                      w-full max-w-[842px]
-                    `}
-                    style={{
-                      display: "grid",
-                      gap: "0.5rem",
-                      gridTemplateColumns: `repeat(${Math.max(ampliacao?.colunas || 1, 1)}, 1fr)`,
-                      gridTemplateRows: `repeat(${Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1)}, 1fr)`,
-                    }}
-                  >
-                    {Array.from({ length: totalSlots }).map((_, i) => {
-                      const imgSrc = imagens[i] || null;
-
-                      return (
-                        <div
-                          key={i}
-                          className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
-                        >
-
-                          {/* Cabeçalho dinâmico */}
-                          {cabecalhoAtivo && (
-                            <div className="w-full flex flex-col gap-1 p-2">
-                              {cabecalhoTexto.map((linha, index) => (
-                                <div
-                                  key={index}
-                                  className="w-full"
-                                  style={{
-                                    whiteSpace: "nowrap",        // força 1 linha
-                                    overflow: "hidden",          // corta o excesso
-                                    textOverflow: "ellipsis",    // mostra "..."
-                                  }}
-                                  title={linha} // mostra o texto completo ao passar o mouse
-                                >
-                                  {linha}
-                                </div>
-                              ))}
-                            </div>
-
-                          )}
-
-                          {imgSrc ? (
-                            <>
-                              <img
-                                src={imgSrc}
-                                alt={`Imagem ${i + 1}`}
-                                className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"
-                                  }`}
-                              />
-                              <p>{aspecto}</p>
-                              <button
-                                title="Remover imagem"
-                                onClick={() => removerImagem(i)}
-                                className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
-                              >
-                                Remover
-                              </button>
-                            </>
-                          ) : (
-
-                            <div className="flex flex-col items-center justify-center gap-2 px-2">
-                              <p className='text-base sm:text-xl'>Envie imagem ou PDF :)</p>
-                              <input
-                                type="file"
-                                accept="image/*,application/pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (!file) return;
-
-                                  if (file.type === "application/pdf") {
-                                    // 📄 Carregar PDF com pdfjsLib
-                                    const reader = new FileReader();
-                                    reader.onload = async () => {
-                                      const typedArray = new Uint8Array(reader.result);
-                                      try {
-                                        const loadingTask = pdfjsLib.getDocument({ data: typedArray });
-                                        const pdf = await loadingTask.promise;
-                                        const page = await pdf.getPage(1); // primeira página
-                                        const viewport = page.getViewport({ scale: 1.0 });
-
-                                        const canvas = document.createElement("canvas");
-                                        const context = canvas.getContext("2d");
-                                        canvas.height = viewport.height;
-                                        canvas.width = viewport.width;
-
-                                        await page.render({ canvasContext: context, viewport }).promise;
-
-                                        // Convertemos o canvas em base64 p/ tratar igual imagem
-                                        const pdfPreviewImg = canvas.toDataURL("image/png");
-
-                                        adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
-                                        setImagens((prev) => {
-                                          const novas = [...prev];
-                                          novas[i] = pdfPreviewImg;
-                                          return novas;
-                                        });
-                                        setAlteracoesPendentes(true);
-                                      } catch (err) {
-                                        console.error("Erro ao carregar PDF:", err);
-                                      }
-                                    };
-                                    reader.readAsArrayBuffer(file);
-                                  } else if (file.type.startsWith("image/")) {
-                                    // 🖼️ Mantém sua lógica de imagem
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                      adicionarPrimeiraImagem(reader.result, repeatMode);
-                                      setImagens((prev) => {
-                                        const novas = [...prev];
-                                        novas[i] = reader.result;
-                                        return novas;
-                                      });
-                                      setAlteracoesPendentes(true);
-                                    };
-                                    reader.readAsDataURL(file);
-                                  } else {
-                                    alert("Formato não suportado. Envie imagem ou PDF.");
-                                  }
-                                }}
-                                className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
-                                  file:rounded-full file:border-0 file:text-sm 
-                                  file:font-semibold file:bg-blue-50 
-                                  file:text-blue-700 hover:file:bg-blue-100 
-                                  cursor-pointer"
-                              />
-                            </div>
-
-                          )}
-                        </div>
-                      );
-
-                    })}
-                  </div>
-
-
-
-                  {erroPdf && !carregando && (
-                    <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
-                  )}
-
-                </div>
-
-                <PdfPreview
-                  imagens={imagens}
-                  setImagens={setImagens}
-                  cabecalhoAtivo={cabecalhoAtivo}
-                  cabecalhoTexto={cabecalhoTexto}
-                  repeatBorder={repeatBorder}
-                  espessuraBorda={espessuraBorda}
-                  tamanhoTile={tamanhoTile}
-                  orientacao={orientacao}
-                  ampliacao={ampliacao}
-                  totalSlots={totalSlots}
-                  aspecto={aspecto}
-                  removerImagem={(index) => {
-                    setImagens((prev) => {
-                      const novas = [...prev];
-                      novas[index] = null;
-                      return novas;
-                    });
-                  }}
-                  setAlteracoesPendentes={setAlteracoesPendentes}
-                  erroPdf={erroPdf}
-                  carregando={carregando}
-                  adicionarPrimeiraImagem={adicionarPrimeiraImagem}
-                  repeatMode={repeatMode}
-
-                />
-
-
-
+              <div className="mx-auto  rounded-2xl ">
+                <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
+                  Preview {" "}
+                  <span>
+                    {pdfUrl ? "do PDF" : "da Imagem"}
+                  </span>
+                </h1>
               </div>
+
+              <PdfPreview
+                imagens={imagens}
+                setImagens={setImagens}
+                cabecalhoAtivo={cabecalhoAtivo}
+                cabecalhoTexto={cabecalhoTexto}
+                repeatBorder={repeatBorder}
+                espessuraBorda={espessuraBorda}
+                tamanhoTile={tamanhoTile}
+                orientacao={orientacao}
+                ampliacao={ampliacao}
+                totalSlots={totalSlots}
+                aspecto={aspecto}
+                removerImagem={(index) => {
+                  setImagens((prev) => {
+                    const novas = [...prev];
+                    novas[index] = null;
+                    return novas;
+                  });
+                  setAlteracoesPendentes(true);
+
+                }}
+                setAlteracoesPendentes={setAlteracoesPendentes}
+                erroPdf={erroPdf}
+                carregando={carregando}
+                adicionarPrimeiraImagem={adicionarPrimeiraImagem}
+                repeatMode={repeatMode}
+
+              />
+
             </div>
           </div>
 
