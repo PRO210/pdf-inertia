@@ -27,7 +27,8 @@ const gerarPDF = async (
   repeatBorder = "none",
   alturaBorda = 5,
   larguraBorda = 5,
-  cabecalhoTexto = ""
+  cabecalhoTexto = "",
+  cabecalhoAtivo = false
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
@@ -87,27 +88,29 @@ const gerarPDF = async (
     //Cabeçalho
     // Header font (embed uma vez)
     let headerFont = null;
-    if (cabecalhoTexto) {
+    if (cabecalhoTexto && cabecalhoAtivo) {
       headerFont = await pdfDoc.embedFont(StandardFonts.Courier);
     }
 
     // Altura do cabeçalho baseada no número de linhas
-    const linhasCab = cabecalhoTexto ? cabecalhoTexto.length : 0;
     let cabecalhoAltura = 0;
 
-    if (linhasCab === 1) {
-      cabecalhoAltura = 20; // altura em pontos para 1 linha
-    } else if (linhasCab === 2) {
-      cabecalhoAltura = 36; // 18 por linha
-    } else if (linhasCab === 3) {
-      cabecalhoAltura = 52; // ~17.3 por linha
-    } else if (linhasCab === 4) {
-      cabecalhoAltura = 68; // 17 por linha
-    } else if (linhasCab === 5) {
-      cabecalhoAltura = 84;
-    } else {
-      // padrão caso mais de 5 linhas
-      cabecalhoAltura = linhasCab * 16; // 16pt por linha
+    if (cabecalhoAtivo && cabecalhoTexto) {
+      const linhasCab = cabecalhoTexto.length;
+
+      if (linhasCab === 1) {
+        cabecalhoAltura = 20;
+      } else if (linhasCab === 2) {
+        cabecalhoAltura = 36;
+      } else if (linhasCab === 3) {
+        cabecalhoAltura = 52;
+      } else if (linhasCab === 4) {
+        cabecalhoAltura = 68;
+      } else if (linhasCab === 5) {
+        cabecalhoAltura = 84;
+      } else {
+        cabecalhoAltura = linhasCab * 16;
+      }
     }
 
 
@@ -140,16 +143,16 @@ const gerarPDF = async (
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
-      const rotatedDataUrl = canvas.toDataURL('image/png');
-      const base64 = rotatedDataUrl.split(',')[1];
-      const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      // converte o canvas para JPEG em qualidade máxima (100%)
+      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 1.0);
 
-      let embeddedImg;
-      if (/data:image\/png/i.test(rotatedDataUrl)) {
-        embeddedImg = await pdfDoc.embedPng(bytes);
-      } else {
-        embeddedImg = await pdfDoc.embedJpg(bytes);
-      }
+      // extrai a parte base64
+      const base64 = rotatedDataUrl.split(",")[1];
+      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+      // como agora sempre é JPEG, não precisa do if/else
+      const embeddedImg = await pdfDoc.embedJpg(bytes);
+
 
       const embeddedW = embeddedImg.width || 1;
       const embeddedH = embeddedImg.height || 1;
@@ -160,7 +163,7 @@ const gerarPDF = async (
       const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
 
       // verifica se existe cabeçalho
-      const temCabecalho = cabecalhoAltura > 0;
+      const temCabecalho = cabecalhoAtivo && cabecalhoAltura > 0;
 
       // dimensionamento da imagem respeitando bordas e cabeçalho
       const availableW = Math.max(1, cellW - totalBorderW);
@@ -245,7 +248,7 @@ const gerarPDF = async (
       }
 
       // --- desenhar cabeçalho ---
-      if (cabecalhoTexto && headerFont) {
+      if (cabecalhoTexto && headerFont && cabecalhoAtivo) {
         const fontSizeCab = 12;   // tamanho da fonte
         const lineHeight = 15;    // altura da linha
         const leftMargin = 2 + (bordaX ? fixedBorderHeight + 2 : 0);
@@ -313,7 +316,7 @@ export default function PdfEditor() {
   const [repeatMode, setRepeatMode] = useState("all");
 
   const [repeatBorder, setBorder] = useState("none");
-  const espessuraBorda = 150;   // grossura da moldura, em px
+  const espessuraBorda = 22;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
   const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
   const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
@@ -438,6 +441,120 @@ export default function PdfEditor() {
 
     renderPDF();
   }, [pdfUrl, paginaAtual, zoom]);
+
+
+  // const [tamanhoSlot, setTamanhoSlot] = useState({ largura: 0, altura: 0 });
+
+  // useEffect(() => {
+  //   const A4_WIDTH = 595.28;  // pontos
+  //   const A4_HEIGHT = 841.89; // pontos
+  //   const CM_TO_POINTS = 28.3465;
+
+  //   const pageWidth = orientacao === "retrato" ? A4_WIDTH : A4_HEIGHT;
+  //   const pageHeight = orientacao === "retrato" ? A4_HEIGHT : A4_WIDTH;
+
+  //   const margin = 0.5 * CM_TO_POINTS;
+  //   const gap = 6;
+
+  //   const cols = Math.max(ampliacao?.colunas || 1, 1);
+  //   const rows = Math.max(ampliacao?.linhas || 1, 1);
+
+  //   const usableW = pageWidth - margin * 2;
+  //   const usableH = pageHeight - margin * 2;
+
+  //   const cellW = (usableW - (cols - 1) * gap) / cols;
+  //   const cellH = (usableH - (rows - 1) * gap) / rows;
+
+  //   // bordas em pontos
+  //   const fixedBorderHeight = (5 * CM_TO_POINTS) / 10; // alturaBorda
+  //   const fixedBorderWidth = (5 * CM_TO_POINTS) / 10;  // larguraBorda
+  //   const totalBorderW = repeatBorder !== "none" ? fixedBorderWidth * 2 : 0;
+  //   const totalBorderH = repeatBorder !== "none" ? fixedBorderHeight * 2 : 0;
+
+  //   // cabeçalho estimado
+  //   let cabecalhoAltura = 0;
+  //   if (cabecalhoAtivo && cabecalhoTexto.length > 0) {
+  //     cabecalhoAltura = cabecalhoTexto.length * 16; // mesmo critério que no PDF
+  //   }
+
+  //   const availableW = Math.max(1, cellW - totalBorderW);
+  //   const availableH = Math.max(1, cellH - totalBorderH - cabecalhoAltura);
+
+  //   setTamanhoSlot({
+  //     largura: (availableW / CM_TO_POINTS).toFixed(1), // em cm
+  //     altura: (availableH / CM_TO_POINTS).toFixed(1),
+  //   });
+  // }, [ampliacao, orientacao, repeatBorder, cabecalhoAtivo, cabecalhoTexto]);
+
+  const [resumoTamanho, setResumoTamanho] = useState({
+    imagem: null,
+    imagemBorda: null,
+    imagemCabecalho: null,
+    imagemCompleta: null,
+  });
+
+  useEffect(() => {
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
+    const CM_TO_POINTS = 28.3465;
+
+    const pageWidth = orientacao === "retrato" ? A4_WIDTH : A4_HEIGHT;
+    const pageHeight = orientacao === "retrato" ? A4_HEIGHT : A4_WIDTH;
+
+    const margin = 0.5 * CM_TO_POINTS;
+    const gap = 6;
+
+    const cols = Math.max(ampliacao?.colunas || 1, 1);
+    const rows = Math.max(ampliacao?.linhas || 1, 1);
+
+    const usableW = pageWidth - margin * 2;
+    const usableH = pageHeight - margin * 2;
+
+    const cellW = (usableW - (cols - 1) * gap) / cols;
+    const cellH = (usableH - (rows - 1) * gap) / rows;
+
+    // bordas em pontos
+    const fixedBorderHeight = (espessuraBorda * CM_TO_POINTS) / 10;
+    const fixedBorderWidth = (espessuraBorda * CM_TO_POINTS) / 10;
+    const totalBorderW = repeatBorder !== "none" ? fixedBorderWidth * 2 : 0;
+    const totalBorderH = repeatBorder !== "none" ? fixedBorderHeight * 2 : 0;
+
+    // cabeçalho
+    let cabecalhoAltura = 0;
+    if (cabecalhoAtivo && cabecalhoTexto.length > 0) {
+      cabecalhoAltura = cabecalhoTexto.length * 16; // mesmo critério usado no PDF
+    }
+
+    // conversor
+    const toCm = (pts) => (pts / CM_TO_POINTS).toFixed(1);
+
+    // só imagem
+    const imagem = {
+      largura: toCm(cellW - totalBorderW),
+      altura: toCm(cellH - totalBorderH - cabecalhoAltura),
+    };
+
+    // imagem + bordas
+    const imagemBorda = repeatBorder !== "none" ? {
+      largura: toCm(cellW),
+      altura: toCm(cellH - cabecalhoAltura),
+    } : null;
+
+    // imagem + cabeçalho
+    const imagemCabecalho = cabecalhoAtivo ? {
+      largura: toCm(cellW - totalBorderW),
+      altura: toCm(cellH),
+    } : null;
+
+    // imagem + bordas + cabeçalho
+    const imagemCompleta = repeatBorder !== "none" && cabecalhoAtivo ? {
+      largura: toCm(cellW),
+      altura: toCm(cellH),
+    } : null;
+
+    setResumoTamanho({ imagem, imagemBorda, imagemCabecalho, imagemCompleta });
+  }, [ampliacao, orientacao, repeatBorder, espessuraBorda, cabecalhoAtivo, cabecalhoTexto]);
+
 
 
   return (
@@ -650,7 +767,8 @@ export default function PdfEditor() {
                             repeatBorder,
                             5,
                             5,
-                            cabecalhoTexto
+                            cabecalhoTexto,
+                            cabecalhoAtivo
                           );
 
                           setCarregando(false);
@@ -681,6 +799,27 @@ export default function PdfEditor() {
                 </button>
               </div>
             </div>
+
+            <div className="mt-4 p-2 border rounded ">
+              <h3 className='text-center font-bold sm:text-xl'>Resumo</h3>
+               <div className="mt-2 p-2 border rounded bg-gray-50 text-xs sm:text-lg">
+              <p>📐 <b>Imagem:</b> {resumoTamanho.imagem?.largura} × {resumoTamanho.imagem?.altura} cm aproximadamente</p>
+
+              {resumoTamanho.imagemBorda && (
+                <p>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</p>
+              )}
+
+              {resumoTamanho.imagemCabecalho && (
+                <p>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</p>
+              )}
+
+              {resumoTamanho.imagemCompleta && (
+                <p>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</p>
+              )}
+              </div>
+            </div>
+
+
           </div>
 
           {/* Coluna do Preview */}
@@ -732,6 +871,6 @@ export default function PdfEditor() {
       </div>
 
       <Footer ano={2025} />
-    </AuthenticatedLayout>
+    </AuthenticatedLayout >
   )
 }

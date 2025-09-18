@@ -92,13 +92,22 @@ export default function PdfPreview({
       alert("Formato não suportado. Envie imagem ou PDF.");
     }
   };
-
+ 
   return (
     <div
-      id="pdf-preview"
-      className="relative w-full rounded-lg mx-auto overflow-x-auto flex justify-center items-center pb-4 bg-gray-100"
+      className={`relative mx-auto bg-white rounded-lg
+    ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/750]"}
+    w-full max-w-[842px]
+  `}
+      style={{
+        display: "grid",
+        gap: "0.5rem",
+        padding: espessuraBorda, // 🔹 reserva espaço para bordas
+        gridTemplateColumns: `repeat(${Math.max(ampliacao?.colunas || 1, 1)}, 1fr)`,
+        gridTemplateRows: `repeat(${Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1)}, 1fr)`,
+      }}
     >
-      {/* Moldura com 4 faixas (com backgroundPosition corrigido) */}
+      {/* 🔹 Bordas agora estão DENTRO do grid */}
       {repeatBorder !== "none" && (
         <>
           {/* Topo */}
@@ -148,89 +157,64 @@ export default function PdfPreview({
         </>
       )}
 
-      <div
-        className={`mx-auto border bg-white rounded-lg
-          ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
-          w-full max-w-[842px]
-        `}
-        style={{
-          display: "grid",
-          gap: "0.5rem",
-          gridTemplateColumns: `repeat(${Math.max(ampliacao?.colunas || 1, 1)}, 1fr)`,
-          gridTemplateRows: `repeat(${Math.max((ampliacao?.linhas || ampliacao?.colunas || 1), 1)}, 1fr)`,
-        }}
-      >
-        {Array.from({ length: totalSlots }).map((_, i) => {
-          const imgSrc = imagens[i] || null;
+      {/* Slots do grid */}
+      {Array.from({ length: totalSlots }).map((_, i) => {
+        const imgSrc = imagens[i] || null;
 
-          return (
-            <div
-              id="preview-column-grid"
-              key={i}
-              className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
-            >
-              {/* Cabeçalho dinâmico */}
-              {cabecalhoAtivo && (
-                <div className="w-full flex flex-col gap-1 p-2">
-                  {cabecalhoTexto.map((linha, index) => (
-                    <div
-                      key={index}
-                      className="w-full"
-                      style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                      title={linha}
-                    >
-                      {linha}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {imgSrc ? (
-                <>
-                  <img
-                    src={imgSrc}
-                    alt={`Imagem ${i + 1}`}
-                    className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}
-                  />
-                  <button
-                    title="Remover imagem"
-                    onClick={() => removerImagem(i)}
-                    className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
+        return (
+          <div
+            key={i}
+            className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
+          >
+            {/* Cabeçalho dinâmico */}
+            {cabecalhoAtivo && (
+              <div className="w-full flex flex-col gap-1 p-2">
+                {cabecalhoTexto.map((linha, index) => (
+                  <div
+                    key={index}
+                    className="w-full truncate"
+                    title={linha}
                   >
-                    Remover
-                  </button>
-                </>
-              ) : (
+                    {linha}
+                  </div>
+                ))}
+              </div>
+            )}
 
-                <div className="flex flex-col items-center justify-center gap-2 px-2">
-                  <p className="text-base sm:text-xl">Envie imagem ou PDF :)</p>
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={(e) => handleFileChange(e, i)}
-                    className="pro-btn-blue file:mr-4 file:py-2 file:px-4 
-                      file:rounded-full file:border-0 file:text-sm 
-                      file:font-semibold file:bg-blue-50 
-                      file:text-blue-700 hover:file:bg-blue-100 
-                      cursor-pointer"
-                  />
-                </div>
-
-              )}
-
-            </div>
-
-          );
-        })}
-      </div>
-
-      {erroPdf && !carregando && (
-        <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
-      )}
+            {imgSrc ? (
+              <>
+                <img
+                  src={imgSrc}
+                  alt={`Imagem ${i + 1}`}
+                  className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}
+                />
+                <button
+                  title="Remover imagem"
+                  onClick={() => removerImagem(i)}
+                  className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
+                >
+                  Remover
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 px-2">
+                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-center">Envie imagem ou PDF :)</p>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => handleFileChange(e, i)}
+                  className="pro-btn-blue file:mr-2 file:py-2 file:px-2 
+                            file:rounded-md file:border-0 file:text-sm sm:text-base md:text-lg lg:text-xl 
+                            file:font-semibold file:bg-blue-50 
+                            file:text-blue-700 hover:file:bg-blue-100 
+                            cursor-pointer"
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
-  );
+
+  )
 }
