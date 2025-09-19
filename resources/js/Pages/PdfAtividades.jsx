@@ -812,8 +812,8 @@ export default function PdfEditor() {
 
         </div>
 
-        <h3 class='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
-        <div class="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
+        <h3 className='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
+        <div className="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
           <p>
             {resumoTamanho.imagemCompleta ? (
               <>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</>
