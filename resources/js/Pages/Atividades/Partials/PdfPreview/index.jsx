@@ -44,7 +44,7 @@ export default function PdfPreview({
 
           await page.render({ canvasContext: context, viewport }).promise;
 
-          const pdfPreviewImg = canvas.toDataURL("image/png");
+          const pdfPreviewImg = canvas.toDataURL("image/jpeg", 1.0);
 
           // chama adicionarPrimeiraImagem (se fornecida)
           if (typeof adicionarPrimeiraImagem === "function") {
@@ -92,7 +92,7 @@ export default function PdfPreview({
       alert("Formato não suportado. Envie imagem ou PDF.");
     }
   };
- 
+
   return (
     <div
       className={`relative mx-auto bg-white rounded-lg

@@ -321,6 +321,7 @@ export default function PdfEditor() {
   const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
   const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
 
+
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     setImagens((prev) => {
       const imagensExistentes = prev.filter(Boolean);
@@ -443,48 +444,6 @@ export default function PdfEditor() {
   }, [pdfUrl, paginaAtual, zoom]);
 
 
-  // const [tamanhoSlot, setTamanhoSlot] = useState({ largura: 0, altura: 0 });
-
-  // useEffect(() => {
-  //   const A4_WIDTH = 595.28;  // pontos
-  //   const A4_HEIGHT = 841.89; // pontos
-  //   const CM_TO_POINTS = 28.3465;
-
-  //   const pageWidth = orientacao === "retrato" ? A4_WIDTH : A4_HEIGHT;
-  //   const pageHeight = orientacao === "retrato" ? A4_HEIGHT : A4_WIDTH;
-
-  //   const margin = 0.5 * CM_TO_POINTS;
-  //   const gap = 6;
-
-  //   const cols = Math.max(ampliacao?.colunas || 1, 1);
-  //   const rows = Math.max(ampliacao?.linhas || 1, 1);
-
-  //   const usableW = pageWidth - margin * 2;
-  //   const usableH = pageHeight - margin * 2;
-
-  //   const cellW = (usableW - (cols - 1) * gap) / cols;
-  //   const cellH = (usableH - (rows - 1) * gap) / rows;
-
-  //   // bordas em pontos
-  //   const fixedBorderHeight = (5 * CM_TO_POINTS) / 10; // alturaBorda
-  //   const fixedBorderWidth = (5 * CM_TO_POINTS) / 10;  // larguraBorda
-  //   const totalBorderW = repeatBorder !== "none" ? fixedBorderWidth * 2 : 0;
-  //   const totalBorderH = repeatBorder !== "none" ? fixedBorderHeight * 2 : 0;
-
-  //   // cabeçalho estimado
-  //   let cabecalhoAltura = 0;
-  //   if (cabecalhoAtivo && cabecalhoTexto.length > 0) {
-  //     cabecalhoAltura = cabecalhoTexto.length * 16; // mesmo critério que no PDF
-  //   }
-
-  //   const availableW = Math.max(1, cellW - totalBorderW);
-  //   const availableH = Math.max(1, cellH - totalBorderH - cabecalhoAltura);
-
-  //   setTamanhoSlot({
-  //     largura: (availableW / CM_TO_POINTS).toFixed(1), // em cm
-  //     altura: (availableH / CM_TO_POINTS).toFixed(1),
-  //   });
-  // }, [ampliacao, orientacao, repeatBorder, cabecalhoAtivo, cabecalhoTexto]);
 
   const [resumoTamanho, setResumoTamanho] = useState({
     imagem: null,
@@ -493,6 +452,7 @@ export default function PdfEditor() {
     imagemCompleta: null,
   });
 
+  {/* Resuma da atividads */ }
   useEffect(() => {
     const A4_WIDTH = 595.28;
     const A4_HEIGHT = 841.89;
@@ -664,12 +624,15 @@ export default function PdfEditor() {
                 </div>
               </div>
 
-              {/* REpetir ou não as imagens */}
+              {/* Repetir ou não as imagens */}
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">Ativar Repetição:</label>
                 <select
                   value={repeatMode}
-                  onChange={(e) => setRepeatMode(e.target.value)}
+                  onChange={(e) => {
+                    setRepeatMode(e.target.value);
+                    setAlteracoesPendentes(true);
+                  }}
                   className="px-2 w-full rounded-full pro-input"
                 >
                   <option value="none">Não repetir</option>
@@ -682,7 +645,7 @@ export default function PdfEditor() {
                 <label className="block mb-1 pro-label text-center text-xl">Bordas:</label>
                 <select
                   value={repeatBorder}
-                  onChange={(e) => setBorder(e.target.value)}
+                  onChange={(e) => { setBorder(e.target.value); setAlteracoesPendentes(true); }}
                   className="px-2 w-full rounded-full pro-input"
                 >
                   <option value="none">Sem bordas</option>
@@ -800,26 +763,6 @@ export default function PdfEditor() {
               </div>
             </div>
 
-            <div className="mt-4 p-2 border rounded ">
-              <h3 className='text-center font-bold sm:text-xl'>Resumo</h3>
-               <div className="mt-2 p-2 border rounded bg-gray-50 text-xs sm:text-lg">
-              <p>📐 <b>Imagem:</b> {resumoTamanho.imagem?.largura} × {resumoTamanho.imagem?.altura} cm aproximadamente</p>
-
-              {resumoTamanho.imagemBorda && (
-                <p>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</p>
-              )}
-
-              {resumoTamanho.imagemCabecalho && (
-                <p>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</p>
-              )}
-
-              {resumoTamanho.imagemCompleta && (
-                <p>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</p>
-              )}
-              </div>
-            </div>
-
-
           </div>
 
           {/* Coluna do Preview */}
@@ -868,6 +811,25 @@ export default function PdfEditor() {
           </div>
 
         </div>
+
+        <h3 class='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
+        <div class="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
+          <p>
+            {resumoTamanho.imagemCompleta ? (
+              <>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</>
+            ) : resumoTamanho.imagemCabecalho ? (
+              <>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</>
+            ) : resumoTamanho.imagemBorda ? (
+              <>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</>
+            ) : resumoTamanho.imagem ? (
+              <>📐 <b>Imagem:</b> {resumoTamanho.imagem.largura} × {resumoTamanho.imagem.altura} cm aproximadamente</>
+            ) : (
+              <>Nenhuma imagem disponível</>
+            )}
+          </p>
+
+        </div>
+
       </div>
 
       <Footer ano={2025} />
