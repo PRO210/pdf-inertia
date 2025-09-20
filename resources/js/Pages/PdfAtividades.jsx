@@ -113,12 +113,13 @@ const gerarPDF = async (
       }
     }
 
-
     // Carregue a fonte em negrito apenas uma vez, fora do loop
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
     // --- loop de slots ---
     for (let i = 0; i < totalSlots; i++) {
+
+
       const slotIndexInPage = i % slotsPerPage;
       const col = slotIndexInPage % cols;
       const row = Math.floor(slotIndexInPage / cols);
@@ -128,7 +129,10 @@ const gerarPDF = async (
         page = pdfDoc.addPage([pageWidth, pageHeight]);
       }
 
-      const dataUrl = imagens[i];
+      const item = imagens[i];
+      if (!item) continue;
+
+      const dataUrl = typeof item === "string" ? item : item.src;
       if (!dataUrl) continue;
 
       // carregar imagem -> canvas -> embedded
@@ -323,40 +327,52 @@ export default function PdfEditor() {
 
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
-    setImagens((prev) => {
-      const imagensExistentes = prev.filter(Boolean);
-      const novaListaComImagem = [...imagensExistentes, novaImagem];
+    const makeItem = (img) =>
+      typeof img === "string" ? { src: img, uid: Date.now() + Math.random() } : img;
 
-      // Agora, usamos o parâmetro 'modoRepeticao'
+    setImagens((prev) => {
+      const prevArr = Array.isArray(prev) ? prev : [];
+      // normaliza entradas existentes (string -> objeto)
+      const normalized = prevArr.map((im) =>
+        !im ? null : (typeof im === "string" ? makeItem(im) : im)
+      );
+
+      const imagensExistentes = normalized.filter(Boolean);
+      const item = makeItem(novaImagem);
+
       if (modoRepeticao === "all") {
         const novoArrayRepetido = [];
+        // repete as imagens existentes + nova
+        const pool = imagensExistentes.length ? imagensExistentes.concat(item) : [item];
         for (let i = 0; i < totalSlots; i++) {
-          novoArrayRepetido.push(novaListaComImagem[i % novaListaComImagem.length]);
+          novoArrayRepetido.push(pool[i % pool.length] || null);
         }
         return novoArrayRepetido;
       } else {
-        const novoArraySemRepetir = [...novaListaComImagem];
-        while (novoArraySemRepetir.length < totalSlots) {
-          novoArraySemRepetir.push(null);
-        }
-        return novoArraySemRepetir;
+        // modo none: adiciona ao final (preserva índices anteriores)
+        const novoArray = imagensExistentes.concat(item);
+        while (novoArray.length < totalSlots) novoArray.push(null);
+        return novoArray;
       }
     });
+
     setAlteracoesPendentes(true);
   };
 
 
   useEffect(() => {
-    setImagens((prev = []) => {
-      // Se já tem o tamanho certo, não mexe (preserva posições)
-      if (prev.length === totalSlots) return prev;
+    setImagens((prev) => {
+      const prevArr = Array.isArray(prev) ? prev : [];
+      const normalized = prevArr.map((im) =>
+        !im ? null : (typeof im === "string" ? { src: im, uid: Date.now() + Math.random() } : im)
+      );
 
-      // Copia preservando índices (não compacta)
-      const novas = Array.from({ length: totalSlots }, (_, idx) => prev[idx] ?? null);
+      if (normalized.length === totalSlots) return normalized;
 
-      // Se o modo for "all" e existir ao menos 1 imagem, preenche repetindo as existentes
+      const novas = Array.from({ length: totalSlots }, (_, idx) => normalized[idx] ?? null);
+
       if (repeatMode === "all") {
-        const imagensExistentes = prev.filter(Boolean);
+        const imagensExistentes = normalized.filter(Boolean);
         if (imagensExistentes.length > 0) {
           for (let i = 0; i < totalSlots; i++) {
             novas[i] = imagensExistentes[i % imagensExistentes.length];
@@ -366,9 +382,7 @@ export default function PdfEditor() {
 
       return novas;
     });
-
   }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
-
 
   // remover imagem específica
   const removerImagem = (index) => {
@@ -763,6 +777,24 @@ export default function PdfEditor() {
               </div>
             </div>
 
+            <h3 className='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
+            <div className="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
+              <p>
+                {resumoTamanho.imagemCompleta ? (
+                  <>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</>
+                ) : resumoTamanho.imagemCabecalho ? (
+                  <>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</>
+                ) : resumoTamanho.imagemBorda ? (
+                  <>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</>
+                ) : resumoTamanho.imagem ? (
+                  <>📐 <b>Imagem:</b> {resumoTamanho.imagem.largura} × {resumoTamanho.imagem.altura} cm aproximadamente</>
+                ) : (
+                  <>Nenhuma imagem disponível</>
+                )}
+              </p>
+
+            </div>
+
           </div>
 
           {/* Coluna do Preview */}
@@ -811,25 +843,6 @@ export default function PdfEditor() {
           </div>
 
         </div>
-
-        <h3 className='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
-        <div className="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
-          <p>
-            {resumoTamanho.imagemCompleta ? (
-              <>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</>
-            ) : resumoTamanho.imagemCabecalho ? (
-              <>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</>
-            ) : resumoTamanho.imagemBorda ? (
-              <>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</>
-            ) : resumoTamanho.imagem ? (
-              <>📐 <b>Imagem:</b> {resumoTamanho.imagem.largura} × {resumoTamanho.imagem.altura} cm aproximadamente</>
-            ) : (
-              <>Nenhuma imagem disponível</>
-            )}
-          </p>
-
-        </div>
-
       </div>
 
       <Footer ano={2025} />

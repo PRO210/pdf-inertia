@@ -22,16 +22,112 @@ export default function PdfPreview({
 }) {
 
   // Função de upload de imagem/PDF (usa adicionarPrimeiraImagem e repeatMode)
+  // const handleFileChange = async (e, index) => {
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+
+  //   if (file.type === "application/pdf") {
+  //     const reader = new FileReader();
+  //     reader.onload = async () => {
+  //       const typedArray = new Uint8Array(reader.result);
+
+  //       try {
+  //         const loadingTask = pdfjsLib.getDocument({ data: typedArray });
+  //         const pdf = await loadingTask.promise;
+  //         const page = await pdf.getPage(1);
+  //         const viewport = page.getViewport({ scale: 1.0 });
+
+  //         const canvas = document.createElement("canvas");
+  //         canvas.width = viewport.width;
+  //         canvas.height = viewport.height;
+  //         const context = canvas.getContext("2d");
+
+  //         await page.render({ canvasContext: context, viewport }).promise;
+
+  //         const pdfPreviewImg = canvas.toDataURL("image/jpeg", 1.0);
+
+  //         // chama adicionarPrimeiraImagem (se fornecida)
+  //         if (typeof adicionarPrimeiraImagem === "function") {
+  //           adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
+  //         }
+
+  //         setImagens((prev = []) => {
+  //           const novas = [...prev];
+  //           if (novas.length < totalSlots) {
+  //             while (novas.length < totalSlots) novas.push(null);
+  //           }
+  //           novas[index] = pdfPreviewImg;
+  //           return novas;
+  //         });
+
+  //         setAlteracoesPendentes(true);
+  //       } catch (err) {
+  //         console.error("Erro ao carregar PDF:", err);
+  //       }
+  //     };
+  //     reader.readAsArrayBuffer(file);
+  //   } else if (file.type.startsWith("image/")) {
+  //     const reader = new FileReader();
+  //     reader.onloadend = () => {
+  //       const dataUrl = reader.result;
+
+  //       // // chama adicionarPrimeiraImagem (se fornecida)
+  //       // if (typeof adicionarPrimeiraImagem === "function") {
+  //       //   adicionarPrimeiraImagem(dataUrl, repeatMode);
+  //       // }
+
+  //       // setImagens((prev = []) => {
+  //       //   const novas = [...prev];
+  //       //   if (novas.length < totalSlots) {
+  //       //     while (novas.length < totalSlots) novas.push(null);
+  //       //   }
+  //       //   novas[index] = dataUrl;
+  //       //   return novas;
+  //       // });
+
+  //       // setAlteracoesPendentes(true);
+  //       // após gerar dataUrl (pdfPreviewImg ou dataUrl)
+  //       const item = { src: pdfPreviewImg /* ou dataUrl */, uid: Date.now() + Math.random() };
+
+  //       // se for modo "all" e ainda não há imagens preenchidas -> usar a função do pai que já sabe repetir
+  //       const temImagens = Array.isArray(imagens) && imagens.some(Boolean);
+
+  //       if (typeof adicionarPrimeiraImagem === "function" && repeatMode === "all" && !temImagens) {
+  //         adicionarPrimeiraImagem(item, repeatMode); // agora aceita item também (veja normalização acima)
+  //       } else {
+  //         // atualiza apenas o slot específico
+  //         setImagens((prev) => {
+  //           const prevArr = Array.isArray(prev) ? prev : [];
+  //           const novas = Array.from({ length: totalSlots }, (_, idx) => {
+  //             const p = prevArr[idx];
+  //             // normaliza strings antigos se existirem
+  //             return p ? (typeof p === "string" ? { src: p, uid: Date.now() + Math.random() } : p) : null;
+  //           });
+  //           novas[index] = item;
+  //           return novas;
+  //         });
+  //       }
+
+  //       setAlteracoesPendentes(true);
+
+  //     };
+  //     reader.readAsDataURL(file);
+  //   } else {
+  //     alert("Formato não suportado. Envie imagem ou PDF.");
+  //   }
+  // };
   const handleFileChange = async (e, index) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Helper para criar o objeto padrão
+    const makeItem = (src) => ({ src, uid: Date.now() + Math.random() });
+
     if (file.type === "application/pdf") {
       const reader = new FileReader();
       reader.onload = async () => {
-        const typedArray = new Uint8Array(reader.result);
-
         try {
+          const typedArray = new Uint8Array(reader.result);
           const loadingTask = pdfjsLib.getDocument({ data: typedArray });
           const pdf = await loadingTask.promise;
           const page = await pdf.getPage(1);
@@ -44,21 +140,27 @@ export default function PdfPreview({
 
           await page.render({ canvasContext: context, viewport }).promise;
 
+          // variável local apenas aqui
           const pdfPreviewImg = canvas.toDataURL("image/jpeg", 1.0);
+          const item = makeItem(pdfPreviewImg);
 
-          // chama adicionarPrimeiraImagem (se fornecida)
-          if (typeof adicionarPrimeiraImagem === "function") {
-            adicionarPrimeiraImagem(pdfPreviewImg, repeatMode);
+          const temImagens = Array.isArray(imagens) && imagens.some(Boolean);
+
+          // se modo all e ainda não há imagens, delega ao pai (compatível com sua função atual)
+          if (typeof adicionarPrimeiraImagem === "function" && repeatMode === "all" && !temImagens) {
+            adicionarPrimeiraImagem(item.src, repeatMode);
+          } else {
+            // atualiza apenas o slot
+            setImagens((prev) => {
+              const prevArr = Array.isArray(prev) ? prev : [];
+              const novas = Array.from({ length: totalSlots }, (_, idx) => {
+                const p = prevArr[idx];
+                return p ? (typeof p === "string" ? makeItem(p) : p) : null;
+              });
+              novas[index] = item;
+              return novas;
+            });
           }
-
-          setImagens((prev = []) => {
-            const novas = [...prev];
-            if (novas.length < totalSlots) {
-              while (novas.length < totalSlots) novas.push(null);
-            }
-            novas[index] = pdfPreviewImg;
-            return novas;
-          });
 
           setAlteracoesPendentes(true);
         } catch (err) {
@@ -66,28 +168,33 @@ export default function PdfPreview({
         }
       };
       reader.readAsArrayBuffer(file);
+
     } else if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result;
+        const item = makeItem(dataUrl);
 
-        // chama adicionarPrimeiraImagem (se fornecida)
-        if (typeof adicionarPrimeiraImagem === "function") {
-          adicionarPrimeiraImagem(dataUrl, repeatMode);
+        const temImagens = Array.isArray(imagens) && imagens.some(Boolean);
+
+        if (typeof adicionarPrimeiraImagem === "function" && repeatMode === "all" && !temImagens) {
+          adicionarPrimeiraImagem(item.src, repeatMode);
+        } else {
+          setImagens((prev) => {
+            const prevArr = Array.isArray(prev) ? prev : [];
+            const novas = Array.from({ length: totalSlots }, (_, idx) => {
+              const p = prevArr[idx];
+              return p ? (typeof p === "string" ? makeItem(p) : p) : null;
+            });
+            novas[index] = item;
+            return novas;
+          });
         }
-
-        setImagens((prev = []) => {
-          const novas = [...prev];
-          if (novas.length < totalSlots) {
-            while (novas.length < totalSlots) novas.push(null);
-          }
-          novas[index] = dataUrl;
-          return novas;
-        });
 
         setAlteracoesPendentes(true);
       };
       reader.readAsDataURL(file);
+
     } else {
       alert("Formato não suportado. Envie imagem ou PDF.");
     }
@@ -159,7 +266,10 @@ export default function PdfPreview({
 
       {/* Slots do grid */}
       {Array.from({ length: totalSlots }).map((_, i) => {
-        const imgSrc = imagens[i] || null;
+        // const imgSrc = imagens[i] || null;
+        const imgObj = imagens[i] || null;
+        const imgSrc = imgObj ? (typeof imgObj === "string" ? imgObj : imgObj.src) : null;
+        const imgKey = imgObj?.uid ?? imgSrc ?? i;
 
         return (
           <div
@@ -183,7 +293,13 @@ export default function PdfPreview({
 
             {imgSrc ? (
               <>
+                {/* <img
+                  src={imgSrc}
+                  alt={`Imagem ${i + 1}`}
+                  className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}
+                /> */}
                 <img
+                  key={imgKey}
                   src={imgSrc}
                   alt={`Imagem ${i + 1}`}
                   className={`w-full h-full rounded-md ${aspecto ? "object-contain" : "object-fill"}`}

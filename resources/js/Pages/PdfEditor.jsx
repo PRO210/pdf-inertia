@@ -30,6 +30,8 @@ export default function PdfEditor() {
 
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
+  const [resumoTamanho, setResumoTamanho] = useState("")
+
 
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
@@ -66,6 +68,66 @@ export default function PdfEditor() {
     }
   }
 
+  // Função para corrigir rotação usando Canvas
+  // const corrigirOrientacaoImagem = (base64) => {
+  //   return new Promise((resolve) => {
+  //     const img = new Image()
+  //     img.onload = () => {
+  //       const canvas = document.createElement("canvas")
+  //       const ctx = canvas.getContext("2d")
+
+  //       // se a foto for "de câmera" (mais alta que larga) gira para caber
+  //       if (img.height > img.width) {
+  //         canvas.width = img.height
+  //         canvas.height = img.width
+  //         ctx.translate(canvas.width / 2, canvas.height / 2)
+  //         ctx.rotate(-90 * Math.PI / 180)
+  //         ctx.drawImage(img, -img.width / 2, -img.height / 2)
+  //       } else {
+  //         canvas.width = img.width
+  //         canvas.height = img.height
+  //         ctx.drawImage(img, 0, 0)
+  //       }
+
+  //       resolve(canvas.toDataURL("image/jpeg", 0.95))
+  //     }
+  //     img.src = base64
+  //   })
+  // }
+  const corrigirOrientacaoImagem = (base64) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        // 🔹 calcular tamanho original em MB
+        const tamanhoOriginalMB = (base64.length * 3 / 4) / (1024 * 1024);
+        console.log("📏 Original:", img.width, "x", img.height, "-", tamanhoOriginalMB.toFixed(2), "MB");
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // 🔹 usa o tamanho já corrigido pelo navegador (preview)
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+
+        // 🔹 gera base64 final alinhado
+        const finalBase64 = canvas.toDataURL("image/jpeg", 1);
+
+        // Criar um novo objeto Image para medir o base64 convertido
+        const imgFinal = new Image();
+        imgFinal.onload = () => {
+          const tamanhoConvertidoMB = (finalBase64.length * 3 / 4) / (1024 * 1024);
+          console.log("📏 Convertida:", imgFinal.width, "x", imgFinal.height, "-", tamanhoConvertidoMB.toFixed(2), "MB");
+
+          resolve(finalBase64);
+        };
+        imgFinal.src = finalBase64;
+      };
+      img.src = base64;
+    });
+  };
+
 
 
   const handleFileChange = async (e) => {
@@ -77,9 +139,12 @@ export default function PdfEditor() {
     reader.onload = async (e) => {
       const base64 = e.target.result
 
+      // 🔹 corrige rotação antes de salvar no estado
+      const base64Corrigido = await corrigirOrientacaoImagem(base64)
+
       setCarregando(false)
 
-      setImagemBase64(base64)
+      setImagemBase64(base64Corrigido)
 
       setAlteracoesPendentes(true)
     }
@@ -247,6 +312,98 @@ export default function PdfEditor() {
     a.click()
   }
 
+  useEffect(() => {
+    if (!imagemBase64) {
+      setResumoTamanho("");
+      return;
+    }
+
+    const img = new Image();
+    img.src = imagemBase64;
+
+    img.onload = () => {
+      // medidas A4 em pontos
+      const A4_WIDTH = 595.28;
+      const A4_HEIGHT = 841.89;
+      const CM_TO_POINTS = 28.3465;
+
+      // orientação
+      const pageWidth = orientacao === "retrato" ? A4_WIDTH : A4_HEIGHT;
+      const pageHeight = orientacao === "retrato" ? A4_HEIGHT : A4_WIDTH;
+
+      // margem (1 cm usado no gerarPDF)
+      const margem = 1 * CM_TO_POINTS;
+
+      // grid
+      const cols = Math.max(ampliacao?.colunas || 1, 1);
+      const rows = Math.max(ampliacao?.linhas || 1, 1);
+
+      // pixels da imagem original
+      const originalPxW = img.width;
+      const originalPxH = img.height;
+
+      // pixels de uma parte (recorte)
+      const partPxW = originalPxW / cols;
+      const partPxH = originalPxH / rows;
+
+      // área disponível dentro da página (em pontos)
+      const availableW = pageWidth - margem * 2;
+      const availableH = pageHeight - margem * 2;
+
+      // escalas possíveis
+      const widthScale = availableW / partPxW;
+      const heightScale = availableH / partPxH;
+
+      // se aspecto = true → mantém proporção (fit)
+      // se aspecto = false → força altura cheia (fill by height)
+      const escala = aspecto
+        ? Math.min(widthScale, heightScale)
+        : heightScale;
+
+      // tamanho impresso de cada parte em pontos
+      const printedPartW_pts = partPxW * escala;
+      const printedPartH_pts = partPxH * escala;
+
+      // tamanho total do banner
+      const bannerW_pts = cols * printedPartW_pts;
+      const bannerH_pts = rows * printedPartH_pts;
+
+      const toCm = (pts) => (pts / CM_TO_POINTS).toFixed(1);
+
+      setResumoTamanho({
+        banner: {
+          largura: toCm(bannerW_pts),
+          altura: toCm(bannerH_pts),
+          partes: cols * rows,
+          parte: {
+            largura: toCm(printedPartW_pts),
+            altura: toCm(printedPartH_pts),
+          },
+          meta: {
+            originalPxW,
+            originalPxH,
+            cols,
+            rows,
+            widthScale: +widthScale.toFixed(3),
+            heightScale: +heightScale.toFixed(3),
+            escala: +escala.toFixed(3),
+            pageWidth,
+            pageHeight,
+            margem,
+          },
+        },
+      });
+    };
+
+    img.onerror = () => {
+      setResumoTamanho("");
+      console.error("Erro ao carregar imagemBase64 para cálculo do banner.");
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imagemBase64, ampliacao, orientacao, aspecto]);
+
+
   return (
     <AuthenticatedLayout>
       <Head title="Editor" />
@@ -368,6 +525,7 @@ export default function PdfEditor() {
                           setCarregando(true);
 
                           const partes = await enviarParaCorteBackend();
+
                           if (partes) {
                             await gerarPDF(partes);
                             setAlteracoesPendentes(false);
@@ -379,13 +537,33 @@ export default function PdfEditor() {
                       >
                         Aplicar alterações
                       </button>
+
                     )}
+
+                    <>
+                      <h3 className="p-2 text-center font-bold sm:text-xl">
+                        Resumo das atividades:
+                      </h3>
+                      <div className="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
+                        <p>
+                          {resumoTamanho?.banner ? (
+                            <>
+                              🖼️ <b>Banner:</b> {resumoTamanho.banner.largura} × {resumoTamanho.banner.altura} cm aproximadamente
+                              {' '}({resumoTamanho.banner.partes} partes — cada parte ≈ {resumoTamanho.banner.parte.largura} × {resumoTamanho.banner.parte.altura} cm)
+                            </>
+                          ) : (
+                            <>Nenhum banner calculado</>
+                          )}
+                        </p>
+                      </div>
+                    </>
 
                     {pdfUrl && !alteracoesPendentes && (
                       <button onClick={downloadPDF} className="pro-btn-green mt-2" disabled={!pdfUrl}>
                         Baixar PDF
                       </button>
                     )}
+
 
 
                     {pdfUrl && (
