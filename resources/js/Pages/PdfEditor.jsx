@@ -100,7 +100,7 @@ export default function PdfEditor() {
       img.onload = () => {
         // 🔹 calcular tamanho original em MB
         const tamanhoOriginalMB = (base64.length * 3 / 4) / (1024 * 1024);
-        console.log("📏 Original:", img.width, "x", img.height, "-", tamanhoOriginalMB.toFixed(2), "MB");
+        // console.log("📏 Original:", img.width, "x", img.height, "-", tamanhoOriginalMB.toFixed(2), "MB");
 
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -118,7 +118,7 @@ export default function PdfEditor() {
         const imgFinal = new Image();
         imgFinal.onload = () => {
           const tamanhoConvertidoMB = (finalBase64.length * 3 / 4) / (1024 * 1024);
-          console.log("📏 Convertida:", imgFinal.width, "x", imgFinal.height, "-", tamanhoConvertidoMB.toFixed(2), "MB");
+          // console.log("📏 Convertida:", imgFinal.width, "x", imgFinal.height, "-", tamanhoConvertidoMB.toFixed(2), "MB");
 
           resolve(finalBase64);
         };

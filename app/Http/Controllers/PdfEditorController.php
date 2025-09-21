@@ -232,6 +232,14 @@ class PdfEditorController extends Controller
 
                 $partes[] = 'data:image/jpeg;base64,' . base64_encode($canvas->getImageBlob());
 
+                // Obtém as dimensões em pixels do recorte após o redimensionamento
+                $larguraConteudoPx = $recorte->getImageWidth();
+                $alturaConteudoPx = $recorte->getImageHeight();
+
+                // Converte essas dimensões para centímetros
+                $larguraConteudoCm = round($larguraConteudoPx / $dpi * 2.54, 2);
+                $alturaConteudoCm = round($alturaConteudoPx / $dpi * 2.54, 2);
+
                 $recorte->clear();
                 $canvas->clear();
             }
@@ -239,13 +247,21 @@ class PdfEditorController extends Controller
 
         $imagick->clear();
 
+
         return response()->json([
             'partes' => $partes,
             'dpi' => $dpi,
-            'tile_px' => ['largura' => $larguraAlvo, 'altura' => $alturaAlvo],
+            'tile_px' => [
+                'largura' => $larguraAlvo,
+                'altura' => $alturaAlvo
+            ],
+            // Adicione esta nova chave ao JSON
+            'conteudo_cm' => [
+                'largura' => $larguraConteudoCm - 2,
+                'altura' => $alturaConteudoCm - 2
+            ]
         ]);
     }
-
 
 
 
