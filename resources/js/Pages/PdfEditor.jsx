@@ -403,6 +403,12 @@ export default function PdfEditor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imagemBase64, ampliacao, orientacao, aspecto]);
 
+  const removerImagem = () => {
+    setImagemBase64(null);
+    setAlteracoesPendentes(false); // opcional, se quiser resetar alterações pendentes
+    setResumoTamanho("");          // opcional, se quiser limpar o resumo
+  };
+
 
   return (
     <AuthenticatedLayout>
@@ -564,8 +570,6 @@ export default function PdfEditor() {
                       </button>
                     )}
 
-
-
                     {pdfUrl && (
                       <div className="flex justify-center gap-2 mt-2">
                         <button
@@ -584,7 +588,6 @@ export default function PdfEditor() {
                           +
                         </button>
                       </div>
-
                     )}
                   </>
                 )}
@@ -635,14 +638,32 @@ export default function PdfEditor() {
                   )}
                 </div>
 
-
+                {/* Preview da Imagem ou PDF */}
                 <div
                   className={`mx-auto w-full max-w-[842px] flex items-center justify-center relative
-                        ${!pdfUrl ? "border bg-white rounded-lg" : ""} 
-                        ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
-                      `}
+    ${!pdfUrl ? "border bg-white rounded-lg" : ""} 
+    ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
+  `}
                 >
-                  {/* Conteúdo (sempre renderiza; PDF tem prioridade se existir) */}
+                  {/* Botão único para remover PDF ou imagem */}
+                  {(pdfUrl || imagemBase64) && (
+                    <button
+                      title="Remover PDF / Imagem"
+                      onClick={() => {
+                        setPdfUrl(null);           // Remove PDF
+                        setImagemBase64(null);      // Remove imagem
+                        setAlteracoesPendentes(false);
+                        setPaginaAtual(1);
+                        setResumoTamanho("");       // Limpa resumo
+                      }}
+                      className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 
+                 hover:bg-opacity-100 rounded-full p-1 shadow text-xs sm:text-sm"
+                    >
+                      Remover
+                    </button>
+                  )}
+
+                  {/* Conteúdo do PDF ou imagem */}
                   {pdfUrl ? (
                     <div
                       key={pdfUrl}
@@ -656,16 +677,8 @@ export default function PdfEditor() {
                       className="rounded-md mx-auto"
                       style={{
                         ...(orientacao === "retrato"
-                          ? {
-                            width: "100%",
-                            maxWidth: "595px",
-                            aspectRatio: "595 / 842",
-                          }
-                          : {
-                            width: "100%",
-                            maxWidth: "842px",
-                            aspectRatio: "842 / 595",
-                          }),
+                          ? { width: "100%", maxWidth: "595px", aspectRatio: "595 / 842" }
+                          : { width: "100%", maxWidth: "842px", aspectRatio: "842 / 595" }),
                         objectFit: aspecto ? "contain" : "fill",
                         display: "block",
                       }}
@@ -681,22 +694,24 @@ export default function PdfEditor() {
                           accept="image/png, image/jpeg"
                           onChange={handleFileChange}
                           className="
-                            pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
-                            file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
-                            hover:file:bg-blue-100 cursor-pointer
-                          "
+            pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+            file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
+            hover:file:bg-blue-100 cursor-pointer
+          "
                         />
                       </div>
                     </div>
                   )}
 
-                  {/* Overlay de carregamento — aparece por cima sem esconder o conteúdo */}
+                  {/* Overlay de carregamento */}
                   {carregando && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/60">
                       <FullScreenSpinner />
                     </div>
                   )}
                 </div>
+
+
 
                 {erroPdf && (
                   <div className="text-red-600 mt-2 text-center">{erroPdf}</div>
