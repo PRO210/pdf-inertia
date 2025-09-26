@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PdfEditorController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
@@ -42,6 +43,26 @@ Route::post('/reset-password', [NewPasswordController::class, 'store'])->middlew
 
 Route::post('/cortar-imagem', [PdfEditorController::class, 'cortarImagem']);
 Route::post('/colar-imagem', [PdfEditorController::class, 'colarImagem']);
+
+
+
+
+
+Route::get('/pagamentos', [App\Http\Controllers\CheckoutController::class, 'index'])->name('pdf.pagamentos');
+
+
+Route::post('/create_preference', [App\Http\Controllers\CheckoutController::class, 'create'])->name('mp.create_preference');
+
+// routes/web.php
+Route::get('/pagamento/success', fn() => 'Pagamento aprovado')->name('pagamento.success');
+Route::get('/pagamento/failure', fn() => 'Pagamento falhou')->name('pagamento.failure');
+Route::get('/pagamento/pending', fn() => 'Pagamento pendente')->name('pagamento.pending');
+
+// routes/web.php
+
+
+
+
 
 
 require __DIR__ . '/auth.php';

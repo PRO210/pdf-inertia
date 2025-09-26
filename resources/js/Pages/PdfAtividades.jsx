@@ -60,7 +60,7 @@ const gerarPDF = async (
 
     const CM_TO_POINTS = 28.3465;
     const margin = 0.5 * CM_TO_POINTS;
-    const gap = 6;
+    const gap = 3;
 
     const cols = Math.max(ampliacao?.colunas || 1, 1);
     const rows = Math.max(ampliacao?.linhas || 1, 1);
@@ -148,7 +148,7 @@ const gerarPDF = async (
       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
       // converte o canvas para JPEG em qualidade máxima (100%)
-      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 1.0);
+      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
 
       // extrai a parte base64
       const base64 = rotatedDataUrl.split(",")[1];

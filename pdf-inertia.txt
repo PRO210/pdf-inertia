@@ -15,3 +15,7 @@ import logo from '../assets/imagens/logo.png';
 
 
 
+https://github.com/mercadopago/sdk-php
+User Id:2712076480
+Usuário:TESTUSER5244389360642215800
+Senha: Rh6URb0DW0

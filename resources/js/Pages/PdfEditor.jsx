@@ -112,7 +112,7 @@ export default function PdfEditor() {
         ctx.drawImage(img, 0, 0);
 
         // 🔹 gera base64 final alinhado
-        const finalBase64 = canvas.toDataURL("image/jpeg", 1);
+        const finalBase64 = canvas.toDataURL("image/jpeg", 0.9);
 
         // Criar um novo objeto Image para medir o base64 convertido
         const imgFinal = new Image();

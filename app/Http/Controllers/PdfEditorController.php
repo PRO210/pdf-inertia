@@ -383,7 +383,7 @@ class PdfEditorController extends Controller
                 $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
                 $canvas->setImageFormat('jpeg');
                 $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                $canvas->setImageCompressionQuality(100);
+                $canvas->setImageCompressionQuality(90);
                 $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
                 $canvas->setImageResolution($dpi, $dpi);
 
@@ -421,11 +421,6 @@ class PdfEditorController extends Controller
             'tamanhos_debug' => $tamanhosDebug // 🔹 array de debug
         ]);
     }
-
-
-
-
-
 
 
     public function atividades()
