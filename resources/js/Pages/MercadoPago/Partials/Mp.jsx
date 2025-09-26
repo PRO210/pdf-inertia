@@ -19,7 +19,6 @@ export default function Mp() {
     amount: 3,
   });
 
-  // console.log(`Chave Publica no Mp: ${import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN}`);
 
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -91,8 +90,6 @@ export default function Mp() {
       {preferenceId && (
         <Payment preferenceId={preferenceId} orderData={orderData} />
       )}
-
-
 
     </div>
   );

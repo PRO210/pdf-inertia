@@ -2,9 +2,6 @@ import { useState } from "react";
 import { Wallet, initMercadoPago } from "@mercadopago/sdk-react";
 
 
-
-console.log(`Chave Publica no Payment: ${import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN}`);
-
 initMercadoPago(import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN, { locale: 'pt-BR' });
 
 export default function Payment({ preferenceId, orderData }) {

@@ -10,7 +10,7 @@ class Payment extends Model
   use HasFactory;
 
 
-  protected $fillable = ['payment_id', 'value',  'status', 'date_created', 'date_of_expiration'];
+  protected $fillable = ['id', 'preference_id','user_id', 'description', 'quantity', 'unit_price', 'status', 'date_created', 'date_of_expiration'];
 
-  protected $casts = ['date_created' => 'datetime','date_of_expiration' => 'datetime' ];
+  protected $casts = ['date_created' => 'datetime', 'date_of_expiration' => 'datetime'];
 }

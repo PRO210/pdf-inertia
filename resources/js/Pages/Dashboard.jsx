@@ -1,8 +1,14 @@
 import Footer from '@/Components/Footer';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
+
+
+
 
 export default function Dashboard() {
+
+    const { auth } = usePage().props;
+
     return (
         <AuthenticatedLayout
             header={
@@ -56,22 +62,26 @@ export default function Dashboard() {
 
 
                             {/* Terceiro bloco */}
-                            <Link
-                                href={route('pdf.pagamentos')}
-                                className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 
+
+                            {auth.user.id === 1 && (
+                                <Link
+                                    href={route('pdf.pagamentos')}
+                                    className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 
           focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 
           dark:focus-visible:ring-white flex justify-center"
-                            >
-                                <div className="overflow-hidden rounded-xl shadow-md">
-                                    <img
-                                        className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                >
+                                    <div className="overflow-hidden rounded-xl shadow-md">
+                                        <img
+                                            className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
               transform transition-transform duration-300 hover:scale-105"
-                                        src="/imagens/Logos Mercado Pago 2025--fb6f16c9/Logos Mercado Pago 2025/Uso digital - RGB/PNGs/MP_RGB_HANDSHAKE_color_horizontal.png"
-                                        alt="pagamentos"
-                                    />
-                                </div>
-                            </Link>
+                                            src="/imagens/Logos Mercado Pago 2025--fb6f16c9/Logos Mercado Pago 2025/Uso digital - RGB/PNGs/MP_RGB_HANDSHAKE_color_horizontal.png"
+                                            alt="pagamentos"
+                                        />
+                                    </div>
+                                </Link>
+                            )}
 
+                         
                         </div>
                     </div>
                 </div>

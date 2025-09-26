@@ -141,7 +141,7 @@ export default function PdfPreview({
           await page.render({ canvasContext: context, viewport }).promise;
 
           // variável local apenas aqui
-          const pdfPreviewImg = canvas.toDataURL("image/jpeg", 1.0);
+          const pdfPreviewImg = canvas.toDataURL("image/jpeg", 0.9);
           const item = makeItem(pdfPreviewImg);
 
           const temImagens = Array.isArray(imagens) && imagens.some(Boolean);

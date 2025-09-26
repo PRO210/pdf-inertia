@@ -6,6 +6,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\PdfEditorController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken as MiddlewareVerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -59,6 +60,14 @@ Route::get('/pagamento/failure', fn() => 'Pagamento falhou')->name('pagamento.fa
 Route::get('/pagamento/pending', fn() => 'Pagamento pendente')->name('pagamento.pending');
 
 // routes/web.php
+
+// Route::get('/api/teste', function () {
+//     return response()->json(['message' => 'ok']);
+// });
+
+Route::post('/webhooks/mercadopago', [CheckoutController::class, 'webhook'])
+    ->withoutMiddleware([MiddlewareVerifyCsrfToken::class])
+    ->name('mp.webhook');
 
 
 
