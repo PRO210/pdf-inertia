@@ -1,6 +1,5 @@
 <?php
 
-
 namespace App\Http\Controllers;
 
 use App\Models\Payment;
@@ -8,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\Preference\PreferenceClient;
@@ -27,62 +27,16 @@ class CheckoutController extends Controller
 
     public function index(Request $request)
     {
-
-        MercadoPagoConfig::setAccessToken(env('VITE_APP_MP_TEST_TOKEN'));
-
-        $client = new PreferenceClient();
-
-        $items = [
-            [
-                "title" => "Assinatura Mensal",
-                "quantity" => 1,
-                "currency_id" => "BRL",
-                "unit_price" => (float) 50.00
-            ]
-        ];
-
-        try {
-            $preference = $client->create([
-                "items" => $items,
-                "back_urls" => [
-                    // "success" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.success'),
-                    // "failure" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.failure'),
-                    // "pending" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.pending'),
-                    "success" => route('pagamento.success'),
-                    "failure" => route('pagamento.failure'),
-                    "pending" => route('pagamento.pending'),
-                ],
-                "auto_return" => "approved",
-            ]);
-
-            $orderData = [
-                'price' => $items[0]['unit_price'],
-                'quantity' => $items[0]['quantity'],
-                'amount' => $items[0]['unit_price'] * $items[0]['quantity'],
-            ];
-
-            return Inertia::render('MercadoPago/Index', [
-                'preferenceId' => $preference->id,
-                'orderData' => $orderData,
-                'preferenceId' => $preference->id,
-                'orderData' => $orderData
-            ]);
-        } catch (MPApiException $e) {
-            // Aqui você vai ver a resposta detalhada da API
-            return response()->json([
-                'error' => $e->getMessage(),
-                'status' => $e->getApiResponse()->getStatusCode(),
-                'response' => $e->getApiResponse()->getContent(),
-
-            ], 400);
-        }
+        return Inertia::render('MercadoPago/Index');
     }
+
 
     /**
      * Cria uma Preferência no Mercado Pago e salva os itens na tabela 'payments'.
      */
     public function create(Request $request)
     {
+       
         // 1. VERIFICAÇÃO DE AUTENTICAÇÃO
         $userId = Auth::id();
 
@@ -93,65 +47,82 @@ class CheckoutController extends Controller
             ], 401); // 401 Unauthorized
         }
 
-
         // 2. Configuração do Mercado Pago
-        MercadoPagoConfig::setAccessToken(env('VITE_APP_MP_TEST_TOKEN'));
+        $accessToken = env('APP_ENV') === 'production'
+            ? env('MP_PROD_ACCESS_TOKEN')
+            : env('VITE_APP_MP_TEST_TOKEN');
 
-        // 3. Validação dos dados
-        $validated = $request->validate([
-            'items' => 'required|array|min:1',
-            'items.*.title' => 'required|string|max:255',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.unit_price' => 'required|numeric|min:0.01',
-            'items.*.currency_id' => 'required|string',
+        MercadoPagoConfig::setAccessToken($accessToken);
 
-            'payer.name' => 'required|string',
+        // 3. Validação dos dados (agora só 1 item)
+        $item = $request->input('items.0'); // Pega o primeiro item do array
+
+        $validated = validator([
+            'item' => $item,
+            'payer' => $request->input('payer'),
+        ], [
+            'item.title' => 'required|string|max:255',
+            'item.quantity' => 'required|integer|min:1',
+            'item.unit_price' => 'required|numeric|min:0.01',
+            'item.currency_id' => 'required|string|size:3',
+            'payer.name' => 'required|string|max:255',
             'payer.email' => 'required|email',
-        ]);
+        ])->validate();
 
 
         $client = new PreferenceClient();
 
         try {
-            // 4. Criação da Preferência no Mercado Pago
+            // 4. Salvando o Item na Tabela 'payments'
+            $payment = Payment::create([
+                'preference_id'      => null,
+                'user_id'            => $userId,
+                'description'        => $validated['item']['title'],
+                'quantity'           => $validated['item']['quantity'],
+                'unit_price'         => $validated['item']['unit_price'],
+                'status'             => 'pending',
+                'date_created'       => now(),
+            ]);
+
+            // 5. Criar a preferência no Mercado Pago
             $preference = $client->create([
-                "items" => $validated['items'],
+                "items" => [
+                    [
+                        "title" => $validated['item']['title'],
+                        "quantity" => $validated['item']['quantity'],
+                        "unit_price" => $validated['item']['unit_price'],
+                        "currency_id" => $validated['item']['currency_id'],
+                    ]
+                ],
                 "payer" => $validated['payer'],
+                "external_reference" => (string) $payment->id,
+                // "notification_url" => url('https://9816f296679f.ngrok-free.app/webhooks/mercadopago'),
+                "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
                 "back_urls" => [
-                   // "success" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.success'),
-                    // "failure" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.failure'),
-                    // "pending" => url('https://bedb5f37c31a.ngrok-free.app/pagamento.pending'),
-                    "success" => route('pagamento.success'),
-                    "failure" => route('pagamento.failure'),
-                    "pending" => route('pagamento.pending'),
+                    "success" => route('pagamento.retorno'),
+                    "failure" => route('pagamento.retorno'),
+                    "pending" => route('pagamento.retorno'),
+                    // "success" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
+                    // "failure" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
+                    // "pending" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
                 ],
                 "auto_return" => "approved",
             ]);
 
-            // 5. Salvando os Itens na Tabela 'payments'
-            foreach ($validated['items'] as $item) {
+            // 6. Atualizar registro local com preference_id
+            $payment->update([
+                'preference_id' => $preference->id,
+            ]);
 
-                Payment::create([
-                    'preference_id'      => $preference->id,
-                    'user_id'            => $userId, // Usamos o ID verificado
-                    'description'        => $item['title'],
-                    'quantity'           => $item['quantity'],
-                    'unit_price'         => $item['unit_price'],
-                    'status'             => 'pending',
-                    'date_created'       => now(),
-                ]);
-            }
-
-            // 6. Retorno de Sucesso
+            // 7. Retorno de Sucesso
             return response()->json([
                 'success' => true,
-                'message' => 'Preferência criada e itens salvos com sucesso.',
+                'message' => 'Preferência criada e item salvo com sucesso.',
                 'preferenceId' => $preference->id,
                 'preferenceUrl' => $preference->init_point,
-                'request' => $request->all()
+                'accessToken' => $accessToken,
             ]);
         } catch (MPApiException $e) {
-            // 7. Tratamento de Erro do Mercado Pago
             return response()->json([
                 'error' => 'Erro ao criar preferência no Mercado Pago.',
                 'details' => $e->getMessage(),
@@ -160,66 +131,97 @@ class CheckoutController extends Controller
         }
     }
 
-      
-       /**
+    /**
      * Processa as notificações de webhook do Mercado Pago.
      */
+
     public function webhook(Request $request)
     {
-        // 1. Configuração e Logging Inicial
-        MercadoPagoConfig::setAccessToken(env('VITE_APP_MP_TEST_TOKEN'));
-        
-        // Log para depuração de todo o payload recebido do MP
+        // 1. Configuração do Token de Acesso (Teste ou Produção)
+        $accessToken = env('APP_ENV') === 'production'
+            ? env('MP_PROD_ACCESS_TOKEN')
+            : env('VITE_APP_MP_TEST_TOKEN');
+
+
+        MercadoPagoConfig::setAccessToken($accessToken);
+
+        // Log para depuração do payload recebido
         Log::info('Webhook Recebido:', ['payload_completo' => $request->all()]);
 
-        // 2. Extração do ID do Pagamento
-        $topic = $request->input('type'); 
-        $resourceId = $request->input('data.id'); // Este é o ID do pagamento
+        // 2. Extração do Tópico e ID do Pagamento
+        $topic = $request->input('topic') ?? $request->input('type');
+        $resourceId = $request->input('id') ?? $request->input('data.id');
 
         if ($topic !== 'payment' || !$resourceId) {
-            Log::warning('Webhook ignorado (Tópico ou ID ausente):', ['topic' => $topic, 'id' => $resourceId]);
+            Log::warning('Webhook ignorado (Tópico ou ID ausente):', [
+                'topic' => $topic,
+                'id' => $resourceId
+            ]);
             return response()->json(['status' => 'ok']);
         }
 
+        sleep(5);
+
         try {
-            // 3. Busca os detalhes do pagamento na API do Mercado Pago
+            // 3. Busca os detalhes completos do pagamento na API do Mercado Pago
             $client = new PaymentClient();
             $mpPayment = $client->get($resourceId);
 
-            // 4. EXTRAÇÃO E VERIFICAÇÃO DO PREFERENCE_ID
-            // Tenta obter o ID da preferência. O nome da propriedade é geralmente 'preference_id'.
-            // Se você usou 'external_reference' no seu create, use essa chave aqui.
-            $preferenceId = $mpPayment->preference_id; 
-            
-            // Log para conferir o ID que será usado na consulta
-            Log::info('ID de Preferência do MP:', ['preference_id_mp' => $preferenceId]);
+            // 4. Pegando o external_reference (id do seu registro local)
+            $externalReference = $mpPayment->external_reference ?? null;
 
-            // 5. Mapeia e Atualiza o Status
-            $newStatus = $this->mapMercadoPagoStatus($mpPayment->status);
-
-            // Busca e atualiza todos os itens de pagamento com base no preference_id
-            $updatedCount = Payment::where('preference_id', $preferenceId)
-                                   ->update(['status' => $newStatus]);
-
-            if ($updatedCount > 0) {
-                Log::info('Pagamento atualizado com sucesso.', [
+            if (!$externalReference) {
+                Log::error('External_reference ausente no pagamento', [
                     'payment_id_mp' => $resourceId,
-                    'status_mp' => $mpPayment->status,
-                    'status_db' => $newStatus,
-                    'registros_afetados' => $updatedCount
+                    'payment_object' => $mpPayment
                 ]);
-            } else {
-                Log::error('Pagamento não encontrado no DB para o preference_id:', [
-                    'preference_id' => $preferenceId, 
+                return response()->json(['error' => 'external_reference ausente'], 400);
+            }
+
+            // 5. Atualiza o status no DB usando o ID interno com retries
+            $paymentId = (int) $externalReference;
+            $newStatus = $this->mapMercadoPagoStatus($mpPayment->status);
+            $maxRetries = 3;
+            $attempt = 0;
+            $updated = false;
+
+            while ($attempt < $maxRetries && !$updated) {
+                $payment = Payment::find($paymentId);
+
+                if ($payment) {
+                    $payment->update([
+                        'status' => $newStatus,
+                        'payment_id' => $resourceId,
+                        'date_approved' => $mpPayment->date_approved ?? null,
+                    ]);
+
+                    $updated = true;
+                    Log::info('Pagamento atualizado com sucesso.', [
+                        'payment_id_local' => $paymentId,
+                        'payment_id_mp' => $resourceId,
+                        'status_mp' => $mpPayment->status,
+                        'status_db' => $newStatus,
+                        'attempt' => $attempt + 1
+                    ]);
+                } else {
+                    $attempt++;
+                    Log::warning("Pagamento não encontrado no DB, retry #$attempt em 10s", [
+                        'external_reference' => $externalReference,
+                        'payment_id_mp' => $resourceId
+                    ]);
+                    sleep(10); // espera 1 minuto antes de tentar novamente
+                }
+            }
+
+            if (!$updated) {
+                Log::error('Falha ao atualizar pagamento após várias tentativas.', [
+                    'external_reference' => $externalReference,
                     'payment_id_mp' => $resourceId
                 ]);
             }
 
-            // 6. Retorno de Sucesso
-            return response()->json(['status' => 'ok']);
-            
+            return response()->json(['status' => 'received']);
         } catch (MPApiException $e) {
-            // 7. Tratamento de Erro da API
             Log::error('Erro na API do Mercado Pago (MPApiException):', [
                 'payment_id' => $resourceId,
                 'status' => $e->getApiResponse()?->getStatusCode(),
@@ -227,12 +229,10 @@ class CheckoutController extends Controller
             ]);
             return response()->json(['error' => 'Erro ao processar notificação'], 500);
         } catch (\Exception $e) {
-            // 8. Tratamento de Erros Gerais (ex: DB, conexão)
             Log::error('Erro interno desconhecido no webhook:', ['erro' => $e->getMessage()]);
             return response()->json(['error' => 'Erro interno do servidor'], 500);
         }
     }
-    
     /**
      * Mapeia os status do Mercado Pago para os status internos.
      */

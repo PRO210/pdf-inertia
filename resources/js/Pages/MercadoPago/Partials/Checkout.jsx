@@ -20,7 +20,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
     <section className={shoppingCartClass}>
       <div className="" id="container">
         <div className="block-heading">
-          <h2>Seu carrinho</h2>
+          <h2 className="sm:text-2xl">Seu carrinho</h2>
           <p></p>
         </div>
 
@@ -47,7 +47,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                             <br />
                             <b>Author: </b>Pró
                             <br />
-                            <b>Preço:</b> R$ <span id="unit-price">3,00</span>
+                            <b>Doação:</b> R$ <span id="unit-price">3,00</span>
                             <br />
                           </div>
                         </div>
@@ -79,7 +79,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                   <span className="price" id="cart-total">R$ {orderData.amount},00</span>
                 </div>
                 <button
-                  className="ml-1 pro-button-Primary text-lg"
+                  className="pro-btn-blue"
                   onClick={onClick}
                   id="checkout-btn"
                   disabled={disabled}

@@ -4,7 +4,6 @@ import { Head, Link, usePage } from '@inertiajs/react';
 
 
 
-
 export default function Dashboard() {
 
     const { auth } = usePage().props;
@@ -18,6 +17,8 @@ export default function Dashboard() {
             }
         >
             <Head title="Dashboard" />
+
+            
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">

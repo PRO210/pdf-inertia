@@ -34,121 +34,7 @@ class PdfEditorController extends Controller
         return response()->json(['error' => 'Nenhum arquivo enviado.'], 400);
     }
 
-    /* Em produção e muita rápida mas pixeliza em cartaz maior que 6 */
-    // public function cortarImagem(Request $request)
-    // {
-    //     $base64 = $request->input('imagem');
-    //     $colunas = (int) $request->input('colunas', 2);
-    //     $linhas = (int) $request->input('linhas', 2);
-    //     $orientacao = $request->input('orientacao', 'retrato');
-    //     $aspecto = filter_var($request->input('aspecto', true), FILTER_VALIDATE_BOOLEAN);
-
-    //     // Decodifica a imagem base64
-    //     $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64));
-
-    //     try {
-    //         $imagick = new \Imagick();
-    //         $imagick->readImageBlob($imageData);
-    //     } catch (\ImagickException $e) {
-    //         return response()->json(['error' => 'Imagem inválida.'], 422);
-    //     }
-
-    //     // Dimensões da folha A4 em polegadas
-    //     $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
-    //     $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
-
-    //     // Pixels da imagem original
-    //     $imgWidthPx = $imagick->getImageWidth();
-    //     $imgHeightPx = $imagick->getImageHeight();
-
-    //     // Calcula DPI mínimo baseado na imagem original e tamanho do pôster
-    //     $dpiLargura = intval($imgWidthPx / ($larguraFolhaIn * $colunas));
-    //     $dpiAltura  = intval($imgHeightPx / ($alturaFolhaIn * $linhas));
-    //     $dpi = max($dpiLargura, $dpiAltura, 150); // garante pelo menos 150 DPI
-
-    //     // Converte tamanho do pôster para pixels com base no DPI calculado
-    //     $larguraFolhaPx = intval($larguraFolhaIn * $dpi);
-    //     $alturaFolhaPx  = intval($alturaFolhaIn * $dpi);
-
-    //     // Tamanho de cada tile
-    //     $larguraAlvo = intval($larguraFolhaPx / $colunas);
-    //     $alturaAlvo  = intval($alturaFolhaPx / $linhas);
-
-    //     // Redimensiona a imagem inteira para múltiplos exatos da grade
-    //     $larguraIdeal = $colunas * $larguraAlvo;
-    //     $alturaIdeal  = $linhas  * $alturaAlvo;
-    //     $imagick->resizeImage($larguraIdeal, $alturaIdeal, \Imagick::FILTER_LANCZOS, 1, false);
-
-    //     $imagick->sharpenImage(0.5, 0.3);
-
-    //     $larguraParte = intval($imagick->getImageWidth() / $colunas);
-    //     $alturaParte  = intval($imagick->getImageHeight() / $linhas);
-
-    //     $partes = [];
-
-    //     // for ($y = 0; $y < $linhas; $y++) {
-    //     //     for ($x = 0; $x < $colunas; $x++) {
-    //     //         $recorte = clone $imagick;
-    //     //         $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
-
-    //     //         $canvas = new \Imagick();
-    //     //         $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
-    //     //         $canvas->setImageFormat("png");
-
-    //     //         if ($aspecto) {
-    //     //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
-    //     //             $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
-    //     //             $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
-    //     //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-    //     //         } else {
-    //     //             $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
-    //     //             $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
-    //     //         }
-
-    //     //         $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
-
-    //     //         $recorte->clear();
-    //     //         $canvas->clear();
-    //     //     }
-    //     // }
-    //     for ($y = 0; $y < $linhas; $y++) {
-    //         for ($x = 0; $x < $colunas; $x++) {
-    //             $recorte = clone $imagick;
-    //             $recorte->cropImage($larguraParte, $alturaParte, $x * $larguraParte, $y * $alturaParte);
-
-    //             // 🔹 Aplica uma borda mínima branca e leve desfoque nas bordas
-    //             $recorte->borderImage(new \ImagickPixel('white'), 1, 1);
-    //             $recorte->gaussianBlurImage(0.3, 0.3); // suaviza bordas sem perder nitidez
-
-    //             $canvas = new \Imagick();
-    //             $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
-    //             $canvas->setImageFormat("png");
-
-    //             if ($aspecto) {
-    //                 $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, true);
-    //                 $xOffset = intval(($larguraAlvo - $recorte->getImageWidth()) / 2);
-    //                 $yOffset = intval(($alturaAlvo - $recorte->getImageHeight()) / 2);
-    //                 $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
-    //             } else {
-    //                 $recorte->resizeImage($larguraAlvo, $alturaAlvo, \Imagick::FILTER_LANCZOS, 1, false);
-    //                 $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, 0, 0);
-    //             }
-
-    //             $partes[] = 'data:image/png;base64,' . base64_encode($canvas->getImageBlob());
-
-    //             $recorte->clear();
-    //             $canvas->clear();
-    //         }
-    //     }
-
-    //     $imagick->clear();
-
-    //     return response()->json([
-    //         'partes' => $partes,
-    //         'dpi' => $dpi
-    //     ]);
-    // }
-    
+      
     /*Em produção o único problema é que o redimensionamento está apliando pouco e não toda a folha  */
     // public function cortarImagem(Request $request)
     // {
@@ -383,7 +269,7 @@ class PdfEditorController extends Controller
                 $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
                 $canvas->setImageFormat('jpeg');
                 $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                $canvas->setImageCompressionQuality(90);
+                $canvas->setImageCompressionQuality(80);
                 $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
                 $canvas->setImageResolution($dpi, $dpi);
 

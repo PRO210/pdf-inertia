@@ -148,7 +148,7 @@ const gerarPDF = async (
       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
       // converte o canvas para JPEG em qualidade máxima (100%)
-      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
+      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
 
       // extrai a parte base64
       const base64 = rotatedDataUrl.split(",")[1];

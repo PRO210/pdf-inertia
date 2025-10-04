@@ -14,8 +14,14 @@ import logo from '../assets/imagens/logo.png';
 <img className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20]" src={logo} alt="Logo" />
 
 
-
 https://github.com/mercadopago/sdk-php
 User Id:2712076480
 Usuário:TESTUSER5244389360642215800
 Senha: Rh6URb0DW0
+
+5031 4332 1540 6351
+123
+APRO
+12345678909
+11/2030
+https://9816f296679f.ngrok-free.app/pagamento.retorno?collection_id=128055432323&collection_status=approved&payment_id=128055432323&status=approved&external_reference=33&payment_type=account_money&merchant_order_id=34497500048&preference_id=1725174117-1ab2a20a-54f5-42d0-83a6-eebc6ae3dac0&site_id=MLB&processing_mode=aggregator&merchant_account_id=null

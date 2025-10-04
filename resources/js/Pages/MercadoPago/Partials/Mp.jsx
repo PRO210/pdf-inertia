@@ -1,19 +1,26 @@
 import FullScreenSpinner from '@/Components/FullScreenSpinner';
 import { initMercadoPago } from '@mercadopago/sdk-react'
+import { usePage } from '@inertiajs/react'
 import { useState } from 'react';
 import Checkout from './Checkout';
 import axios from 'axios';
 import Payment from './Payment';
 
-
-initMercadoPago(import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN, { locale: 'pt-BR' });
-
+// initMercadoPago(import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN, { locale: 'pt-BR' });
+initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 export default function Mp() {
 
+  // console.log("-Mp-VITE_APP_MP_ENVIRONMENT_TOKEN:", import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN);
+  console.log("-Mp-VITE_MERCADOPAGO_PUBLIC_KEY:", import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
+
+  const { props } = usePage();
+  const user = props.auth.user;
   const [preferenceId, setPreferenceId] = useState(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [orderData, setOrderData] = useState({
+    title: "Assinatura Mensal",
     price: 3,
     quantity: 1,
     amount: 3,
@@ -35,14 +42,15 @@ export default function Mp() {
       ];
 
       const payer = {
-        name: "Cliente Teste",
-        email: "cliente@teste.com"
+        name: user.name || "Cliente",
+        email: user.email || "cliente@teste.com"
       };
 
       const response = await axios.post('/create_preference', { items, payer }, {
         headers: { 'Content-Type': 'application/json' }
       });
 
+      console.log('Resposta da preferência:', response.data.accessToken);
       setPreferenceId(response.data.preferenceId);
 
     } catch (error) {
@@ -69,17 +77,7 @@ export default function Mp() {
 
       {renderSpinner()}
 
-      {/* <h1 className="text-2xl font-bold mb-4">
-        Checkout de Pagamento/Doação com Mercado Pago
-      </h1>
-      <p className="mb-4">
-        Esta é uma integração simples do checkout do Mercado Pago
-        utilizando React e Inertia.js.
-      </p>
-      <p>
-        Clique no botão abaixo para iniciar o processo de pagamento ou
-        doação.
-      </p> */}
+      {errorMessage && <div className="error-message">{errorMessage}</div>}
 
       <Checkout
         orderData={orderData}
@@ -90,6 +88,7 @@ export default function Mp() {
       {preferenceId && (
         <Payment preferenceId={preferenceId} orderData={orderData} />
       )}
+
 
     </div>
   );
