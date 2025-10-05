@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Wallet } from "@mercadopago/sdk-react";
+import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
 
+initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
 
 export default function Payment({ preferenceId, orderData }) {
 
@@ -26,7 +27,7 @@ export default function Payment({ preferenceId, orderData }) {
 
         <div className="payment-details">
           {preferenceId && (
-            <Wallet initialization={{ preferenceId }} onReady={handleOnReady} />
+            <Wallet initialization={{ preferenceId: preferenceId }} onReady={handleOnReady} />
           )}
         </div>
 

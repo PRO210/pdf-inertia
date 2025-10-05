@@ -1,20 +1,18 @@
-import {  useState } from "react";
+import { useState } from "react";
 import './checkout.css';
 
 
 export default function Checkout({ onClick, orderData, setOrderData }) {
 
-  const [isVisible, setIsVisible] = useState(true);  
+  const [isVisible, setIsVisible] = useState(true);
   const [disabled, setDisabled] = useState(false);
   const shoppingCartClass = `shopping-cart dark ${!isVisible ? 'shopping-cart--hidden' : ''}`;
-
 
   const updatePrice = (event) => {
     const quantity = event.target.value;
     const amount = parseInt(orderData.price) * parseInt(quantity);
     setOrderData({ ...orderData, quantity, amount });
   }
-
 
   return (
     <section className={shoppingCartClass}>
@@ -33,11 +31,11 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                     <div className="product-details">
                       <div className="row justify-content-md-center">
                         <div className="col-md-3">
-                          {/* <img
-                            className="img-fluid mx-auto d-block image w-36 h-36 fill-current"
-                            alt="Atividades por Página"
-                            src={logo}
-                          /> */}
+                          <img
+                            className="img-fluid mx-auto d-block image w-36 fill-current transform transition-transform duration-300 hover:scale-105"
+                            src="/imagens/logo.png"
+                            alt="logo"
+                          />
                         </div>
                         <div className="col-md-4 product-detail">
                           <h5>Produto</h5>
@@ -53,7 +51,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                         </div>
                         <div className="col-md-3 product-detail">
                           <label htmlFor="quantity" className="mr-2" >
-                            <b>Meses</b>
+                            <b>Quantidade:</b>
                           </label>
                           <input
                             onChange={updatePrice}
@@ -78,8 +76,9 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                   <span className="text">Subtotal</span>
                   <span className="price" id="cart-total">R$ {orderData.amount},00</span>
                 </div>
+
                 <button
-                  className="pro-btn-blue"
+                  className="text-bold py-2 px-4 mt-4 text-white w-full rounded-xl "
                   onClick={onClick}
                   id="checkout-btn"
                   disabled={disabled}

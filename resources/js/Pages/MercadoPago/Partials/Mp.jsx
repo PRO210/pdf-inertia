@@ -2,17 +2,24 @@ import FullScreenSpinner from '@/Components/FullScreenSpinner';
 import { initMercadoPago } from '@mercadopago/sdk-react'
 import { usePage } from '@inertiajs/react'
 import { useState } from 'react';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
 import Checkout from './Checkout';
 import axios from 'axios';
 import Payment from './Payment';
 
-// initMercadoPago(import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN, { locale: 'pt-BR' });
-initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
+const MySwal = withReactContent(Swal);
+
+// Verifica se está em produção ou desenvolvimento
+const mpPublicKey =
+  import.meta.env.MODE === 'production'
+    ? import.meta.env.VITE_MP_PROD_PUBLIC_KEY
+    : import.meta.env.VITE_MP_TEST_PUBLIC_KEY;
+
+initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
 
 export default function Mp() {
-
-  // console.log("-Mp-VITE_APP_MP_ENVIRONMENT_TOKEN:", import.meta.env.VITE_APP_MP_ENVIRONMENT_TOKEN);
-  console.log("-Mp-VITE_MERCADOPAGO_PUBLIC_KEY:", import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY);
 
   const { props } = usePage();
   const user = props.auth.user;
@@ -50,11 +57,31 @@ export default function Mp() {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      console.log('Resposta da preferência:', response.data.accessToken);
+
       setPreferenceId(response.data.preferenceId);
 
     } catch (error) {
       console.error('Erro ao criar preferência:', error.response?.data || error.message);
+      setErrorMessage('Erro ao criar preferência. Por favor, tente novamente.');
+
+      // Mostra o erro usando SweetAlert2
+      MySwal.fire({
+        icon: 'error',
+        title: 'Erro ao criar preferência',
+        text: error.response?.data?.message || 'Ocorreu um erro inesperado. Tente novamente.',
+        timer: 10000,
+        timerProgressBar: true,
+        footer: '<a href="#">Contate o suporte se o problema persistir</a>',
+        confirmButtonColor: '#6b21a8', // roxo (como o Nubank)
+        customClass: {
+          confirmButton: 'px-8 py-3 text-lg w-full rounded-xl bg-purple-600 hover:bg-purple-700 text-white',
+        },
+        buttonsStyling: false, // necessário para usar classes customizadas
+      }).then(() => {
+        console.log('SweetAlert2 closed');
+      });
+
+
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +104,7 @@ export default function Mp() {
 
       {renderSpinner()}
 
-      {errorMessage && <div className="error-message">{errorMessage}</div>}
+      {/* {errorMessage && <div className="error-message">{errorMessage}</div>} */}
 
       <Checkout
         orderData={orderData}

@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Spinner({ size = 40, borderWidth = 6 }) {
+export default function Spinner({ size = 40, borderWidth = 6  }) {
   return (
     <div
       style={{
@@ -16,5 +16,6 @@ export default function Spinner({ size = 40, borderWidth = 6 }) {
         boxSizing: "border-box",
       }}
     ></div>
+    
   );
 }

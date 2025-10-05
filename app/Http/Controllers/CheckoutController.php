@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use MercadoPago\Client\Payment\PaymentClient;
 use MercadoPago\Client\Preference\PreferenceClient;
@@ -49,7 +48,7 @@ class CheckoutController extends Controller
 
         // 2. Configuração do Mercado Pago
         $accessToken = env('APP_ENV') === 'production'
-            ? env('MP_PROD_ACCESS_TOKEN')
+            ? env('VITE_APP_MP_PROD_TOKEN')
             : env('VITE_APP_MP_TEST_TOKEN');
 
         MercadoPagoConfig::setAccessToken($accessToken);
@@ -119,8 +118,7 @@ class CheckoutController extends Controller
                 'success' => true,
                 'message' => 'Preferência criada e item salvo com sucesso.',
                 'preferenceId' => $preference->id,
-                'preferenceUrl' => $preference->init_point,
-                'accessToken' => $accessToken,
+                'preferenceUrl' => $preference->init_point               
             ]);
         } catch (MPApiException $e) {
             return response()->json([
@@ -139,7 +137,7 @@ class CheckoutController extends Controller
     {
         // 1. Configuração do Token de Acesso (Teste ou Produção)
         $accessToken = env('APP_ENV') === 'production'
-            ? env('MP_PROD_ACCESS_TOKEN')
+            ? env('VITE_APP_MP_PROD_TOKEN')
             : env('VITE_APP_MP_TEST_TOKEN');
 
 

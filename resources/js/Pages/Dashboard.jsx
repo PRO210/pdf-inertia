@@ -1,4 +1,5 @@
 import Footer from '@/Components/Footer';
+import Pix from '@/Components/Pix';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
@@ -18,7 +19,7 @@ export default function Dashboard() {
         >
             <Head title="Dashboard" />
 
-            
+
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -36,7 +37,7 @@ export default function Dashboard() {
                             >
                                 <div className="overflow-hidden rounded-xl shadow-md">
                                     <img
-                                        className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                        className="px-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
               transform transition-transform duration-300 hover:scale-105"
                                         src="/imagens/logo.png"
                                         alt="logo"
@@ -53,7 +54,7 @@ export default function Dashboard() {
                             >
                                 <div className="overflow-hidden rounded-xl shadow-md">
                                     <img
-                                        className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                        className="px-2 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
               transform transition-transform duration-300 hover:scale-105"
                                         src="/imagens/atividades.png"
                                         alt="atividades"
@@ -61,9 +62,26 @@ export default function Dashboard() {
                                 </div>
                             </Link>
 
-
                             {/* Terceiro bloco */}
+                            <div className="overflow-hidden rounded-xl shadow-md">
+                                <div className='p-2 px-2 text-justify'>
+                                    <p>Esse projeto é voluntario e
+                                        se foi útil para você não se acanhe e faça uma pequena doação para garantir que ele continue no ar.
+                                    </p>
+                                </div>
+                                <img
+                                    className="px-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+              transform transition-transform duration-300 hover:scale-105"
+                                    src="/imagens/logoCafe.svg"
+                                    alt="doação"
+                                />
 
+                                <Pix />
+                                
+                            </div>
+
+
+                            {/* Quarto bloco */}
                             {auth.user.id === 1 && (
                                 <Link
                                     href={route('pdf.pagamentos')}
@@ -73,7 +91,7 @@ export default function Dashboard() {
                                 >
                                     <div className="overflow-hidden rounded-xl shadow-md">
                                         <img
-                                            className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                            className="px-4  w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
               transform transition-transform duration-300 hover:scale-105"
                                             src="/imagens/Logos Mercado Pago 2025--fb6f16c9/Logos Mercado Pago 2025/Uso digital - RGB/PNGs/MP_RGB_HANDSHAKE_color_horizontal.png"
                                             alt="pagamentos"
@@ -82,7 +100,7 @@ export default function Dashboard() {
                                 </Link>
                             )}
 
-                         
+
                         </div>
                     </div>
                 </div>
