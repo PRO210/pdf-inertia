@@ -175,8 +175,7 @@ export default function PdfEditor() {
     setCarregando(true)
 
     const fileType = file.type
-
-    // NOVO BLOCO DE PDF
+    
     if (fileType === "application/pdf") {
       // 1. Gerar URL de Blob para PDF.js usar
       const pdfBlobUrl = URL.createObjectURL(file)
@@ -185,7 +184,7 @@ export default function PdfEditor() {
       // 2. Rasterizar a primeira página (pode levar tempo)
       try {
         // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
-        const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // 150 DPI
+        const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // MUDAR AQUI: SEMPRE 1
         setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
         setAlteracoesPendentes(true);
       } catch (error) {
@@ -194,10 +193,10 @@ export default function PdfEditor() {
       } finally {
         setCarregando(false);
       }
-
-      // Não precisamos mais do FileReader para PDFs
+     
       return
     }
+
 
     // Se não for PDF, processar como imagem normal
     const reader = new FileReader()
@@ -212,6 +211,41 @@ export default function PdfEditor() {
 
     reader.readAsDataURL(file)
   }
+
+
+  // NOVO useEffect para rasterizar a página atual sempre que a página ou o PDF mudar.
+  useEffect(() => {
+    if (!pdfUrl) return;
+
+    const converterPaginaParaImagem = async () => {
+      setCarregando(true); // Opcional: mostrar spinner durante a rasterização
+      setErroPdf(null);
+
+      try {
+        // ⚠️ PONTO CHAVE: Use o estado `paginaAtual`
+        const base64Image = await rasterizarPdfParaBase64(pdfUrl, paginaAtual, 150); // 150 DPI
+        setImagemBase64(base64Image); // Isso atualiza a imagem enviada para o backend
+        // setAlteracoesPendentes(true); // Pode ser mantido se quiser que qualquer mudança de página force a aplicação, mas vamos manter o controle de alterações apenas para a interface.
+
+        // Se a página atual foi alterada, a `imagemBase64` mudou, o que significa que o
+        // usuário provavelmente deve aplicar a alteração para gerar o banner dessa página.
+        if (paginaAtual !== 1) {
+          setAlteracoesPendentes(true);
+        }
+
+      } catch (error) {
+        setErroPdf(error.message);
+        console.error("Erro ao converter página atual para imagem:", error);
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    converterPaginaParaImagem();
+
+  }, [pdfUrl, paginaAtual]); // Depende de pdfUrl e paginaAtual
+
+  
 
 
   useEffect(() => {
@@ -748,7 +782,7 @@ export default function PdfEditor() {
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 px-2">
                       <label className="pro-label text-center text-xl">
-                       Envie imagem ou PDF :)
+                        Envie imagem ou PDF :)
                       </label>
                       <div className="flex justify-center w-full">
                         <input
