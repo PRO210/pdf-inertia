@@ -129,28 +129,90 @@ export default function PdfEditor() {
   };
 
 
+  const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 150) => {
+    try {
+      const loadingTask = pdfjsLib.getDocument(pdfUrl);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(paginaNum);
+
+      // DPI alvo para a conversão
+      const targetDpi = dpi;
+      const scale = targetDpi / 72; // PDF.js usa 72 DPI como base
+
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      // Define o tamanho do canvas com base na escala (DPI)
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      // Renderiza a página
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport,
+      };
+      await page.render(renderContext).promise;
+
+      // Converte o Canvas para Base64 (JPEG, com qualidade 90%)
+      const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+
+      // Limpeza
+      canvas.width = canvas.height = 0;
+
+      return base64Image;
+
+    } catch (error) {
+      console.error("Erro ao rasterizar PDF para Base64:", error);
+      throw new Error("Não foi possível converter o PDF em imagem.");
+    }
+  };
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
+
     setCarregando(true)
 
+    const fileType = file.type
+
+    // NOVO BLOCO DE PDF
+    if (fileType === "application/pdf") {
+      // 1. Gerar URL de Blob para PDF.js usar
+      const pdfBlobUrl = URL.createObjectURL(file)
+      setPdfUrl(pdfBlobUrl)
+
+      // 2. Rasterizar a primeira página (pode levar tempo)
+      try {
+        // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
+        const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // 150 DPI
+        setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
+        setAlteracoesPendentes(true);
+      } catch (error) {
+        setErroPdf(error.message);
+        console.error(error);
+      } finally {
+        setCarregando(false);
+      }
+
+      // Não precisamos mais do FileReader para PDFs
+      return
+    }
+
+    // Se não for PDF, processar como imagem normal
     const reader = new FileReader()
     reader.onload = async (e) => {
       const base64 = e.target.result
 
-      // 🔹 corrige rotação antes de salvar no estado
       const base64Corrigido = await corrigirOrientacaoImagem(base64)
-
-      setCarregando(false)
-
       setImagemBase64(base64Corrigido)
-
       setAlteracoesPendentes(true)
+      setCarregando(false)
     }
 
     reader.readAsDataURL(file)
   }
+
 
   useEffect(() => {
     if (!pdfUrl) return
@@ -686,12 +748,12 @@ export default function PdfEditor() {
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 px-2">
                       <label className="pro-label text-center text-xl">
-                        Nenhuma Imagem Selecionada:
+                       Envie imagem ou PDF :)
                       </label>
                       <div className="flex justify-center w-full">
                         <input
                           type="file"
-                          accept="image/png, image/jpeg"
+                          accept="image/*, application/pdf"
                           onChange={handleFileChange}
                           className="
             pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 

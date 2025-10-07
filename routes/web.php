@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PdfEditorController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
@@ -92,6 +93,15 @@ Route::post('/publico-post', function (Request $request) {
         'dados_recebidos' => $request->all()
     ]);
 })->withoutMiddleware([MiddlewareVerifyCsrfToken::class]);
+
+
+Route::get('/tratamento-imagens', function () {
+    return Inertia::render('TratamentoImagens/Index');
+});
+
+Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);
+Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);
+
 
 
 require __DIR__ . '/auth.php';

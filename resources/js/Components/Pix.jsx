@@ -49,11 +49,12 @@ const Pix = () => {
         >
           {buttonText == false ? 'Copiar Chave Pix!' : null}
 
-          {buttonTextLoad == true ? (  <Spinner />       
-           
-          ) : null}
-          {buttonTextLoad == true ? (<span className="ml-2">{msgSpinner}</span>) : null}
-        
+          {buttonTextLoad && (
+            <div className="flex items-center justify-center">
+              <Spinner size={30} />
+              <span className="ml-4">{msgSpinner}</span>
+            </div>
+          )}
 
           {buttonTextCp == true ? 'Copiado!' : null}
 
