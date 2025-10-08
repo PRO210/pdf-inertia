@@ -4,6 +4,8 @@ import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
+import axios from 'axios'
+
 
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
@@ -412,13 +414,30 @@ export default function PdfEditor() {
   }
 
 
-  const downloadPDF = () => {
+  const downloadPDF = async (fileName, pdfUrl) => {
     if (!pdfUrl) return
-    const a = document.createElement('a')
-    a.href = pdfUrl
-    a.download = 'documento.pdf'
-    a.click()
+
+    try {
+      const response = await axios.post(route('user.downloads.store'), {
+        file_name: fileName,
+      })
+            
+      const total = response.data.total_downloads
+      
+      const nomeArquivo = `Atividades-${total}.pdf`      
+
+      const a = document.createElement('a')
+      a.href = pdfUrl
+      a.download = nomeArquivo
+      a.click()
+
+    } catch (error) {
+      console.error(error)
+      alert('Erro ao contabilizar o download.')
+    }
+    
   }
+
 
 
   useEffect(() => {
@@ -456,7 +475,6 @@ export default function PdfEditor() {
 
     renderPDF();
   }, [pdfUrl, paginaAtual, zoom]);
-
 
 
   const [resumoTamanho, setResumoTamanho] = useState({
@@ -757,7 +775,10 @@ export default function PdfEditor() {
                     )}
 
                     {pdfUrl && !alteracoesPendentes && (
-                      <button onClick={downloadPDF} className="pro-btn-green mt-2" disabled={!pdfUrl}>
+                      <button
+                        onClick={() => downloadPDF('atividades.pdf', pdfUrl)}
+                        className="pro-btn-green mt-2"
+                        disabled={!pdfUrl}>
                         Baixar PDF
                       </button>
                     )}

@@ -29,7 +29,6 @@ class CheckoutController extends Controller
         return Inertia::render('MercadoPago/Index');
     }
 
-
     /**
      * Cria uma Preferência no Mercado Pago e salva os itens na tabela 'payments'.
      */
@@ -43,7 +42,7 @@ class CheckoutController extends Controller
             return response()->json([
                 'error' => 'É necessário estar autenticado para realizar esta operação.',
                 'message' => 'Usuário não autenticado.'
-            ], 401); // 401 Unauthorized
+            ], 401); 
         }
 
         // 2. Configuração do Mercado Pago
@@ -95,15 +94,15 @@ class CheckoutController extends Controller
                 ],
                 "payer" => $validated['payer'],
                 "external_reference" => (string) $payment->id,
-                // "notification_url" => url('https://9816f296679f.ngrok-free.app/webhooks/mercadopago'),
+                // "notification_url" => url('https://67df8a312016.ngrok-free.app/webhooks/mercadopago'),
                 "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
                 "back_urls" => [
                     "success" => route('pagamento.retorno'),
                     "failure" => route('pagamento.retorno'),
                     "pending" => route('pagamento.retorno'),
-                    // "success" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
-                    // "failure" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
-                    // "pending" => url('https://9816f296679f.ngrok-free.app/pagamento.retorno'),
+                    // "success" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
+                    // "failure" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
+                    // "pending" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
                 ],
                 "auto_return" => "approved",
             ]);
@@ -158,7 +157,7 @@ class CheckoutController extends Controller
             return response()->json(['status' => 'ok']);
         }
 
-        sleep(5);
+        sleep(10);
 
         try {
             // 3. Busca os detalhes completos do pagamento na API do Mercado Pago
@@ -181,7 +180,7 @@ class CheckoutController extends Controller
             $newStatus = $this->mapMercadoPagoStatus($mpPayment->status);
             $maxRetries = 3;
             $attempt = 0;
-            $updated = false;
+            $updated = false;          
 
             while ($attempt < $maxRetries && !$updated) {
                 $payment = Payment::find($paymentId);

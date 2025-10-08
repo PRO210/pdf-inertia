@@ -6,6 +6,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PdfEditorController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserDownloadsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -102,6 +103,10 @@ Route::get('/tratamento-imagens', function () {
 Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);
 Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);
 
+
+Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
+    ->middleware('auth')
+    ->name('user.downloads.store');
 
 
 require __DIR__ . '/auth.php';

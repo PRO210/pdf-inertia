@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { initMercadoPago, Wallet } from "@mercadopago/sdk-react";
 
-initMercadoPago(import.meta.env.VITE_MERCADOPAGO_PUBLIC_KEY, { locale: 'pt-BR' });
+// Verifica se está em produção ou desenvolvimento
+const mpPublicKey =
+  import.meta.env.MODE === 'production'
+    ? import.meta.env.VITE_MP_PROD_PUBLIC_KEY
+    : import.meta.env.VITE_MP_TEST_PUBLIC_KEY;
+
+initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
+
+// console.log("Chave Pública do Mercado Pago Payment:", mpPublicKey);
 
 export default function Payment({ preferenceId, orderData }) {
 

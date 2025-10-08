@@ -247,7 +247,6 @@ export default function PdfEditor() {
 
   
 
-
   useEffect(() => {
     if (!pdfUrl) return
     setErroPdf(null)
@@ -400,12 +399,28 @@ export default function PdfEditor() {
     setPaginaAtual(1)
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async (fileName, pdfUrl) => {
     if (!pdfUrl) return
-    const a = document.createElement('a')
-    a.href = pdfUrl
-    a.download = 'documento.pdf'
-    a.click()
+
+    try {
+      const response = await axios.post(route('user.downloads.store'), {
+        file_name: fileName,
+      })
+            
+      const total = response.data.total_downloads
+      
+      const nomeArquivo = `Poster-${total}.pdf`      
+
+      const a = document.createElement('a')
+      a.href = pdfUrl
+      a.download = nomeArquivo
+      a.click()
+
+    } catch (error) {
+      console.error(error)
+      alert('Erro ao contabilizar o download.')
+    }
+    
   }
 
   useEffect(() => {
@@ -661,7 +676,7 @@ export default function PdfEditor() {
                     </>
 
                     {pdfUrl && !alteracoesPendentes && (
-                      <button onClick={downloadPDF} className="pro-btn-green mt-2" disabled={!pdfUrl}>
+                      <button  onClick={() => downloadPDF('poster.pdf', pdfUrl)} className="pro-btn-green mt-2" disabled={!pdfUrl}>
                         Baixar PDF
                       </button>
                     )}
@@ -790,10 +805,10 @@ export default function PdfEditor() {
                           accept="image/*, application/pdf"
                           onChange={handleFileChange}
                           className="
-            pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
-            file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
-            hover:file:bg-blue-100 cursor-pointer
-          "
+                          pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
+                          file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
+                          hover:file:bg-blue-100 cursor-pointer
+                        "
                         />
                       </div>
                     </div>

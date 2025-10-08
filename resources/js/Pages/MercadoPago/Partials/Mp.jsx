@@ -18,6 +18,8 @@ const mpPublicKey =
     : import.meta.env.VITE_MP_TEST_PUBLIC_KEY;
 
 initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
+// console.log("Chave Pública do Mercado Pago:", mpPublicKey);
+
 
 export default function Mp() {
 
