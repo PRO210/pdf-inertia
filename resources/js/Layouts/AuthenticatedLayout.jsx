@@ -36,6 +36,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
                                     Criar Atividades
                                 </NavLink>
+                             
+                                <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >
+                                    Doações
+                                </NavLink>
                             </div>
                         </div>
 
@@ -176,7 +180,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </header>
             )}
 
-            <main>{children}</main>
+            <main className='flex-1'>{children}</main>
         </div>
     );
 }

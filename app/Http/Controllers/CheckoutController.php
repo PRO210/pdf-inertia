@@ -34,7 +34,7 @@ class CheckoutController extends Controller
      */
     public function create(Request $request)
     {
-       
+
         // 1. VERIFICAÇÃO DE AUTENTICAÇÃO
         $userId = Auth::id();
 
@@ -42,7 +42,7 @@ class CheckoutController extends Controller
             return response()->json([
                 'error' => 'É necessário estar autenticado para realizar esta operação.',
                 'message' => 'Usuário não autenticado.'
-            ], 401); 
+            ], 401);
         }
 
         // 2. Configuração do Mercado Pago
@@ -94,15 +94,15 @@ class CheckoutController extends Controller
                 ],
                 "payer" => $validated['payer'],
                 "external_reference" => (string) $payment->id,
-                // "notification_url" => url('https://67df8a312016.ngrok-free.app/webhooks/mercadopago'),
-                "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
+                "notification_url" => url('https://02e26f96c87a.ngrok-free.app/webhooks/mercadopago'),
+                // "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
                 "back_urls" => [
-                    "success" => route('pagamento.retorno'),
-                    "failure" => route('pagamento.retorno'),
-                    "pending" => route('pagamento.retorno'),
-                    // "success" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
-                    // "failure" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
-                    // "pending" => url('https://67df8a312016.ngrok-free.app/pagamento.retorno'),
+                    // "success" => route('pagamento.retorno'),
+                    // "failure" => route('pagamento.retorno'),
+                    // "pending" => route('pagamento.retorno'),
+                    "success" => url('https://02e26f96c87a.ngrok-free.app/pagamento.retorno'),
+                    "failure" => url('https://02e26f96c87a.ngrok-free.app/pagamento.retorno'),
+                    "pending" => url('https://02e26f96c87a.ngrok-free.app/pagamento.retorno'),
                 ],
                 "auto_return" => "approved",
             ]);
@@ -117,7 +117,7 @@ class CheckoutController extends Controller
                 'success' => true,
                 'message' => 'Preferência criada e item salvo com sucesso.',
                 'preferenceId' => $preference->id,
-                'preferenceUrl' => $preference->init_point               
+                'preferenceUrl' => $preference->init_point
             ]);
         } catch (MPApiException $e) {
             return response()->json([
@@ -180,7 +180,7 @@ class CheckoutController extends Controller
             $newStatus = $this->mapMercadoPagoStatus($mpPayment->status);
             $maxRetries = 3;
             $attempt = 0;
-            $updated = false;          
+            $updated = false;
 
             while ($attempt < $maxRetries && !$updated) {
                 $payment = Payment::find($paymentId);
@@ -243,5 +243,60 @@ class CheckoutController extends Controller
             'charged_back' => 'charged_back',
             default => 'pending',
         };
+    }
+
+
+    /**
+     * Sincroniza um pagamento específico (opcional) e sempre retorna a lista completa.
+     * GET /pagamentos/sincronizar/{preferenceId?}
+     */
+    public function sincronizar(Request $request, $preferenceId = null)
+    {
+        $updated = false;
+        $updatedPaymentId = null;
+        $messages = [];
+        $user = $request->user(); 
+
+        if ($preferenceId) {
+            // Tenta encontrar o pagamento local
+            $payment = Payment::where('preference_id', $preferenceId)->first();
+
+            if ($payment) {
+                // Exemplo: atualizar status recebido via query string (opcional)
+                // Você pode também chamar a API do Mercado Pago aqui para confirmar status verdadeiro.
+                if ($request->has('status')) {
+                    $payment->status = $request->input('status');
+                } else {
+                    // Se quiser, consulte a API do Mercado Pago aqui e atualize $payment->status conforme retorno.
+                    // Ex: $mpStatus = $this->consultaMercadoPago($preferenceId);
+                    // $payment->status = $mpStatus ?? $payment->status;
+                }
+
+                $payment->save();
+                $updated = true;
+                $updatedPaymentId = $payment->id;
+                $messages[] = "Pagamento com preference_id {$preferenceId} atualizado.";
+            } else {
+                $messages[] = "Pagamento com preference_id {$preferenceId} não encontrado localmente.";
+                // Opcional: criar registro local a partir dos dados do request
+                // Payment::create([...]);
+            }
+        } else {
+            $messages[] = "Nenhum preference_id informado — retornando apenas a lista.";
+        }
+
+        // Retorna apenas os pagamentos do usuário logado
+        $payments = Payment::with('user')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+
+        return response()->json([
+            'updated' => $updated,
+            'updated_payment_id' => $updatedPaymentId,
+            'messages' => $messages,
+            'payments' => $payments,
+        ]);
     }
 }

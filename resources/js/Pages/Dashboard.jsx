@@ -63,8 +63,8 @@ export default function Dashboard() {
                             {/* Terceiro bloco */}
                             <div className="overflow-hidden rounded-xl shadow-md">
                                 <div className='p-2 px-2 text-justify'>
-                                    <p>Esse projeto é voluntario e
-                                        se foi útil para você não se acanhe e faça uma pequena doação para garantir que ele continue no ar.
+                                    <p>Esse projeto é voluntario.
+                                        Se ele foi útil para você não se acanhe e faça uma pequena doação para garantir a sua manuntenção.
                                     </p>
                                 </div>
                                 <img
@@ -73,17 +73,15 @@ export default function Dashboard() {
                                     src="/imagens/logoCafe.svg"
                                     alt="doação"
                                 />
-
                                 <Pix />
-
                             </div>
 
 
                             {/* Quarto bloco */}
-                            {auth.user.id === 1 && (
+                            {(
                                 <Link
                                     href={route('pdf.pagamentos')}
-                                    className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 
+                                    className="rounded-md px-2 p-3 text-black ring-1 ring-transparent transition hover:text-black/70 
           focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 
           dark:focus-visible:ring-white flex justify-center"
                                 >
@@ -100,7 +98,7 @@ export default function Dashboard() {
 
 
                             {/* Card-link para o tratamento de imagens */}
-                            {auth.user.id === 1 && (
+                            {(auth.user.id === 1 || auth.user.id === 7) && (
                                 <Link href="/tratamento-imagens" className="block">
                                     <div className="overflow-hidden rounded-xl shadow-md bg-white cursor-pointer hover:shadow-lg transition">
                                         <div className="p-4 text-justify">

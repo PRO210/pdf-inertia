@@ -73,6 +73,9 @@ Route::get('/pagamento/retorno', function () {
     ]);
 })->name('pagamento.retorno');
 
+Route::middleware(['auth'])->get('/pagamentos/sincronizar/{preferenceId?}',[CheckoutController::class, 'sincronizar']
+)->name('pagamentos.sincronizar');
+
 
 Route::post('/webhooks/mercadopago', [CheckoutController::class, 'webhook'])
     ->withoutMiddleware([MiddlewareVerifyCsrfToken::class])
