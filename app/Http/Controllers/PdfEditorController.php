@@ -34,8 +34,7 @@ class PdfEditorController extends Controller
         return response()->json(['error' => 'Nenhum arquivo enviado.'], 400);
     }
 
-      
-    /*Em produção o único problema é que o redimensionamento está apliando pouco e não toda a folha  */
+
     // public function cortarImagem(Request $request)
     // {
     //     $base64     = $request->input('imagem');
@@ -62,35 +61,56 @@ class PdfEditorController extends Controller
     //     $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
     //     $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
 
-    //     $tamanhosDebug[] = ['larguraFolhaIn' => $larguraFolhaIn];
-    //     $tamanhosDebug[] = ['alturaFolhaIn' => $alturaFolhaIn];
-
+    //     // Dimensões reais da imagem
     //     $imgWidthPx  = $imagick->getImageWidth();
     //     $imgHeightPx = $imagick->getImageHeight();
 
-    //     $tamanhosDebug[] = ['imgWidthPx' => $imgWidthPx];
-    //     $tamanhosDebug[] = ['imgHeightPx' => $imgHeightPx];
-
-    //     // Calcula DPI baseado no menor lado do tile
+    //     // Calculo DPI baseado em cada eixo
     //     $dpiX = $imgWidthPx / ($larguraFolhaIn * $colunas);
     //     $dpiY = $imgHeightPx / ($alturaFolhaIn * $linhas);
-    //     $dpi  = (int) max(72, round(min($dpiX, $dpiY)));
+    //     $dpi  = (int) round(min($dpiX, $dpiY));
 
-    //     $tamanhosDebug[] = ['dpiX' => $dpiX];
-    //     $tamanhosDebug[] = ['dpiY' => $dpiY];
-    //     $tamanhosDebug[] = ['dpi' => $dpi];
+    //     // Ajuste do limite máximo adaptativo baseado no total de células (colunas x linhas)
+    //     $totalCelulas = $colunas * $linhas;
+
+    //     $maxDpi = match (true) {
+    //         $totalCelulas <= 16 => 150,     // Poster pequeno (até 4x4)
+    //         $totalCelulas <= 36 => 120,     // Poster médio (até 6x6)
+    //         $totalCelulas <= 64 => 96,      // Poster grande (até 8x8)
+    //         default            => 82,       // Poster gigante (maior que 8x8)
+    //     };
+
+    //     // Limites mínimos e máximos fixos
+    //     $minDpi = 72;
+
+    //     // Mantém o DPI entre o mínimo e máximo adaptativo
+    //     $dpi = max($minDpi, min($dpi, $maxDpi));
+
+    //     // Margem em cm
+    //     $margemCm = 2;
 
     //     if ($aspecto) {
+    //         // proporcional (mantém proporção da imagem)
     //         $larguraAlvo = (int) round($larguraFolhaIn * $dpi);
     //         $alturaAlvo  = (int) round($alturaFolhaIn  * $dpi);
     //     } else {
-    //         $larguraAlvo = (int) round($larguraFolhaIn * $dpiX);
-    //         $alturaAlvo  = (int) round($alturaFolhaIn  * $dpiY);
+    //         // estica para caber no A4 inteiro menos margem
+    //         $larguraAlvo = (int) round(($larguraFolhaIn - ($margemCm / 2.54)) * $dpi);
+    //         $alturaAlvo  = (int) round(($alturaFolhaIn  - ($margemCm / 2.54)) * $dpi);
     //     }
 
-
+    //     // Debug info
+    //     $tamanhosDebug[] = ['larguraFolhaIn' => $larguraFolhaIn];
+    //     $tamanhosDebug[] = ['alturaFolhaIn' => $alturaFolhaIn];
+    //     $tamanhosDebug[] = ['imgWidthPx' => $imgWidthPx];
+    //     $tamanhosDebug[] = ['imgHeightPx' => $imgHeightPx];
+    //     $tamanhosDebug[] = ['dpiX' => round($dpiX, 2)];
+    //     $tamanhosDebug[] = ['dpiY' => round($dpiY, 2)];
+    //     $tamanhosDebug[] = ['dpi final' => $dpi];
+    //     $tamanhosDebug[] = ['maxDpi' => $maxDpi];
     //     $tamanhosDebug[] = ['larguraAlvo' => $larguraAlvo];
     //     $tamanhosDebug[] = ['alturaAlvo' => $alturaAlvo];
+
 
     //     // Define limites de corte
     //     $xBounds = [];
@@ -126,7 +146,7 @@ class PdfEditorController extends Controller
     //             $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
     //             $canvas->setImageFormat('jpeg');
     //             $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
-    //             $canvas->setImageCompressionQuality(100);
+    //             $canvas->setImageCompressionQuality(80);
     //             $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
     //             $canvas->setImageResolution($dpi, $dpi);
 
@@ -148,8 +168,8 @@ class PdfEditorController extends Controller
     //             $larguraConteudoCm = round($larguraConteudoPx / $dpi * 2.54, 2);
     //             $alturaConteudoCm = round($alturaConteudoPx / $dpi * 2.54, 2);
 
-    //             $tamanhosDebug[] = ['larguraConteudoCm' => $larguraConteudoCm - 2];
-    //             $tamanhosDebug[] = ['alturaConteudoCm' => $alturaConteudoCm - 2];
+    //             $tamanhosDebug[] = ['larguraConteudoCm' => $larguraConteudoCm];
+    //             $tamanhosDebug[] = ['alturaConteudoCm' => $alturaConteudoCm];
 
     //             $recorte->clear();
     //             $canvas->clear();
@@ -161,14 +181,6 @@ class PdfEditorController extends Controller
     //     return response()->json([
     //         'partes' => $partes,
     //         'dpi' => $dpi,
-    //         // 'tile_px' => [
-    //         //     'largura' => $larguraAlvo,
-    //         //     'altura' => $alturaAlvo
-    //         // ],
-    //         // 'conteudo_cm' => [
-    //         //     'largura' => $larguraConteudoCm - 2,
-    //         //     'altura' => $alturaConteudoCm - 2
-    //         // ],
     //         'tamanhos_debug' => $tamanhosDebug // 🔹 array de debug
     //     ]);
     // }
@@ -202,38 +214,64 @@ class PdfEditorController extends Controller
         $tamanhosDebug[] = ['larguraFolhaIn' => $larguraFolhaIn];
         $tamanhosDebug[] = ['alturaFolhaIn' => $alturaFolhaIn];
 
+        // Dimensões reais da imagem
         $imgWidthPx  = $imagick->getImageWidth();
         $imgHeightPx = $imagick->getImageHeight();
 
         $tamanhosDebug[] = ['imgWidthPx' => $imgWidthPx];
         $tamanhosDebug[] = ['imgHeightPx' => $imgHeightPx];
 
-        // 🔹 DPI baseado em cada eixo
+        // 🔹 Calcula DPI real em cada eixo
         $dpiX = $imgWidthPx / ($larguraFolhaIn * $colunas);
         $dpiY = $imgHeightPx / ($alturaFolhaIn * $linhas);
-        $dpi  = (int) max(72, round(min($dpiX, $dpiY)));
+        $dpi  = (int) round(min($dpiX, $dpiY));
 
-        $tamanhosDebug[] = ['dpiX' => $dpiX];
-        $tamanhosDebug[] = ['dpiY' => $dpiY];
-        $tamanhosDebug[] = ['dpi' => $dpi];
+        // 🔹 Limite superior adaptativo conforme tamanho do pôster
+        $maxDpi = match (true) {
+            $colunas <= 2 => 150,  // pôster pequeno
+            $colunas <= 3 => 120,  // pequeno
+            $colunas <= 4 => 100,  // médio
+            $colunas <= 5 => 120,  // médio
+            $colunas <= 6 => 90,   // grande
+            $colunas <= 8 => 120,  // grande
+            default       => 150,  // gigante (até 10x10)
+        };
+
+        // 🔹 DPI mínimo adaptativo (evita pixelização em imagens pequenas)
+        $minDpi = match (true) {
+            $colunas <= 2 => 72,   // pôster pequeno, imagem pequena precisa de mais nitidez
+            $colunas <= 4 => 60,   // médio
+            $colunas <= 6 => 50,   // grande
+            default       => 40,   // muito grande, não precisa forçar DPI
+        };
+
+        // 🔹 Aplica o DPI final dentro dos limites
+        $dpi = max($minDpi, min($dpi, $maxDpi));
 
         // 🔹 Margem em cm
         $margemCm = 2;
 
         if ($aspecto) {
-            // proporcional (mantém como estava)
+            // proporcional (mantém proporção da imagem)
             $larguraAlvo = (int) round($larguraFolhaIn * $dpi);
-            $alturaAlvo  = (int) round($alturaFolhaIn * $dpi);
+            $alturaAlvo  = (int) round($alturaFolhaIn  * $dpi);
         } else {
             // estica para caber no A4 inteiro menos margem
-            $dpiConstante = 72; // ou 150 se quiser mais leve
-            $larguraAlvo = (int) round(($larguraFolhaIn - ($margemCm / 2.54)) * $dpiConstante);
-            $alturaAlvo  = (int) round(($alturaFolhaIn  - ($margemCm / 2.54)) * $dpiConstante);
-            $dpi = $dpiConstante;
+            $larguraAlvo = (int) round(($larguraFolhaIn - ($margemCm / 2.54)) * $dpi);
+            $alturaAlvo  = (int) round(($alturaFolhaIn  - ($margemCm / 2.54)) * $dpi);
         }
 
-        $tamanhosDebug[] = ['larguraAlvo' => $larguraAlvo];
-        $tamanhosDebug[] = ['alturaAlvo' => $alturaAlvo];
+        // 🔹 Debug opcional
+        $tamanhosDebug[] = [
+            'dpiX' => round($dpiX, 2),
+            'dpiY' => round($dpiY, 2),
+            'dpiFinal' => $dpi,
+            'minDpi' => $minDpi,
+            'maxDpi' => $maxDpi,
+        ];
+
+        $tamanhosDebug[] = ['larguraAlvo(px)' => $larguraAlvo];
+        $tamanhosDebug[] = ['alturaAlvo(px)' => $alturaAlvo];
 
         // Define limites de corte
         $xBounds = [];
@@ -269,7 +307,7 @@ class PdfEditorController extends Controller
                 $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
                 $canvas->setImageFormat('jpeg');
                 $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                $canvas->setImageCompressionQuality(80);
+                $canvas->setImageCompressionQuality(90);
                 $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
                 $canvas->setImageResolution($dpi, $dpi);
 
@@ -307,8 +345,6 @@ class PdfEditorController extends Controller
             'tamanhos_debug' => $tamanhosDebug // 🔹 array de debug
         ]);
     }
-
-
     public function atividades()
     {
         return Inertia::render('PdfAtividades');

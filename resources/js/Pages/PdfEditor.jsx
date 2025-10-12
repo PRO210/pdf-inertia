@@ -17,6 +17,7 @@ export default function PdfEditor() {
   const user = props.auth.user
 
   const [pdfUrl, setPdfUrl] = useState(null)
+  const [pdfDownloadUrl, setPdfDownloadUrl] = useState(null);
   const [imagemBase64, setImagemBase64] = useState(null)
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
   // const [partesRecortadas, setPartesRecortadas] = useState([])
@@ -35,6 +36,7 @@ export default function PdfEditor() {
 
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
+    setPdfDownloadUrl(null)
     setImagemBase64(null)
     setAmpliacao({ colunas: 2, linhas: 2 })
     // setPartesRecortadas([])
@@ -135,29 +137,45 @@ export default function PdfEditor() {
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(paginaNum);
 
-      // DPI alvo para a conversão
-      const targetDpi = dpi;
-      const scale = targetDpi / 72; // PDF.js usa 72 DPI como base
-
+      // 🔹 Renderiza normalmente com o DPI informado
+      const scale = dpi / 72;
       const viewport = page.getViewport({ scale });
+
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
 
-      // Define o tamanho do canvas com base na escala (DPI)
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Renderiza a página
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-      };
+      const renderContext = { canvasContext: context, viewport };
       await page.render(renderContext).promise;
 
-      // Converte o Canvas para Base64 (JPEG, com qualidade 90%)
-      const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+      let base64Image = canvas.toDataURL('image/jpeg', 0.9);
 
-      // Limpeza
+      // 🧩 Proteção: se imagem for maior que 5K e pôster pequeno (colunas < 5), redimensiona para 5K
+      const img = new Image();
+      img.src = base64Image;
+      await new Promise(resolve => img.onload = resolve);
+
+      const maxDim = Math.max(img.width, img.height);
+
+      if (maxDim > 5000 && ampliacao.colunas < 5) {
+        const fator = 5000 / maxDim;
+        const newWidth = Math.round(img.width * fator);
+        const newHeight = Math.round(img.height * fator);
+
+        const resizeCanvas = document.createElement('canvas');
+        const ctx = resizeCanvas.getContext('2d');
+
+        resizeCanvas.width = newWidth;
+        resizeCanvas.height = newHeight;
+
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+        base64Image = resizeCanvas.toDataURL('image/jpeg', 0.9);
+      }
+
+      // limpa para evitar uso excessivo de memória
       canvas.width = canvas.height = 0;
 
       return base64Image;
@@ -168,6 +186,8 @@ export default function PdfEditor() {
     }
   };
 
+
+
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -175,7 +195,7 @@ export default function PdfEditor() {
     setCarregando(true)
 
     const fileType = file.type
-    
+
     if (fileType === "application/pdf") {
       // 1. Gerar URL de Blob para PDF.js usar
       const pdfBlobUrl = URL.createObjectURL(file)
@@ -193,7 +213,7 @@ export default function PdfEditor() {
       } finally {
         setCarregando(false);
       }
-     
+
       return
     }
 
@@ -229,9 +249,9 @@ export default function PdfEditor() {
 
         // Se a página atual foi alterada, a `imagemBase64` mudou, o que significa que o
         // usuário provavelmente deve aplicar a alteração para gerar o banner dessa página.
-        if (paginaAtual !== 1) {
-          setAlteracoesPendentes(true);
-        }
+        // if (paginaAtual !== 1) {
+        //   setAlteracoesPendentes(true);
+        // }
 
       } catch (error) {
         setErroPdf(error.message);
@@ -245,7 +265,7 @@ export default function PdfEditor() {
 
   }, [pdfUrl, paginaAtual]); // Depende de pdfUrl e paginaAtual
 
-  
+
 
   useEffect(() => {
     if (!pdfUrl) return
@@ -392,7 +412,12 @@ export default function PdfEditor() {
 
     const pdfBytes = await pdfDoc.save()
     const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+
+    // ⚡ PDF para preview
     setPdfUrl(URL.createObjectURL(blob))
+
+    // ⚡ PDF para download (não será alterado ao folhear)
+    setPdfDownloadUrl(URL.createObjectURL(blob));
 
     setCarregando(false)
 
@@ -406,10 +431,10 @@ export default function PdfEditor() {
       const response = await axios.post(route('user.downloads.store'), {
         file_name: fileName,
       })
-            
+
       const total = response.data.total_downloads
-      
-      const nomeArquivo = `Poster-${total}.pdf`      
+
+      const nomeArquivo = `Poster-${total}.pdf`
 
       const a = document.createElement('a')
       a.href = pdfUrl
@@ -420,7 +445,7 @@ export default function PdfEditor() {
       console.error(error)
       alert('Erro ao contabilizar o download.')
     }
-    
+
   }
 
   useEffect(() => {
@@ -675,13 +700,18 @@ export default function PdfEditor() {
                       </div>
                     </>
 
-                    {pdfUrl && !alteracoesPendentes && (
-                      <button  onClick={() => downloadPDF('poster.pdf', pdfUrl)} className="pro-btn-green mt-2" disabled={!pdfUrl}>
+                    {pdfDownloadUrl && !alteracoesPendentes && (
+                      <button
+                        onClick={() => downloadPDF('poster.pdf', pdfDownloadUrl)}
+                        className="pro-btn-green mt-2"
+                        disabled={!pdfDownloadUrl}
+                      >
                         Baixar PDF
                       </button>
                     )}
 
-                    {pdfUrl && (
+
+                    {pdfDownloadUrl && (
                       <div className="flex justify-center gap-2 mt-2">
                         <button
                           onClick={() => setZoom((z) => Math.max(z - 0.1, 0.25))}
@@ -762,6 +792,7 @@ export default function PdfEditor() {
                       title="Remover PDF / Imagem"
                       onClick={() => {
                         setPdfUrl(null);           // Remove PDF
+                        setPdfDownloadUrl(null);    // ❌ limpa o PDF para download
                         setImagemBase64(null);      // Remove imagem
                         setAlteracoesPendentes(false);
                         setPaginaAtual(1);
