@@ -232,7 +232,7 @@ class PdfEditorController extends Controller
             $colunas <= 3 => 120,  // pequeno
             $colunas <= 4 => 100,  // médio
             $colunas <= 5 => 120,  // médio
-            $colunas <= 6 => 90,   // grande
+            $colunas <= 6 => 100,   // grande
             $colunas <= 8 => 120,  // grande
             default       => 150,  // gigante (até 10x10)
         };
@@ -307,7 +307,7 @@ class PdfEditorController extends Controller
                 $canvas->newImage($larguraAlvo, $alturaAlvo, new \ImagickPixel("white"));
                 $canvas->setImageFormat('jpeg');
                 $canvas->setImageCompression(\Imagick::COMPRESSION_JPEG);
-                $canvas->setImageCompressionQuality(90);
+                $canvas->setImageCompressionQuality(85);
                 $canvas->setImageUnits(\Imagick::RESOLUTION_PIXELSPERINCH);
                 $canvas->setImageResolution($dpi, $dpi);
 

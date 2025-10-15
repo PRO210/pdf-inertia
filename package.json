@@ -24,6 +24,7 @@
     "dependencies": {
         "@mercadopago/sdk-react": "^1.0.6",
         "@react-pdf/renderer": "^4.3.0",
+        "browser-image-compression": "^2.0.2",
         "pdf-lib": "^1.17.1",
         "pdfjs-dist": "^5.3.31",
         "react-spinners": "^0.17.0",

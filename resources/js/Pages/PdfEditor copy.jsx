@@ -145,7 +145,7 @@ export default function PdfEditor() {
     let quality;
 
     if (maxDim > 5000) {
-      quality = 0.85;
+      quality = 0.9;
     } else {
       quality = 0.9;
     }
@@ -362,7 +362,7 @@ export default function PdfEditor() {
   // NOVO useEffect para rasterizar a página atual sempre que a página ou o PDF mudar.
 
   // Função para calcular as dimensões alvo (15% de redução linear nos pixels)
-  const getTargetDimensions = (width, height, percentualReducao = 0.15) => {
+  const getTargetDimensions = (width, height, percentualReducao = 0.10) => {
     const maxDim = Math.max(width, height);
 
     // Se a imagem for pequena (ex: <= 4000px), não reduzimos os pixels.
@@ -465,7 +465,7 @@ export default function PdfEditor() {
         // 3. Compressão e Redimensionamento de Pixels com a Lib
         const compressionOptions = {
           maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8K)
-          initialQuality: 0.85,          // Redução de qualidade (JPEG)
+          initialQuality: 0.9,          // Redução de qualidade (JPEG)
           fileType: 'image/jpeg',
           useWebWorker: true,
         };
@@ -480,7 +480,7 @@ export default function PdfEditor() {
         const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
 
         console.log(`%c📊 ANÁLISE DE COMPRESSÃO FINAL (Lib)`, 'color: #3182CE; font-weight: bold;');
-        console.log(`💾 Tamanho Final (Qualidade 0.85): ${finalSizeMB} MB`);
+        console.log(`💾 Tamanho Final (Qualidade 0.9): ${finalSizeMB} MB`);
         console.log(`📉 REDUÇÃO TOTAL (MB): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
 
         setImagemBase64(finalBase64)

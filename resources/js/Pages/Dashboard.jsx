@@ -98,7 +98,7 @@ export default function Dashboard() {
 
 
                             {/* Card-link para o tratamento de imagens */}
-                            {(auth.user.id === 1 || auth.user.id === 7) && (
+                            {(auth.user.id === 1) && (
                                 <Link href="/tratamento-imagens" className="block">
                                     <div className="overflow-hidden rounded-xl shadow-md bg-white cursor-pointer hover:shadow-lg transition">
                                         <div className="p-4 text-justify">

@@ -26,3 +26,40 @@ APRO
 11/2030
 https://9816f296679f.ngrok-free.app/pagamento.retorno?collection_id=128055432323&collection_status=approved&payment_id=128055432323&status=approved&external_reference=33&payment_type=account_money&merchant_order_id=34497500048&preference_id=1725174117-1ab2a20a-54f5-42d0-83a6-eebc6ae3dac0&site_id=MLB&processing_mode=aggregator&merchant_account_id=null
 https://pdfeditor.proandre.com.br/webhoo...
+
+1 * 1 em 4k em 31s com Dpi = 150, maxDpi = 400
+1 * 2 em 4k em 40s com Dpi = 150, maxDpi = 200
+1 * 3 em 4k em 11s com Dpi = 120, maxDpi = 130
+1 * 4 em 4k em 14s com Dpi = 95,  maxDpi = 100
+1 * 5 em 4k em 12s com Dpi = 76,  maxDpi = 80
+1 * 6 em 4k em 15s com Dpi = 63,  maxDpi = 67
+1 * 7 em 4k em 14s com Dpi = 54,  maxDpi = 57
+1 * 8 em 4k em 13s com Dpi = 47,  maxDpi = 50
+9 * 9 em 4k em 13s com Dpi = 42,  maxDpi = 44
+10 * 10 em 4k em 13 com  Dpi = 40 maxDpi =  40
+
+1 * 1 em 10k em 15s com Dpi = 150,  Dpi =,maxDpi = 400
+2 * 2 em 10k em 40s com dpiFinal: 150, dpiX: 201.51, dpiY: 213.86, maxDpi: 150, minDpi: 72
+3 * 3 em 10k em 11s com Dpi = 120,   Dpi =,maxDpi = 130
+4 * 4 em 10k em 14s com Dpi = 95,    Dpi =,maxDpi = 100
+5 * 5 em 10k em 46s com dpiFinal: 120, dpiX: 161.21, dpiY: 171.09, maxDpi: 120, minDpi: 50
+6 * 6 em 10k em 49s com Dpi = 63,    Dpi =,maxDpi = 67
+7 * 7 em 10k em 49s com dpiFinal: 115, dpiX: 115.15, dpiY: 122.2, maxDpi: 120, minDpi: 40
+8 * 8 em 10k em 13s com Dpi = 101,   Dpi =,maxDpi = 100
+9 * 9 em 10k em 13s com Dpi = 42,    Dpi =,maxDpi = 44
+10 * 10 em 10k em 49s com dpiFinal: 81, dpiX: 80.6, dpiY: 85.54, maxDpi: 150, minDpi: 40
+
+//
+Nova lib
+//
+8  *  8 em 8k em 13s com dpiFinal: 74, dpiX: 105.24, dpiY: 74.45, maxDpi: 120, minDpi: 40
+9  *  9 em 10k em 3s com dpiFinal: 40, dpiX: 38, dpiY: 35.81, maxDpi: 150, minDpi: 40
+10 * 10 em 10k em 13s com dpiFinal: 69, dpiX: 68.51, dpiY: 72.71, maxDpi: 150, minDpi: 40
+
+//
+Online
+//
+8 * 8 em 8k em 45s com dpiFinal:88, dpiX:123.82, dpiY:87.6, maxDpi:120, minDpi:40
+9 * 9 em 4k em 14s com dpiFinal:42, dpiX:44.71, dpiY:42.13, maxDpi:150, minDpi:40
+10 * 10 em 10k em 65s com dpiFinal:81, dpiX:80.6, dpiY:85.54, maxDpi:150, minDpi:40
+
