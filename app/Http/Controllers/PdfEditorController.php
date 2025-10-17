@@ -230,7 +230,7 @@ class PdfEditorController extends Controller
         $maxDpi = match (true) {
             $colunas <= 2 => 150,  // pôster pequeno
             $colunas <= 3 => 120,  // pequeno
-            $colunas <= 4 => 100,  // médio
+            $colunas <= 4 => 120,  // médio
             $colunas <= 5 => 120,  // médio
             $colunas <= 6 => 100,   // grande
             $colunas <= 8 => 120,  // grande
@@ -279,7 +279,7 @@ class PdfEditorController extends Controller
         for ($i = 0; $i <= $colunas; $i++) $xBounds[$i] = (int) round($i * $imgWidthPx / $colunas);
         for ($j = 0; $j <= $linhas; $j++) $yBounds[$j] = (int) round($j * $imgHeightPx / $linhas);
 
-        $imagick->sharpenImage(0.5, 0.3);
+        $imagick->sharpenImage(0.5, 0.3);    
 
         $partes = [];
         $larguraConteudoCm = 0;
@@ -345,6 +345,7 @@ class PdfEditorController extends Controller
             'tamanhos_debug' => $tamanhosDebug // 🔹 array de debug
         ]);
     }
+
     public function atividades()
     {
         return Inertia::render('PdfAtividades');

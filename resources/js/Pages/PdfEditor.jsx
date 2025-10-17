@@ -114,7 +114,7 @@ export default function PdfEditor() {
     const maxDim = Math.max(width, height);
 
     // 🔹 Aplica limite apenas se imagem for muito grande e pôster pequeno
-    if (maxDim > 5000 && colunas < 5) {
+    if (maxDim > 5000 && colunas < 6) {
       const fator = 5000 / maxDim;
       const newWidth = Math.round(width * fator);
       const newHeight = Math.round(height * fator);
@@ -131,53 +131,37 @@ export default function PdfEditor() {
       return { width: newWidth, height: newHeight };
     }
 
+    // Aplica redução fixa de 15% se maxDim entre 6000 e 8000, e 20% se maior que 8000
+    if (maxDim >= 10000 && colunas > 5) {
+      let fator = 0.05;
+
+      const newWidth = Math.round(width * (1 - fator));
+      const newHeight = Math.round(height * (1 - fator));
+
+      console.log(
+        `%c📏 Imagem redimensionada:`,
+        'color: #6b46c1; font-weight: bold;'
+      );
+      console.log(`Dimensões originais: ${width} × ${height}px`);
+      console.log(`Dimensões reduzidas: ${newWidth} × ${newHeight}px`);
+      console.log(`Redução aplicada: ${(fator * 100).toFixed(1)}%`);
+      console.log(`Colunas do pôster: ${colunas}`);
+
+      return { width: newWidth, height: newHeight };
+    }
+
     // 🔹 Caso não precise redimensionar
-    console.log(
-      `%c📏 Imagem mantida no tamanho original: ${width} × ${height}px`,
-      'color: #38a169; font-weight: bold;'
-    );
+    console.log(`%c📏 Imagem mantida no tamanho original: ${width} × ${height}px`, 'color: #38a169; font-weight: bold;');
 
     return { width, height };
   };
 
   const getJpegQuality = (width, height) => {
     const maxDim = Math.max(width, height);
-    let quality;
-
-    if (maxDim > 5000) {
-      quality = 0.85;
-    } else {
-      quality = 0.9;
-    }
+    let quality = 1;
 
     return quality;
   };
-
-
-  // const corrigirOrientacaoImagem = (base64) => {
-  //   return new Promise((resolve) => {
-  //     const img = new Image();
-  //     img.onload = () => {
-  //       const { width, height } = redimensionarSeNecessario(
-  //         img.width,
-  //         img.height,
-  //         ampliacao.colunas // 🔹 sempre lê o valor atualizado
-  //       );
-
-  //       const canvas = document.createElement("canvas");
-  //       const ctx = canvas.getContext("2d");
-  //       canvas.width = width;
-  //       canvas.height = height;
-
-  //       ctx.drawImage(img, 0, 0, width, height);
-  //       const finalBase64 = canvas.toDataURL("image/jpeg", 0.9);
-
-  //       resolve(finalBase64);
-  //     };
-  //     img.src = base64;
-  //   });
-  // };
-
 
 
   // Função para converter Base64 de volta para um Blob (Auxiliar para log)
@@ -222,6 +206,8 @@ export default function PdfEditor() {
         // ----------------------------------------------------
         if (width !== img.width || height !== img.height) {
           console.log(`%c✅ Dimensão Final (Canvas): ${width} × ${height} pixels`, 'color: #38a169; font-weight: bold;');
+        } else {
+          console.log(`%cℹ️ Dimensão Final (Canvas): Mantida em ${width} × ${height} pixels`, 'color: #3182CE; font-weight: bold;');
         }
 
         const canvas = document.createElement("canvas");
@@ -232,23 +218,29 @@ export default function PdfEditor() {
         ctx.drawImage(img, 0, 0, width, height);
 
         // 3. Determinar a Qualidade
-        const compressionQuality = getJpegQuality(img.width, img.height);
-        console.log(`%c🖼️ Qualidade Selecionada: ${compressionQuality} (Baseado em ${img.width}x${img.height})`, 'color: #f6ad55; font-weight: bold;');
-
+        const compressionQuality = getJpegQuality(width, height);
+        console.log(`%c🖼️ Qualidade Selecionada: ${compressionQuality} (Baseado em ${width}x${height})`, 'color: #f6ad55; font-weight: bold;');
 
         // 4. Obter um BLOB do Canvas (Sem Compressão - quality 1.0)
         const blobDoCanvas = await new Promise(res => {
           canvas.toBlob(res, "image/jpeg", 1.0); // 1.0 = Sem perdas de qualidade
         });
 
-        const preCompressionSizeKB = (blobDoCanvas.size / 1024).toFixed(2);
-        console.log(`%c💾 Tamanho Pós-Redimensionamento/Pré-Lib: ${preCompressionSizeKB} KB (Qualidade 1.0)`, 'color: #f6ad55;');
+        const { maxWidth, maxHeight } = getTargetDimensions(width, height);
+        const maxDimFinal = Math.max(maxWidth, maxHeight);
+        const originalSizeMB = (blobDoCanvas.size / 1024 / 1024).toFixed(2);
 
+        console.log(`%c📏 Dimensão Alvo (Max): ${maxDimFinal} pixels`, 'color: #38a169; font-weight: bold;');
+        console.log(`💾 Tamanho Pós-Orientação: ${originalSizeMB} MB`);
+
+        const preCompressionSizeKB = (blobDoCanvas.size / 1024).toFixed(2);
+        console.log(`%c💾 Tamanho Pós-Redimensionamento/Pré-Lib: ${maxDimFinal} KB (Qualidade )`, 'color: #f6ad55;');
 
         // 5. Aplicar Compressão de Qualidade com a LIB
         const compressionOptions = {
-          initialQuality: compressionQuality,
-          maxSizeMB: 50, // Alto, pois o foco é a qualidade e o redimensionamento já foi feito
+          maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8.5K)
+          initialQuality: 1,
+          maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
           useWebWorker: true,
           // target size (pixels) is already handled by the Canvas!
         };
@@ -312,65 +304,17 @@ export default function PdfEditor() {
   };
 
 
-  // const handleFileChange = async (e) => {
-  //   const file = e.target.files[0]
-  //   if (!file) return
-
-  //   setCarregando(true)
-
-  //   const fileType = file.type
-
-  //   if (fileType === "application/pdf") {
-  //     // 1. Gerar URL de Blob para PDF.js usar
-  //     const pdfBlobUrl = URL.createObjectURL(file)
-  //     setPdfUrl(pdfBlobUrl)
-
-  //     // 2. Rasterizar a primeira página (pode levar tempo)
-  //     try {
-  //       // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
-  //       const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // MUDAR AQUI: SEMPRE 1
-  //       setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
-  //       setAlteracoesPendentes(true);
-  //     } catch (error) {
-  //       setErroPdf(error.message);
-  //       console.error(error);
-  //     } finally {
-  //       setCarregando(false);
-  //     }
-
-  //     return
-  //   }
-
-  //   // Se não for PDF, processar como imagem normal
-  //   const reader = new FileReader()
-  //   reader.onload = async (e) => {
-  //     const base64 = e.target.result
-
-  //     // Guarda o original (sem redimensionar)
-  //     setImagemBase64Original(base64);
-
-  //     const base64Corrigido = await corrigirOrientacaoImagem(base64)
-  //     setImagemBase64(base64Corrigido)
-  //     setAlteracoesPendentes(true)
-  //     setCarregando(false)
-  //   }
-
-  //   reader.readAsDataURL(file)
-  // }
-
-
-  // NOVO useEffect para rasterizar a página atual sempre que a página ou o PDF mudar.
-
   // Função para calcular as dimensões alvo (15% de redução linear nos pixels)
   const getTargetDimensions = (width, height, percentualReducao = 0.15) => {
+
     const maxDim = Math.max(width, height);
 
-    // Se a imagem for pequena (ex: <= 4000px), não reduzimos os pixels.
-    if (maxDim <= 4000) {
+    // Se a imagem for pequena (ex: <= 5000px), não reduzimos os pixels.
+    if (maxDim <= 5000) {
       return { maxWidth: width, maxHeight: height };
     }
 
-    // Calcula a nova dimensão máxima (ex: 10000 * 0.80 = 8000)
+    // Calcula a nova dimensão máxima (ex: 10000 * 0.85 = 8500)
     const targetMaxDim = Math.round(maxDim * (1 - percentualReducao));
 
     // Calcula o fator de redução
@@ -404,8 +348,7 @@ export default function PdfEditor() {
     });
   };
 
-  // Mantenha getJpegQuality E dataURLtoBlob definidos no escopo do componente
-
+  // Manipulador de mudança depois da inserção via input de arquivo (PDF ou Imagem)
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -465,9 +408,10 @@ export default function PdfEditor() {
         // 3. Compressão e Redimensionamento de Pixels com a Lib
         const compressionOptions = {
           maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8K)
-          initialQuality: 0.85,          // Redução de qualidade (JPEG)
+          initialQuality: 1,          // Redução de qualidade (JPEG)
           fileType: 'image/jpeg',
           useWebWorker: true,
+          maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
         };
 
         const inicio = performance.now();
@@ -497,11 +441,7 @@ export default function PdfEditor() {
   }
 
 
-
-
-
-
-
+  // Sempre que o PDF ou a página atual mudar, converte a página para imagem
   useEffect(() => {
     if (!pdfUrl) return;
 
@@ -532,7 +472,6 @@ export default function PdfEditor() {
     converterPaginaParaImagem();
 
   }, [pdfUrl, paginaAtual]); // Depende de pdfUrl e paginaAtual
-
 
 
   useEffect(() => {
