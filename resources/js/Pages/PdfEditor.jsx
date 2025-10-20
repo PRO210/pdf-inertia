@@ -10,8 +10,10 @@ import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 import imageCompression from 'browser-image-compression';
-
-
+import { resolucoesDeReferencia } from './Poster/Partials/resolucoesDeReferencia';
+import axios from 'axios';
+// import 'pica/dist/pica.min.js';
+import pica from 'pica';
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -35,6 +37,8 @@ export default function PdfEditor() {
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
   const [resumoTamanho, setResumoTamanho] = useState("")
+  // Ref para armazenar a instância do pica
+  const [picaInstance, setPicaInstance] = useState(null);
 
 
   const resetarConfiguracoes = () => {
@@ -268,8 +272,6 @@ export default function PdfEditor() {
   };
 
 
-
-
   const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 150) => {
     try {
       const loadingTask = pdfjsLib.getDocument(pdfUrl);
@@ -304,28 +306,248 @@ export default function PdfEditor() {
   };
 
 
-  // Função para calcular as dimensões alvo (15% de redução linear nos pixels)
-  const getTargetDimensions = (width, height, percentualReducao = 0.15) => {
+  // // Função para calcular as dimensões alvo (15% de redução linear nos pixels)
+  // const getTargetDimensions = (width, height, percentualReducao = 0.15) => {
 
-    const maxDim = Math.max(width, height);
+  //   const maxDim = Math.max(width, height);
 
-    // Se a imagem for pequena (ex: <= 5000px), não reduzimos os pixels.
-    if (maxDim <= 5000) {
-      return { maxWidth: width, maxHeight: height };
-    }
+  //   // Se a imagem for pequena (ex: <= 5000px), não reduzimos os pixels.
+  //   if (maxDim <= 5000) {
+  //     return { maxWidth: width, maxHeight: height };
+  //   }
 
-    // Calcula a nova dimensão máxima (ex: 10000 * 0.85 = 8500)
-    const targetMaxDim = Math.round(maxDim * (1 - percentualReducao));
+  //   // Calcula a nova dimensão máxima (ex: 10000 * 0.85 = 8500)
+  //   const targetMaxDim = Math.round(maxDim * (1 - percentualReducao));
 
-    // Calcula o fator de redução
-    const fator = targetMaxDim / maxDim;
-    const newWidth = Math.round(width * fator);
-    const newHeight = Math.round(height * fator);
+  //   // Calcula o fator de redução
+  //   const fator = targetMaxDim / maxDim;
+  //   const newWidth = Math.round(width * fator);
+  //   const newHeight = Math.round(height * fator);
 
-    return { maxWidth: newWidth, maxHeight: newHeight };
-  };
+  //   return { maxWidth: newWidth, maxHeight: newHeight };
+  // };
 
   // Versão da função APENAS para corrigir a orientação, sem fazer compressão JPEG.
+
+  /**
+   * Encontra a referência de pixels para a coluna alvo do pôster.
+   * Prioriza a correspondência exata de colunas e usa a aproximação como fallback.
+   * * @param {number} width - Largura original da imagem (em pixels).
+   * @param {number} height - Altura original da imagem (em pixels).
+   * @param {number} colunas - Número de colunas do pôster (entrada do usuário).
+   * @returns {{widthOriginal: number, heightOriginal: number, larguraReferencia: number, nomeReferencia: string}} Dados para o Pica.js.
+   */
+
+  const getTargetDimensions = (width, height, colunas) => {
+    // 1. Filtra entradas sem pixels
+    const resolucoesValidas = resolucoesDeReferencia.filter(r => r.larguraPx);
+
+    // [Omitindo o fallback de segurança do array vazio por brevidade]
+
+    let refAlvo = resolucoesValidas[0]; // Assume o primeiro item como fallback inicial.
+
+    // 2. TENTA ENCONTRAR A CORRESPONDÊNCIA EXATA DA COLUNA (Prioridade)
+    const refAlvoExato = resolucoesValidas.find(r => r.colunas === colunas);
+
+    if (refAlvoExato) {
+      refAlvo = refAlvoExato;
+    } else {
+      // 3. SE NÃO ENCONTRAR (APLICA O FALLBACK DA APROXIMAÇÃO)
+      refAlvo = resolucoesValidas.reduce((prev, curr) => {
+        return (Math.abs(curr.colunas - colunas) < Math.abs(prev.colunas - colunas) ? curr : prev);
+      }, refAlvo); // Usa o primeiro item como base se não achou nada.
+
+      console.warn(`⚠️ Coluna ${colunas} não encontrada para correspondência exata. Usando a referência de pixel mais próxima: ${refAlvo.nome} (${refAlvo.colunas} colunas).`);
+    }
+
+    const larguraReferencia = refAlvo.larguraPx;
+    const alturaReferencia = refAlvo.alturaPx;
+    const nomeReferencia = refAlvo.nome;
+
+    console.log(`%c🔗 Dados Finais para Pica.js:`, 'color: #10B981; font-weight: bold;');
+    console.log(`Colunas Alvo: **${colunas}**`);
+    console.log(`Referência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)`);
+    console.log(`Fatores Originais: ${width} × ${height}px`);
+
+    // 4. Retorna os valores
+    return {
+      larguraReferencia: larguraReferencia,
+      alturaReferencia: alturaReferencia,
+      nomeReferencia: nomeReferencia
+    };
+  };
+
+
+
+  function calcularProximoSmart(origW, origH, refW, refH, {
+    tolerancia = 0.10,      // se dentro de 10% considera "manter"
+    allowedOvershoot = 0.05 // quanto pode exceder a referência na outra dimensão (5%)
+  } = {}) {
+    console.group("🔎 SmartProximity Resize");
+    console.log(`Orig: ${origW}×${origH}  |  Ref: ${refW}×${refH}`);
+
+    const origMax = Math.max(origW, origH);
+    const origMin = Math.min(origW, origH);
+    const refMax = Math.max(refW, refH);
+    const refMin = Math.min(refW, refH);
+
+    // fator inicial: decisão por proximidade conforme solicitado
+    // se precisar reduzir (ref é "menor" no geral) -> prioriza igualar o refMax
+    // se precisar aumentar -> prioriza igualar o refMin
+    let fatorPrioritario;
+    if (refMax < origMax || refMin < origMin) {
+      // tendência a reduzir alguma dimensão => priorizar refMax
+      fatorPrioritario = refMax / origMax;
+      console.log("Decisão inicial: priorizar REDUÇÃO -> igualar max referência");
+    } else {
+      // tendência a aumentar (referência maior em pelo menos uma dimensão) => priorizar refMin
+      fatorPrioritario = refMin / origMin;
+      console.log("Decisão inicial: priorizar AMPLIAÇÃO -> igualar min referência");
+    }
+
+    console.log(`Fator prioritário: ${fatorPrioritario.toFixed(6)}`);
+
+    // dimensões provisórias
+    let newW = Math.round(origW * fatorPrioritario);
+    let newH = Math.round(origH * fatorPrioritario);
+    console.log(`Provisório: ${newW}×${newH}`);
+
+    // checar qual dimensão do original era max/min pra comparar corretamente com refW/refH
+    const origIsWidthMax = origW >= origH;
+    // a "outra dimensão" pode estourar em relação ao seu par correspondente na ref
+    // mapeamos newW->refW e newH->refH para ver se cabe
+    function exceedsAllowed(newDim, refDim) {
+      return newDim > Math.round(refDim * (1 + allowedOvershoot));
+    }
+
+    // se a outra dimensão estourou demais, ajustamos para caber (fator de "fit")
+    let ajustePorCap = false;
+    if (exceedsAllowed(newW, refW) || exceedsAllowed(newH, refH)) {
+      ajustePorCap = true;
+      // fator que garante encaixar sem estourar (fit)
+      const fitFactorW = refW / origW;
+      const fitFactorH = refH / origH;
+      const fitFactor = Math.min(fitFactorW, fitFactorH);
+      console.log("Overshoot detectado. Ajustando para caber na referência (fit).");
+      console.log(`fitFactorW: ${fitFactorW.toFixed(6)}, fitFactorH: ${fitFactorH.toFixed(6)} -> usar ${fitFactor.toFixed(6)}`);
+      // aplicamos o fitFactor (vai garantir que NÃO exceda ref)
+      newW = Math.round(origW * fitFactor);
+      newH = Math.round(origH * fitFactor);
+      fatorPrioritario = fitFactor;
+      console.log(`Ajustado: ${newW}×${newH}`);
+    }
+
+    // decide tipo (manter/aumentar/reduzir) com tolerância
+    const dentroTolerancia = Math.abs(1 - fatorPrioritario) <= tolerancia;
+    const tipo = dentroTolerancia ? 'manter' : (fatorPrioritario > 1 ? 'aumentar' : 'reduzir');
+
+    console.log(`Fator final: ${fatorPrioritario.toFixed(6)}  |  Ação: ${tipo.toUpperCase()}  |  Dentro tolerância: ${dentroTolerancia}`);
+    if (ajustePorCap) console.log("Nota: fator originalmente priorizado foi capado para evitar overshoot.");
+    console.groupEnd();
+
+    return { tipo, novaLargura: newW, novaAltura: newH, fator: +fatorPrioritario.toFixed(6) };
+  }
+
+
+  // Assumindo que Pica.js está instalado e importado
+  // const pica = require('pica')({ features: ['js', 'wasm'] }); // Para ambiente Node/Worker
+  // OU se você estiver no browser/React:
+  // const pica = window.pica();
+
+  /**
+   * Redimensiona um Blob de imagem com alta qualidade usando Pica.js, 
+   * respeitando os limites de pixel de referência e um fator máximo de upscaling de 4x.
+   * * @param {Blob} imageBlob - O Blob da imagem orientada original.
+   * @param {object} refData - Dados de referência retornados por getTargetDimensions.
+   * @returns {Promise<Blob>} O Blob da imagem redimensionada.
+   */
+
+  async function resizeImageWithPica(imageBlob, refData) {
+    if (!picaInstance) {
+      console.error("Pica.js não foi inicializado corretamente.");
+      throw new Error("Pica.js não está pronto para uso.");
+    }
+
+    const {
+      widthOriginal,
+      heightOriginal,
+      larguraReferencia,
+      alturaReferencia
+    } = refData;
+
+    console.log('%c--- 🔍 INICIANDO REDIMENSIONAMENTO COM SMART ---', 'color: #2563eb; font-weight: bold;');
+    console.log(`Imagem original: ${widthOriginal}×${heightOriginal}`);
+    console.log(`Referência: ${larguraReferencia}×${alturaReferencia}`);
+
+    // 🧠 Usa o cálculo inteligente
+    const resultadoSmart = calcularProximoSmart(
+      widthOriginal,
+      heightOriginal,
+      larguraReferencia,
+      alturaReferencia,
+      { tolerancia: 0.10, allowedOvershoot: 0.05 }
+    );
+
+    // Agora obtemos as novas dimensões e o tipo de ação
+    const { novaLargura, novaAltura, fator, tipo } = resultadoSmart;
+
+    console.log(`Tipo de ação: ${tipo}`);
+    console.log(`Dimensões calculadas: ${novaLargura}×${novaAltura}`);
+    console.log(`Fator aplicado: ${fator.toFixed(4)}x`);
+
+    // 🚫 Limite de upscaling (ex: máximo 4x)
+    const FATOR_AMPLIACAO_MAX = 4;
+    if (fator > FATOR_AMPLIACAO_MAX) {
+      console.warn(`Fator ${fator.toFixed(2)} excede limite de ${FATOR_AMPLIACAO_MAX}x. Aplicando limite.`);
+    }
+
+    const finalWidth = Math.round(
+      Math.min(novaLargura, widthOriginal * FATOR_AMPLIACAO_MAX)
+    );
+    const finalHeight = Math.round(
+      Math.min(novaAltura, heightOriginal * FATOR_AMPLIACAO_MAX)
+    );
+
+    // 🎨 Cria elementos canvas
+    const imgElement = document.createElement('img');
+    imgElement.src = URL.createObjectURL(imageBlob);
+    await new Promise(resolve => (imgElement.onload = resolve));
+
+    const canvasOrigem = document.createElement('canvas');
+    const canvasDestino = document.createElement('canvas');
+    canvasOrigem.width = widthOriginal;
+    canvasOrigem.height = heightOriginal;
+    canvasDestino.width = finalWidth;
+    canvasDestino.height = finalHeight;
+
+    const ctx = canvasOrigem.getContext('2d');
+    ctx.drawImage(imgElement, 0, 0);
+
+    // ⚙️ Redimensiona com Pica
+    const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
+      quality: 3,
+      alpha: true,
+      unsharpAmount: 80,
+      unsharpRadius: 0.6,
+      unsharpThreshold: 2
+    });
+
+    console.log('%c--- ✅ FINALIZADO COM SUCESSO ---', 'color: #16a34a; font-weight: bold;');
+    console.log(`Final: ${finalWidth}×${finalHeight}`);
+    console.log(`Tipo: ${tipo} | Fator real aplicado: ${fator.toFixed(4)}x`);
+
+    // 🔄 Libera memória
+    URL.revokeObjectURL(imgElement.src);
+
+    // Retorna Blob final
+    return new Promise(resolve => {
+      resultadoCanvas.toBlob(resolve, 'image/jpeg', 0.95);
+    });
+  }
+
+
+
+
   const corrigirOrientacaoPura = (base64) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -349,6 +571,125 @@ export default function PdfEditor() {
   };
 
   // Manipulador de mudança depois da inserção via input de arquivo (PDF ou Imagem)
+  // const handleFileChange = async (e) => {
+  //   const file = e.target.files[0]
+  //   if (!file) return
+
+  //   setCarregando(true)
+
+  //   const fileType = file.type
+
+  //   if (fileType === "application/pdf") {
+  //     // 1. Gerar URL de Blob para PDF.js usar
+  //     const pdfBlobUrl = URL.createObjectURL(file)
+  //     setPdfUrl(pdfBlobUrl)
+
+  //     // 2. Rasterizar a primeira página (pode levar tempo)
+  //     try {
+  //       // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
+  //       const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // MUDAR AQUI: SEMPRE 1
+  //       setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
+  //       setAlteracoesPendentes(true);
+  //     } catch (error) {
+  //       setErroPdf(error.message);
+  //       console.error(error);
+  //     } finally {
+  //       setCarregando(false);
+  //     }
+
+  //     return
+  //   }
+
+  //   // Se não for PDF, processar como IMAGEM
+  //   const reader = new FileReader()
+  //   reader.onload = async (e) => {
+  //     const base64 = e.target.result
+
+  //     // Guarda o original
+  //     setImagemBase64Original(base64);
+  //     setCarregando(true); // Garante que o spinner está ligado
+
+  //     try {
+  //       // 1. Correção de Orientação no Canvas (Seu fluxo, agora retorna Blob)
+  //       console.log('%c🔄 Corrigindo orientação da imagem...', 'color: #f6ad55; font-weight: bold;');
+  //       const blobOrientado = await corrigirOrientacaoPura(base64);
+
+  //       // 2. Lendo dimensões para o cálculo do alvo (80%)
+  //       const img = new Image();
+  //       img.src = base64;
+  //       await new Promise(res => img.onload = res); // Espera a imagem carregar para ler as dimensões
+
+
+  //       const { maxWidth, maxHeight, nomeReferencia } = getTargetDimensions(img.width, img.height, ampliacao.colunas);
+  //       const maxDimFinal = Math.max(maxWidth, maxHeight);
+  //       const originalSizeMB = (blobOrientado.size / 1024 / 1024).toFixed(2);
+
+  //       console.log(`%c📏 Dimensão Alvo (Max): ${maxDimFinal} pixels`, 'color: #38a169; font-weight: bold;');
+  //       console.log(`💾 Tamanho Pós-Orientação: ${originalSizeMB} MB`);
+
+
+  //       // 1. Obter os dados de referência (usando a função do passo anterior)
+  //       // Assume-se que 'colunas' está disponível aqui.
+  //       // const refData = getTargetDimensions(maxWidth, maxHeight, ampliacao.colunas);
+  //       const refData = (maxWidth, maxHeight, ampliacao.colunas);
+
+  //       // 2. Redimensionamento de Alta Qualidade com Pica.js
+  //       const inicio = performance.now();
+
+  //       // Chama a nova função (que aplica o fator 4x e calcula o tamanho final)
+  //       const compressedBlob = await resizeImageWithPica(blobOrientado, refData);
+
+  //       const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob); // Use sua função existente para converter para Base64
+  //       const fim = performance.now();
+
+  //       // 3. Logs e Atualização de Estado (continuação da sua lógica)
+  //       const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
+  //       const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
+
+  //       console.log(`%c📊 ANÁLISE DE REDIMENSIONAMENTO FINAL (Pica.js)`, 'color: #3182CE; font-weight: bold;');
+  //       console.log(`💾 Tamanho Final (Qualidade 0.9): ${finalSizeMB} MB`);
+  //       console.log(`📉 Redução Total (tamanho): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
+
+  //       setImagemBase64(finalBase64);
+  //       setAlteracoesPendentes(true);
+
+  //       // // 3. Compressão e Redimensionamento de Pixels com a Lib
+  //       // const compressionOptions = {
+  //       //   maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8K)
+  //       //   initialQuality: 1,          // Redução de qualidade (JPEG)
+  //       //   fileType: 'image/jpeg',
+  //       //   useWebWorker: true,
+  //       //   maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
+  //       // };
+
+  //       // const inicio = performance.now();
+  //       // const compressedBlob = await imageCompression(blobOrientado, compressionOptions);
+  //       // const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
+  //       // const fim = performance.now();
+
+  //       // // 4. Logs e Atualização de Estado
+  //       // const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
+  //       // const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
+
+  //       // console.log(`%c📊 ANÁLISE DE COMPRESSÃO FINAL (Lib)`, 'color: #3182CE; font-weight: bold;');
+  //       // console.log(`💾 Tamanho Final (Qualidade 0.85): ${finalSizeMB} MB`);
+  //       // console.log(`📉 REDUÇÃO TOTAL (MB): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
+
+  //       setImagemBase64(finalBase64)
+  //       setAlteracoesPendentes(true)
+
+  //     } catch (error) {
+  //       console.error("Erro no processamento da imagem:", error);
+  //     }
+
+  //     setCarregando(false)
+  //   }
+
+  //   reader.readAsDataURL(file)
+  // }
+
+
+  // Manipulador de mudança depois da inserção via input de arquivo (PDF ou Imagem)
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -365,8 +706,8 @@ export default function PdfEditor() {
       // 2. Rasterizar a primeira página (pode levar tempo)
       try {
         // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
-        const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // MUDAR AQUI: SEMPRE 1
-        setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
+        const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150);
+        setImagemBase64(base64Image);
         setAlteracoesPendentes(true);
       } catch (error) {
         setErroPdf(error.message);
@@ -375,7 +716,7 @@ export default function PdfEditor() {
         setCarregando(false);
       }
 
-      return
+      return;
     }
 
     // Se não for PDF, processar como IMAGEM
@@ -386,49 +727,66 @@ export default function PdfEditor() {
       // Guarda o original
       setImagemBase64Original(base64);
       setCarregando(true); // Garante que o spinner está ligado
+      setErroPdf(null); // Limpa qualquer erro anterior
+
+      // 🎯 CHECK CRÍTICO: Verifica se o Pica.js está carregado e pronto
+      if (!picaInstance) {
+        const errorMessage = "O Pica.js (biblioteca de processamento de imagem) ainda não foi carregado.(Certifique-se de que /js/pica.min.js está acessível)";
+        console.error("❌ " + errorMessage);
+        setCarregando(false);
+        setErroPdf(errorMessage);
+        return;
+      }
 
       try {
-        // 1. Correção de Orientação no Canvas (Seu fluxo, agora retorna Blob)
+        // 1. Correção de Orientação no Canvas (Seu fluxo, agora retorna Blob de qualidade 1.0)
         console.log('%c🔄 Corrigindo orientação da imagem...', 'color: #f6ad55; font-weight: bold;');
         const blobOrientado = await corrigirOrientacaoPura(base64);
 
-        // 2. Lendo dimensões para o cálculo do alvo (80%)
+        // 2. Lendo dimensões para o cálculo do alvo
         const img = new Image();
         img.src = base64;
         await new Promise(res => img.onload = res); // Espera a imagem carregar para ler as dimensões
 
-        const { maxWidth, maxHeight } = getTargetDimensions(img.width, img.height);
-        const maxDimFinal = Math.max(maxWidth, maxHeight);
+        const originalWidth = img.width;
+        const originalHeight = img.height;
         const originalSizeMB = (blobOrientado.size / 1024 / 1024).toFixed(2);
 
-        console.log(`%c📏 Dimensão Alvo (Max): ${maxDimFinal} pixels`, 'color: #38a169; font-weight: bold;');
+        // 3. Obter os dados de referência (largura e altura do banner alvo)
+        const refData = getTargetDimensions(originalWidth, originalHeight, ampliacao.colunas);
+
+        // Adiciona as dimensões originais ao refData para a função resizeImageWithPica usar
+        const fullRefData = {
+          ...refData,
+          widthOriginal: originalWidth,
+          heightOriginal: originalHeight
+        };
+
+        const maxDimRef = Math.max(refData.larguraReferencia, refData.alturaReferencia);
+
+        console.log(`%c📏 Dimensão Alvo (Max): ${maxDimRef} pixels`, 'color: #38a169; font-weight: bold;');
         console.log(`💾 Tamanho Pós-Orientação: ${originalSizeMB} MB`);
 
 
-        // 3. Compressão e Redimensionamento de Pixels com a Lib
-        const compressionOptions = {
-          maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8K)
-          initialQuality: 1,          // Redução de qualidade (JPEG)
-          fileType: 'image/jpeg',
-          useWebWorker: true,
-          maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
-        };
-
+        // 4. Redimensionamento de Alta Qualidade com Pica.js
         const inicio = performance.now();
-        const compressedBlob = await imageCompression(blobOrientado, compressionOptions);
-        const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
+
+        // Chama a função com o Blob orientado e os dados de referência completos
+        const compressedBlob = await resizeImageWithPica(blobOrientado, fullRefData);
+
+        const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob); // Converte Blob para Base64
         const fim = performance.now();
 
-        // 4. Logs e Atualização de Estado
+        // 5. Logs e Atualização de Estado
         const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
         const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
 
-        console.log(`%c📊 ANÁLISE DE COMPRESSÃO FINAL (Lib)`, 'color: #3182CE; font-weight: bold;');
-        console.log(`💾 Tamanho Final (Qualidade 0.85): ${finalSizeMB} MB`);
-        console.log(`📉 REDUÇÃO TOTAL (MB): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
+        console.log(`%c📊 ANÁLISE DE REDIMENSIONAMENTO FINAL (Pica.js)`, 'color: #3182CE; font-weight: bold;');
+        console.log(`💾 Tamanho Final (Qualidade 1): ${finalSizeMB} MB`);
+        console.log(`📉 Redução Total (tamanho): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
 
-        setImagemBase64(finalBase64)
-        setAlteracoesPendentes(true)
+        setImagemBase64(finalBase64);
+        setAlteracoesPendentes(true);
 
       } catch (error) {
         console.error("Erro no processamento da imagem:", error);
@@ -439,6 +797,55 @@ export default function PdfEditor() {
 
     reader.readAsDataURL(file)
   }
+
+  useEffect(() => {
+    const instance = pica({ features: ['js', 'wasm'] })
+    setPicaInstance(instance)
+
+    console.log('%c✅ Pica.js inicializado com sucesso', 'color: #10B981; font-weight: bold;')
+  }, [])
+
+
+
+  // 1. Efeito COMBINADO para carregar e inicializar a instância do Pica.js
+  useEffect(() => {
+    if (picaInstance) return; // Se a instância já existe, não faça nada
+
+    // 1. Tenta inicializar se já estiver carregado (caso o componente renderize de novo)
+    if (typeof window.pica === 'function') {
+      setPicaInstance(window.pica());
+      console.log('✅ Pica.js já estava carregado e foi inicializado imediatamente.');
+      return;
+    }
+
+    // 2. Carrega o script dinamicamente via caminho local
+    console.log('%c⏳ Carregando Pica.js via caminho local (/js/pica.min.js)...', 'color: #38a169;');
+    const script = document.createElement('script');
+    script.src = '/js/pica.min.js';
+    script.async = true;
+
+    script.onload = () => {
+      console.log('✅ Pica.js carregado com sucesso via script.');
+      // 3. Inicializa a instância após o carregamento do script
+      if (typeof window.pica === 'function') {
+        setPicaInstance(window.pica());
+        console.log('✅ Instância do Pica.js inicializada no estado.');
+      } else {
+        console.error('❌ Pica.js carregado, mas a função global "pica" não foi encontrada.');
+        setErroPdf('Pica.js carregado, mas a função global não foi encontrada. Verifique o arquivo.');
+      }
+    };
+
+    script.onerror = (e) => {
+      console.error('❌ Erro ao carregar Pica.js do caminho local.', e);
+      setErroPdf('Erro ao carregar Pica.js. Verifique o caminho /js/pica.min.js');
+    };
+
+    document.body.appendChild(script);
+    // Limpeza: remove o script se o componente for desmontado
+    return () => { document.body.removeChild(script); };
+  }, [picaInstance]); // Depende de picaInstance para evitar loop e garantir que inicialize apenas uma vez
+
 
 
   // Sempre que o PDF ou a página atual mudar, converte a página para imagem

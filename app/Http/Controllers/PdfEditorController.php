@@ -245,6 +245,14 @@ class PdfEditorController extends Controller
             default       => 40,   // muito grande, não precisa forçar DPI
         };
 
+        // // 🔹 Limite superior adaptativo conforme tamanho do pôster (Revisado)
+        // $maxDpi = match (true) {
+        //     $colunas <= 2 => 150,  // A2/A3/A4
+        //     $colunas <= 4 => 120,  // Médio
+        //     $colunas <= 6 => 100,  // Grande
+        //     default       => 90,   // Gigante (7+ colunas)
+        // };
+
         // 🔹 Aplica o DPI final dentro dos limites
         $dpi = max($minDpi, min($dpi, $maxDpi));
 
