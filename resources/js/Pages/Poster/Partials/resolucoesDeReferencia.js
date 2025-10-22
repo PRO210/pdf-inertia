@@ -32,16 +32,16 @@ export const resolucoesDeReferencia = [
   {
     nome: "Pôster 3x3 (4K Base)",
     colunas: 3,
-    larguraPx: 4000,
-    alturaPx: 4000,
+    larguraPx: 3840,
+    alturaPx: 2160,
   },
 
   // Base: 4x4. DPI real: 27 DPI. Aumentado para 4K Estendido.
   {
     nome: "Pôster 4x4 (4K Ext.)",
     colunas: 4,
-    larguraPx: 4000,
-    alturaPx: 4000,
+    larguraPx: 3840,
+    alturaPx: 2160,
   },
 
   // Base: 5x5. DPI real: 24 DPI. Aumentado para 6K Base.

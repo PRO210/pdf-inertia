@@ -12,7 +12,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 import imageCompression from 'browser-image-compression';
 import { resolucoesDeReferencia } from './Poster/Partials/resolucoesDeReferencia';
 import axios from 'axios';
-// import 'pica/dist/pica.min.js';
 import pica from 'pica';
 
 export default function PdfEditor() {
@@ -85,34 +84,6 @@ export default function PdfEditor() {
     }
   }
 
-
-  // Função para corrigir rotação usando Canvas
-  // const corrigirOrientacaoImagem = (base64) => {
-  //   return new Promise((resolve) => {
-  //     const img = new Image()
-  //     img.onload = () => {
-  //       const canvas = document.createElement("canvas")
-  //       const ctx = canvas.getContext("2d")
-
-  //       // se a foto for "de câmera" (mais alta que larga) gira para caber
-  //       if (img.height > img.width) {
-  //         canvas.width = img.height
-  //         canvas.height = img.width
-  //         ctx.translate(canvas.width / 2, canvas.height / 2)
-  //         ctx.rotate(-90 * Math.PI / 180)
-  //         ctx.drawImage(img, -img.width / 2, -img.height / 2)
-  //       } else {
-  //         canvas.width = img.width
-  //         canvas.height = img.height
-  //         ctx.drawImage(img, 0, 0)
-  //       }
-
-  //       resolve(canvas.toDataURL("image/jpeg", 0.95))
-  //     }
-  //     img.src = base64
-  //   })
-  // }
-
   // 🔹 Função genérica de redimensionamento conforme número de colunas
   const redimensionarSeNecessario = (width, height, colunas) => {
     const maxDim = Math.max(width, height);
@@ -179,6 +150,146 @@ export default function PdfEditor() {
     }
     return new Blob([u8arr], { type: mime });
   };
+
+  /**
+   * Redimensiona usando browser-image-compression (modo mais natural)
+  */
+  async function ajustarImagemBIC(file, larguraIdeal, alturaIdeal) {
+
+    const options = {
+      maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
+      useWebWorker: true,
+      maxSizeMB: 20,
+      initialQuality: 1.0,
+      fileType: 'image/jpeg',
+      alwaysKeepResolution: true,
+    };
+
+    console.log('--- DETALHES DO REDIMENSIONAMENTO (BIC) ---');
+    console.log(`Ideal: ${larguraIdeal}px x ${alturaIdeal}px`);
+    console.log('Opções:', options);
+
+    const compressedBlob = await imageCompression(file, options);
+
+    const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
+
+    // Cria uma URL temporária e carrega como imagem
+    const tempURL = URL.createObjectURL(compressedBlob);
+    const img = new Image();
+    await new Promise((resolve) => {
+      img.onload = () => resolve();
+      img.src = tempURL;
+    });
+
+    img.width = img.naturalWidth;
+    img.height = img.naturalHeight;
+
+    return { blob: compressedBlob, width: img.width, height: img.height, url: tempURL, base64: finalBase64 };
+  }
+
+
+  // Função para converter Base64 de volta para um Blob (Auxiliar para log)
+  const base64ToBlob = (dataurl) => {
+    const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+      bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+
+
+  const tratamentoDimensoesBase64 = (base64, colunas, margem = 0.10) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = async () => { // ⬅️ Tornar `onload` assíncrono para usar `await`
+
+        // 1. LOG PRÉ-PROCESSAMENTO COM getDadosImg: Dimensões Originais
+        // ----------------------------------------------------
+        const originalBlob = base64ToBlob(base64);
+        const originalSizeKB = (originalBlob.size / 1024).toFixed(2);
+        console.log(`\n%c==================================`, 'color: #3182CE;');
+        console.log(`%c📊 ANÁLISE DE COMPRESSÃO/UPSCALE - INÍCIO`, 'color: #3182CE; font-weight: bold;');
+        console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
+        console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
+        console.log(`%c==================================`, 'color: #3182CE;');
+
+        // 2. Obter os dados de referência dos novos tamanhos alvo com base nas colunas
+        const { larguraReferencia, alturaReferencia, nomeReferencia } = getTargetDimensions(img.width, img.height, colunas);
+
+        // 3️⃣ Calcular desvios percentuais em relação à referência (positivo = maior, negativo = menor)
+        const desvioLargura = (img.width - larguraReferencia) / larguraReferencia;
+        const desvioAltura = (img.height - alturaReferencia) / alturaReferencia;
+
+        const mediaDesvios = (desvioLargura + desvioAltura) / 2;
+
+        let acao = "manter";
+        const margemAbsoluta = Math.abs(margem); // Garante que a comparação seja feita contra o valor positivo da margem
+
+        if (Math.abs(mediaDesvios) <= margemAbsoluta) {
+          acao = "manter"; // O desvio está dentro da margem aceitável
+        } else if (mediaDesvios > margemAbsoluta) {
+          acao = "diminuir"; // Média positiva e fora da margem: A imagem é maior que a referência e precisa de downscale
+
+        } else if (mediaDesvios < -margemAbsoluta) {
+          acao = "aumentar"; // Média negativa e fora da margem: A imagem é menor que a referência e precisa de upscale
+        }
+        // Note que a lógica "else acao = 'diminuir'" da sua fórmula original estava incorreta ou incompleta.
+
+        // 4️⃣ Logs mais informativos
+        console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color: #A855F7;');
+        console.log(`%c📐 Desvio Largura: ${(desvioLargura * 100).toFixed(2)}%`, 'color: #A855F7;');
+        console.log(`%c📐 Desvio Altura: ${(desvioAltura * 100).toFixed(2)}%`, 'color: #A855F7;');
+        console.log(`%c⚖️ Média dos Desvios: ${(mediaDesvios * 100).toFixed(2)}%`, 'color: #A855F7;');
+        console.log(`%c⚙️ Margem: ${(margem * 100).toFixed(0)}%`, 'color: #A855F7;');
+        console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, 'color: #A855F7; font-weight: bold;');
+        console.log(`%c==================================`, 'color: #3182CE;');
+
+
+        if (acao === "diminuir") {
+
+          console.log("Ação DIMINUIR detectada. Chamando ajustarImagemBIC...");
+
+          // ⚠️ ATENÇÃO: É preciso converter Base64 para Blob antes de chamar ajustarImagemBIC
+          const fileOriginal = base64ToBlob(base64, 'image/jpeg');
+
+          // 2. Chamada ASSÍNCRONA e captura do resultado COMPLETO
+          const resultadoBIC = await ajustarImagemBIC(
+            fileOriginal,
+            larguraReferencia,
+            alturaReferencia
+          );
+
+          // return { blob: compressedBlob, width: img.width, height: img.height, url: tempURL, base64: finalBase64 };
+
+          // ----------------------------------------------------
+          // . LOG PÓS-PROCESSAMENTO: Resultado Final
+          // ----------------------------------------------------
+          const finalSizeKB = (resultadoBIC.base64.size / 1024).toFixed(2);
+          const reducaoPercentual = (((originalBlob.size - resultadoBIC.base64.size) / originalBlob.size) * 100).toFixed(1);
+
+          console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38a169; font-weight: bold;');
+          console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #e53e3e; font-weight: bold;');
+          console.log(`%c==================================\n`, 'color: #3182CE;');
+
+          resolve(resultadoBIC.base64);
+
+        } else if (acao === "aumentar") {
+
+        } else {
+          console.log(`%c📏 Imagem mantida no tamanho original: ${img.width} × ${img.height}px`, 'color: #38a169; font-weight: bold;');
+          resolve(base64);
+        }
+
+        // resolve({ base64 });
+      };
+      img.src = base64;
+    });
+  };
+
 
 
   const corrigirOrientacaoImagem = (base64) => {
@@ -306,29 +417,6 @@ export default function PdfEditor() {
   };
 
 
-  // // Função para calcular as dimensões alvo (15% de redução linear nos pixels)
-  // const getTargetDimensions = (width, height, percentualReducao = 0.15) => {
-
-  //   const maxDim = Math.max(width, height);
-
-  //   // Se a imagem for pequena (ex: <= 5000px), não reduzimos os pixels.
-  //   if (maxDim <= 5000) {
-  //     return { maxWidth: width, maxHeight: height };
-  //   }
-
-  //   // Calcula a nova dimensão máxima (ex: 10000 * 0.85 = 8500)
-  //   const targetMaxDim = Math.round(maxDim * (1 - percentualReducao));
-
-  //   // Calcula o fator de redução
-  //   const fator = targetMaxDim / maxDim;
-  //   const newWidth = Math.round(width * fator);
-  //   const newHeight = Math.round(height * fator);
-
-  //   return { maxWidth: newWidth, maxHeight: newHeight };
-  // };
-
-  // Versão da função APENAS para corrigir a orientação, sem fazer compressão JPEG.
-
   /**
    * Encontra a referência de pixels para a coluna alvo do pôster.
    * Prioriza a correspondência exata de colunas e usa a aproximação como fallback.
@@ -337,7 +425,6 @@ export default function PdfEditor() {
    * @param {number} colunas - Número de colunas do pôster (entrada do usuário).
    * @returns {{widthOriginal: number, heightOriginal: number, larguraReferencia: number, nomeReferencia: string}} Dados para o Pica.js.
    */
-
   const getTargetDimensions = (width, height, colunas) => {
     // 1. Filtra entradas sem pixels
     const resolucoesValidas = resolucoesDeReferencia.filter(r => r.larguraPx);
@@ -364,10 +451,12 @@ export default function PdfEditor() {
     const alturaReferencia = refAlvo.alturaPx;
     const nomeReferencia = refAlvo.nome;
 
-    console.log(`%c🔗 Dados Finais para Pica.js:`, 'color: #10B981; font-weight: bold;');
-    console.log(`Colunas Alvo: **${colunas}**`);
-    console.log(`Referência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)`);
-    console.log(`Fatores Originais: ${width} × ${height}px`);
+    console.log(`%c🔗 Dados Finais do getTargetDimensions:`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cColunas Alvo: **${colunas}**`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cReferência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)/(${alturaReferencia}px)`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
+    console.log(`%c==================================`, 'color: #3182CE;');
+
 
     // 4. Retorna os valores
     return {
@@ -453,7 +542,6 @@ export default function PdfEditor() {
   // const pica = require('pica')({ features: ['js', 'wasm'] }); // Para ambiente Node/Worker
   // OU se você estiver no browser/React:
   // const pica = window.pica();
-
   /**
    * Redimensiona um Blob de imagem com alta qualidade usando Pica.js, 
    * respeitando os limites de pixel de referência e um fator máximo de upscaling de 4x.
@@ -544,8 +632,6 @@ export default function PdfEditor() {
       resultadoCanvas.toBlob(resolve, 'image/jpeg', 0.95);
     });
   }
-
-
 
 
   const corrigirOrientacaoPura = (base64) => {
@@ -689,7 +775,6 @@ export default function PdfEditor() {
   // }
 
 
-  // Manipulador de mudança depois da inserção via input de arquivo (PDF ou Imagem)
   const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -806,7 +891,6 @@ export default function PdfEditor() {
   }, [])
 
 
-
   // 1. Efeito COMBINADO para carregar e inicializar a instância do Pica.js
   useEffect(() => {
     if (picaInstance) return; // Se a instância já existe, não faça nada
@@ -845,7 +929,6 @@ export default function PdfEditor() {
     // Limpeza: remove o script se o componente for desmontado
     return () => { document.body.removeChild(script); };
   }, [picaInstance]); // Depende de picaInstance para evitar loop e garantir que inicialize apenas uma vez
-
 
 
   // Sempre que o PDF ou a página atual mudar, converte a página para imagem
@@ -935,8 +1018,12 @@ export default function PdfEditor() {
 
     const ajustarImagem = async () => {
       try {
-        const novaImagem = await corrigirOrientacaoImagem(imagemBase64Original);
-        setImagemBase64(novaImagem);
+        // const novaImagem = await corrigirOrientacaoImagem(imagemBase64Original);
+        // setImagemBase64(novaImagem);
+
+        const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);        
+        setImagemBase64(novoTratamentoImg);
+
         console.log(`🔄 Imagem ajustada conforme ${ampliacao.colunas} colunas`);
       } catch (err) {
         console.error("Erro ao redimensionar imagem:", err);
