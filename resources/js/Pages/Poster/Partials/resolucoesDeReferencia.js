@@ -84,9 +84,9 @@ export const resolucoesDeReferencia = [
 
   // Base: 10x10. DPI real: 14 DPI.
   {
-    nome: "Pôster 10x10 (10K + 10% Base)",
+    nome: "Pôster 10x10 ",
     colunas: 10,
-    larguraPx: 12393,
-    alturaPx: 9312,
+    larguraPx: 10328,
+    alturaPx: 7760,
   },
 ];

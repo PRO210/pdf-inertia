@@ -200,9 +200,78 @@ export default function PdfEditor() {
     return new Blob([u8arr], { type: mime });
   };
 
+  /**
+         * Redimensiona a imagem real (realImg) para se ajustar proporcionalmente
+         * ao tamanho ideal (larguraIdeal, alturaIdeal), limitando o fator de escala a 4x.
+         */
+  async function ajustarImagemPica(realImg, larguraIdeal, alturaIdeal) {
+    const larguraReal = realImg.naturalWidth;
+    const alturaReal = realImg.naturalHeight;
+
+    // 🔹 Calcula fator de escala proporcional
+    const fatorM = Math.max(
+      larguraIdeal / larguraReal,
+      alturaIdeal / alturaReal
+    );
+    const fatorMin = Math.min(
+      larguraIdeal / larguraReal,
+      alturaIdeal / alturaReal
+    );
+
+    // const fator = larguraIdeal/Math.max(larguraReal, alturaReal);
+    const fator = (fatorMin + fatorM)/2;
+   
+    // 🔹 Aplica limite de até 4x (como você definiu)
+    const fatorLimite = 4;
+    const fatorFinal = Math.min(fator, fatorLimite);
+
+    // 🔹 Define tamanho final
+    const newWidth = Math.round(larguraReal * fatorFinal);
+    const newHeight = Math.round(alturaReal * fatorFinal);
+
+    console.log('--- DETALHES DO REDIMENSIONAMENTO ---');
+    console.log(`Original: ${larguraReal}px x ${alturaReal}px`);
+    console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
+    console.log(`Fator Proporcional Calculado: ${fator.toFixed(4)}x`);
+    console.log(`Fator de escala FINAL (limite 4x aplicado): ${fatorFinal.toFixed(4)}x`);
+    console.log(`Tamanho Final Redimensionado: ${newWidth}px x ${newHeight}px`);
+
+    // 🔹 Cria canvas temporário de origem e destino
+    const canvasOrigem = document.createElement('canvas');
+    const canvasDestino = document.createElement('canvas');
+
+    canvasOrigem.width = larguraReal;
+    canvasOrigem.height = alturaReal;
+    canvasDestino.width = newWidth;
+    canvasDestino.height = newHeight;
+
+    const ctx = canvasOrigem.getContext('2d');
+    ctx.drawImage(realImg, 0, 0);
+
+    // 🔹 Usa Pica para redimensionar com qualidade
+    const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
+      quality: 3,
+      alpha: true,
+      unsharpAmount: 80,
+      unsharpRadius: 0.6,
+      unsharpThreshold: 12
+    });
+
+    const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
+    const base64 = await imageCompression.getDataUrlFromFile(blob);
+
+    // 🔹 Limpeza opcional
+    canvasOrigem.width = 0;
+    canvasDestino.width = 0;
+
+    // Retorna o canvas de destino
+    return { base64, blob, width: newWidth, height: newHeight };
+  }
+
 
 
   const tratamentoDimensoesBase64 = (base64, colunas, margem = 0.10) => {
+
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = async () => { // ⬅️ Tornar `onload` assíncrono para usar `await`
@@ -262,9 +331,6 @@ export default function PdfEditor() {
             larguraReferencia,
             alturaReferencia
           );
-
-          // return { blob: compressedBlob, width: img.width, height: img.height, url: tempURL, base64: finalBase64 };
-
           // ----------------------------------------------------
           // . LOG PÓS-PROCESSAMENTO: Resultado Final
           // ----------------------------------------------------
@@ -279,104 +345,78 @@ export default function PdfEditor() {
 
         } else if (acao === "aumentar") {
 
+          console.log('%c🚀 INICIANDO PROCESSO DE AUMENTO COM PICA.JS', 'color:#9F7AEA; font-weight:bold; font-size:14px;');
+
+          if (!picaInstance) {
+            const errorMessage = "O Pica.js ainda não foi carregado. (Verifique se /js/pica.min.js está acessível)";
+            console.error('%c❌ ERRO CRÍTICO:', 'color:#E53E3E; font-weight:bold;', errorMessage);
+            setCarregando(false);
+            setErroPdf(errorMessage);
+            return;
+          }
+
+          // 1️⃣ Orientação
+          console.log('%c🔄 ETAPA 1 — Obtendo Blob Orientado...', 'color:#F6AD55; font-weight:bold;');
+          const blobOrientado = originalBlob;
+
+          // 2️⃣ Dimensões Originais
+          const originalWidth = img.width;
+          const originalHeight = img.height;
+          const originalSizeMB = (blobOrientado.size / 1024 / 1024).toFixed(2);
+
+          console.log(
+            `%c📸 Dimensões Originais:`,
+            'color:#A0AEC0; font-weight:bold;',
+            `${originalWidth}×${originalHeight}px`
+          );
+          console.log(`💾 Tamanho Original: ${originalSizeMB} MB`);
+
+          // 3️⃣ Cálculo das Dimensões de Referência
+          const refData = getTargetDimensions(originalWidth, originalHeight, ampliacao.colunas);
+          const fullRefData = {
+            ...refData,
+            widthOriginal: originalWidth,
+            heightOriginal: originalHeight
+          };
+
+          const maxDimRef = Math.max(refData.larguraReferencia, refData.alturaReferencia);
+
+          console.log('%c📏 ETAPA 2 — Cálculo de Dimensões Alvo', 'color:#38A169; font-weight:bold;');
+          console.table({
+            'Largura Ref.': refData.larguraReferencia,
+            'Altura Ref.': refData.alturaReferencia,
+            'Dimensão Máxima': maxDimRef
+          });
+
+          // 4️⃣ Redimensionamento com Pica.js
+          console.log('%c⚙️ ETAPA 3 — Redimensionamento de Alta Qualidade (Pica.js)...', 'color:#4299E1; font-weight:bold;');
+          const inicio = performance.now();
+
+          const compressedBlob = await ajustarImagemPica(img, refData.larguraReferencia, refData.alturaReferencia);
+
+          const fim = performance.now();
+
+          // 5️⃣ Análise Final
+          const finalSizeMB = (compressedBlob.blob.size / 1024 / 1024).toFixed(2);
+          const reducaoPercentual = (((blobOrientado.size - compressedBlob.blob.size) / blobOrientado.size) * 100).toFixed(1);
+
+          console.log('%c📊 ETAPA 4 — ANÁLISE FINAL', 'color:#805AD5; font-weight:bold; font-size:13px;');
+          console.table({
+            'Tamanho Final (MB)': finalSizeMB,
+            'Redução (%)': `${Math.abs(reducaoPercentual)}%`,
+            'Duração (ms)': (fim - inicio).toFixed(2)
+          });
+
+          console.log('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
+
+          setImagemBase64(compressedBlob.base64);
+          setAlteracoesPendentes(true);
+
         } else {
           console.log(`%c📏 Imagem mantida no tamanho original: ${img.width} × ${img.height}px`, 'color: #38a169; font-weight: bold;');
           resolve(base64);
         }
 
-        // resolve({ base64 });
-      };
-      img.src = base64;
-    });
-  };
-
-
-
-  const corrigirOrientacaoImagem = (base64) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = async () => { // ⬅️ Tornar `onload` assíncrono para usar `await`
-
-        // 1. LOG PRÉ-PROCESSAMENTO: Dimensões Originais
-        // ----------------------------------------------------
-        const originalBlob = dataURLtoBlob(base64);
-        const originalSizeKB = (originalBlob.size / 1024).toFixed(2);
-
-        console.log(`\n%c==================================`, 'color: #3182CE;');
-        console.log(`%c📊 ANÁLISE DE COMPRESSÃO - INÍCIO`, 'color: #3182CE; font-weight: bold;');
-        console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
-        console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
-        console.log(`%c==================================`, 'color: #3182CE;');
-
-
-        // 1. Redimensionamento e Correção de Orientação (SEU FLUXO)
-        const { width, height } = redimensionarSeNecessario(
-          img.width,
-          img.height,
-          ampliacao.colunas // 🔹 dimensão final após seu redimensionamento
-        );
-
-        // ----------------------------------------------------
-        // 2. LOG PÓS-REDIMENSIONAMENTO (CANVAS)
-        // ----------------------------------------------------
-        if (width !== img.width || height !== img.height) {
-          console.log(`%c✅ Dimensão Final (Canvas): ${width} × ${height} pixels`, 'color: #38a169; font-weight: bold;');
-        } else {
-          console.log(`%cℹ️ Dimensão Final (Canvas): Mantida em ${width} × ${height} pixels`, 'color: #3182CE; font-weight: bold;');
-        }
-
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        canvas.width = width;
-        canvas.height = height;
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // 3. Determinar a Qualidade
-        const compressionQuality = getJpegQuality(width, height);
-        console.log(`%c🖼️ Qualidade Selecionada: ${compressionQuality} (Baseado em ${width}x${height})`, 'color: #f6ad55; font-weight: bold;');
-
-        // 4. Obter um BLOB do Canvas (Sem Compressão - quality 1.0)
-        const blobDoCanvas = await new Promise(res => {
-          canvas.toBlob(res, "image/jpeg", 1.0); // 1.0 = Sem perdas de qualidade
-        });
-
-        const { maxWidth, maxHeight } = getTargetDimensions(width, height);
-        const maxDimFinal = Math.max(maxWidth, maxHeight);
-        const originalSizeMB = (blobDoCanvas.size / 1024 / 1024).toFixed(2);
-
-        console.log(`%c📏 Dimensão Alvo (Max): ${maxDimFinal} pixels`, 'color: #38a169; font-weight: bold;');
-        console.log(`💾 Tamanho Pós-Orientação: ${originalSizeMB} MB`);
-
-        const preCompressionSizeKB = (blobDoCanvas.size / 1024).toFixed(2);
-        console.log(`%c💾 Tamanho Pós-Redimensionamento/Pré-Lib: ${maxDimFinal} KB (Qualidade )`, 'color: #f6ad55;');
-
-        // 5. Aplicar Compressão de Qualidade com a LIB
-        const compressionOptions = {
-          maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8.5K)
-          initialQuality: 1,
-          maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
-          useWebWorker: true,
-          // target size (pixels) is already handled by the Canvas!
-        };
-
-        console.log(`%c✨ Aplicando Compressão de Qualidade da Lib...`, 'color: #6b46c1; font-weight: bold;');
-        const compressedBlob = await imageCompression(blobDoCanvas, compressionOptions);
-
-        // 6. Converter de volta para Base64
-        const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
-
-        // ----------------------------------------------------
-        // 7. LOG PÓS-PROCESSAMENTO: Resultado Final
-        // ----------------------------------------------------
-        const finalSizeKB = (compressedBlob.size / 1024).toFixed(2);
-        const reducaoPercentual = (((originalBlob.size - compressedBlob.size) / originalBlob.size) * 100).toFixed(1);
-
-        console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38a169; font-weight: bold;');
-        console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #e53e3e; font-weight: bold;');
-        console.log(`%c==================================\n`, 'color: #3182CE;');
-
-        resolve(finalBase64);
       };
       img.src = base64;
     });
@@ -415,7 +455,6 @@ export default function PdfEditor() {
       throw new Error("Não foi possível converter o PDF em imagem.");
     }
   };
-
 
   /**
    * Encontra a referência de pixels para a coluna alvo do pôster.
@@ -457,7 +496,6 @@ export default function PdfEditor() {
     console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
     console.log(`%c==================================`, 'color: #3182CE;');
 
-
     // 4. Retorna os valores
     return {
       larguraReferencia: larguraReferencia,
@@ -465,7 +503,6 @@ export default function PdfEditor() {
       nomeReferencia: nomeReferencia
     };
   };
-
 
 
   function calcularProximoSmart(origW, origH, refW, refH, {
@@ -536,7 +573,6 @@ export default function PdfEditor() {
 
     return { tipo, novaLargura: newW, novaAltura: newH, fator: +fatorPrioritario.toFixed(6) };
   }
-
 
   // Assumindo que Pica.js está instalado e importado
   // const pica = require('pica')({ features: ['js', 'wasm'] }); // Para ambiente Node/Worker
@@ -629,7 +665,7 @@ export default function PdfEditor() {
 
     // Retorna Blob final
     return new Promise(resolve => {
-      resultadoCanvas.toBlob(resolve, 'image/jpeg', 0.95);
+      resultadoCanvas.toBlob(resolve, 'image/jpeg', 1);
     });
   }
 
@@ -1018,12 +1054,8 @@ export default function PdfEditor() {
 
     const ajustarImagem = async () => {
       try {
-        // const novaImagem = await corrigirOrientacaoImagem(imagemBase64Original);
-        // setImagemBase64(novaImagem);
-
-        const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);        
+        const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);
         setImagemBase64(novoTratamentoImg);
-
         console.log(`🔄 Imagem ajustada conforme ${ampliacao.colunas} colunas`);
       } catch (err) {
         console.error("Erro ao redimensionar imagem:", err);
