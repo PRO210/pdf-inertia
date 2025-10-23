@@ -86,7 +86,7 @@ export const resolucoesDeReferencia = [
   {
     nome: "Pôster 10x10",
     colunas: 10,
-    larguraPx: 8448 /*  10328*/,
-    alturaPx: 4752 /* 7760 */,
+    larguraPx: 9292  /*8448  10328*/,
+    alturaPx: 5227   /*4752  7760 */,
   },
 ];
