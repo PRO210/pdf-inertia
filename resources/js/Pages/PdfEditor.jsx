@@ -254,7 +254,7 @@ export default function PdfEditor() {
       alpha: true,
       unsharpAmount: 80,
       unsharpRadius: 0.6,
-      unsharpThreshold: 12
+      unsharpThreshold: 15
     });
 
     const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));

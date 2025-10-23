@@ -234,7 +234,7 @@ class PdfEditorController extends Controller
             $colunas <= 5 => 120,  // médio
             $colunas <= 6 => 100,   // grande
             $colunas <= 8 => 120,  // grande
-            default       => 150,  // gigante (até 10x10)
+            default       => 70,  // gigante (até 10x10)
         };
 
         // 🔹 DPI mínimo adaptativo (evita pixelização em imagens pequenas)
