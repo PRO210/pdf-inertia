@@ -159,7 +159,7 @@ export default function PdfEditor() {
     const options = {
       maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
       useWebWorker: true,
-      maxSizeMB: 20,
+      maxSizeMB: 5,
       initialQuality: 1.0,
       fileType: 'image/jpeg',
       alwaysKeepResolution: true,
@@ -177,7 +177,10 @@ export default function PdfEditor() {
     const tempURL = URL.createObjectURL(compressedBlob);
     const img = new Image();
     await new Promise((resolve) => {
-      img.onload = () => resolve();
+      img.onload = () => {
+        URL.revokeObjectURL(tempURL);
+        resolve();
+      };
       img.src = tempURL;
     });
 
@@ -209,17 +212,7 @@ export default function PdfEditor() {
     const alturaReal = realImg.naturalHeight;
 
     // 🔹 Calcula fator de escala proporcional
-    const fatorM = Math.max(
-      larguraIdeal / larguraReal,
-      alturaIdeal / alturaReal
-    );
-    const fatorMin = Math.min(
-      larguraIdeal / larguraReal,
-      alturaIdeal / alturaReal
-    );
-
-    // const fator = larguraIdeal/Math.max(larguraReal, alturaReal);
-    const fator = (fatorMin + fatorM) / 2;
+    const fator = Math.max(larguraIdeal / larguraReal, alturaIdeal / alturaReal);
 
     // 🔹 Aplica limite de até 4x (como você definiu)
     const fatorLimite = 4;
@@ -228,6 +221,7 @@ export default function PdfEditor() {
     // 🔹 Define tamanho final
     const newWidth = Math.round(larguraReal * fatorFinal);
     const newHeight = Math.round(alturaReal * fatorFinal);
+
 
     console.log('--- DETALHES DO REDIMENSIONAMENTO ---');
     console.log(`Original: ${larguraReal}px x ${alturaReal}px`);
@@ -252,9 +246,9 @@ export default function PdfEditor() {
     const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
       quality: 3,
       alpha: true,
-      unsharpAmount: 80,
-      unsharpRadius: 0.6,
-      unsharpThreshold: 15
+      unsharpAmount: 0,
+      unsharpRadius: 0,
+      unsharpThreshold: 0
     });
 
     const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
@@ -267,7 +261,6 @@ export default function PdfEditor() {
     // Retorna o canvas de destino
     return { base64, blob, width: newWidth, height: newHeight };
   }
-
 
 
   const tratamentoDimensoesBase64 = (base64, colunas, margem = 0.10) => {
@@ -393,10 +386,29 @@ export default function PdfEditor() {
             'Redução/Aumento (%)': `${status} de ${Math.abs(diferencaPercentual)}%`,
             'Duração (ms)': (fim - inicio).toFixed(2)
           });
-
           console.log('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
 
-          setImagemBase64(compressedBlob.base64);
+
+          console.log('%c🔽 ETAPA 5 — AÇÃO de compactar: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
+
+          const inicioBIC = performance.now();
+          const resultadoBIC = await ajustarImagemBIC(compressedBlob.blob, larguraReferencia, alturaReferencia);
+          const fimBIC = performance.now();
+          const duracaoBIC = (fimBIC - inicioBIC).toFixed(1);
+          const tamanhoFinalMB = (resultadoBIC.blob.size / (1024 * 1024)).toFixed(2);
+
+          console.log('%c📈 ETAPA BIC — ANÁLISE FINAL', 'color:#805AD5; font-weight:bold;');
+          console.table({
+            '📐 Dimensões Finais': `${resultadoBIC.width} × ${resultadoBIC.height}px`,
+            '💾 Tamanho Final': `${tamanhoFinalMB} MB`,
+            '⏱️ Duração': `${duracaoBIC} ms`,
+            '🔗 Blob URL': resultadoBIC.url.slice(0, 60) + '...', // corta pra não poluir
+            '📦 Base64 (preview)': resultadoBIC.base64.slice(0, 80) + '...',
+          });
+
+          console.log('%c✅ ETAPA BIC — Concluído com sucesso!', 'color:#48BB78; font-weight:bold; font-size:14px;');
+
+          setImagemBase64(resultadoBIC.base64);
           setAlteracoesPendentes(true);
           setCarregando(false);
           return;
@@ -519,123 +531,6 @@ export default function PdfEditor() {
     });
   };
 
-  // Manipulador de mudança depois da inserção via input de arquivo (PDF ou Imagem)
-  // const handleFileChange = async (e) => {
-  //   const file = e.target.files[0]
-  //   if (!file) return
-
-  //   setCarregando(true)
-
-  //   const fileType = file.type
-
-  //   if (fileType === "application/pdf") {
-  //     // 1. Gerar URL de Blob para PDF.js usar
-  //     const pdfBlobUrl = URL.createObjectURL(file)
-  //     setPdfUrl(pdfBlobUrl)
-
-  //     // 2. Rasterizar a primeira página (pode levar tempo)
-  //     try {
-  //       // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
-  //       const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150); // MUDAR AQUI: SEMPRE 1
-  //       setImagemBase64(base64Image); // Agora imagemBase64 é um JPEG
-  //       setAlteracoesPendentes(true);
-  //     } catch (error) {
-  //       setErroPdf(error.message);
-  //       console.error(error);
-  //     } finally {
-  //       setCarregando(false);
-  //     }
-
-  //     return
-  //   }
-
-  //   // Se não for PDF, processar como IMAGEM
-  //   const reader = new FileReader()
-  //   reader.onload = async (e) => {
-  //     const base64 = e.target.result
-
-  //     // Guarda o original
-  //     setImagemBase64Original(base64);
-  //     setCarregando(true); // Garante que o spinner está ligado
-
-  //     try {
-  //       // 1. Correção de Orientação no Canvas (Seu fluxo, agora retorna Blob)
-  //       console.log('%c🔄 Corrigindo orientação da imagem...', 'color: #f6ad55; font-weight: bold;');
-  //       const blobOrientado = await corrigirOrientacaoPura(base64);
-
-  //       // 2. Lendo dimensões para o cálculo do alvo (80%)
-  //       const img = new Image();
-  //       img.src = base64;
-  //       await new Promise(res => img.onload = res); // Espera a imagem carregar para ler as dimensões
-
-
-  //       const { maxWidth, maxHeight, nomeReferencia } = getTargetDimensions(img.width, img.height, ampliacao.colunas);
-  //       const maxDimFinal = Math.max(maxWidth, maxHeight);
-  //       const originalSizeMB = (blobOrientado.size / 1024 / 1024).toFixed(2);
-
-  //       console.log(`%c📏 Dimensão Alvo (Max): ${maxDimFinal} pixels`, 'color: #38a169; font-weight: bold;');
-  //       console.log(`💾 Tamanho Pós-Orientação: ${originalSizeMB} MB`);
-
-
-  //       // 1. Obter os dados de referência (usando a função do passo anterior)
-  //       // Assume-se que 'colunas' está disponível aqui.
-  //       // const refData = getTargetDimensions(maxWidth, maxHeight, ampliacao.colunas);
-  //       const refData = (maxWidth, maxHeight, ampliacao.colunas);
-
-  //       // 2. Redimensionamento de Alta Qualidade com Pica.js
-  //       const inicio = performance.now();
-
-  //       // Chama a nova função (que aplica o fator 4x e calcula o tamanho final)
-  //       const compressedBlob = await resizeImageWithPica(blobOrientado, refData);
-
-  //       const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob); // Use sua função existente para converter para Base64
-  //       const fim = performance.now();
-
-  //       // 3. Logs e Atualização de Estado (continuação da sua lógica)
-  //       const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
-  //       const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
-
-  //       console.log(`%c📊 ANÁLISE DE REDIMENSIONAMENTO FINAL (Pica.js)`, 'color: #3182CE; font-weight: bold;');
-  //       console.log(`💾 Tamanho Final (Qualidade 0.9): ${finalSizeMB} MB`);
-  //       console.log(`📉 Redução Total (tamanho): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
-
-  //       setImagemBase64(finalBase64);
-  //       setAlteracoesPendentes(true);
-
-  //       // // 3. Compressão e Redimensionamento de Pixels com a Lib
-  //       // const compressionOptions = {
-  //       //   maxWidthOrHeight: maxDimFinal, // Redução de pixels (ex: 10K -> 8K)
-  //       //   initialQuality: 1,          // Redução de qualidade (JPEG)
-  //       //   fileType: 'image/jpeg',
-  //       //   useWebWorker: true,
-  //       //   maxSizeMB: 20, // Baixo, pois o foco é a qualidade e o redimensionamento já foi feito
-  //       // };
-
-  //       // const inicio = performance.now();
-  //       // const compressedBlob = await imageCompression(blobOrientado, compressionOptions);
-  //       // const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
-  //       // const fim = performance.now();
-
-  //       // // 4. Logs e Atualização de Estado
-  //       // const finalSizeMB = (compressedBlob.size / 1024 / 1024).toFixed(2);
-  //       // const reducaoPercentual = (((blobOrientado.size - compressedBlob.size) / blobOrientado.size) * 100).toFixed(1);
-
-  //       // console.log(`%c📊 ANÁLISE DE COMPRESSÃO FINAL (Lib)`, 'color: #3182CE; font-weight: bold;');
-  //       // console.log(`💾 Tamanho Final (Qualidade 0.85): ${finalSizeMB} MB`);
-  //       // console.log(`📉 REDUÇÃO TOTAL (MB): ${reducaoPercentual}% em ${(fim - inicio).toFixed(2)}ms`);
-
-  //       setImagemBase64(finalBase64)
-  //       setAlteracoesPendentes(true)
-
-  //     } catch (error) {
-  //       console.error("Erro no processamento da imagem:", error);
-  //     }
-
-  //     setCarregando(false)
-  //   }
-
-  //   reader.readAsDataURL(file)
-  // }
 
 
   const handleFileChange = async (e) => {
@@ -661,6 +556,7 @@ export default function PdfEditor() {
 
       } catch (error) {
         setErroPdf(error.message);
+        setCarregando(false);
         console.error(error);
       } finally {
         setCarregando(false);
@@ -674,6 +570,9 @@ export default function PdfEditor() {
     reader.onload = async (e) => {
       const base64 = e.target.result
 
+      //Limpeza o console para melhor visualização
+      console.clear()
+
       // Guarda o original
       setImagemBase64Original(base64);
       setCarregando(true); // Garante que o spinner está ligado
@@ -684,6 +583,7 @@ export default function PdfEditor() {
       console.log(`🔄 Imagem carregada do handleFileChange e ajustada conforme ${ampliacao.colunas} colunas`);
 
       setCarregando(false)
+
     }
 
     reader.readAsDataURL(file)
@@ -823,6 +723,7 @@ export default function PdfEditor() {
 
     const ajustarImagem = async () => {
       try {
+        console.clear();
         const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);
         setImagemBase64(novoTratamentoImg);
         console.log(`🔄 Imagem ajustada conforme ${ampliacao.colunas} colunas`);
