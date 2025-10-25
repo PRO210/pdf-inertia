@@ -246,9 +246,9 @@ export default function PdfEditor() {
     const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
       quality: 3,
       alpha: true,
-      unsharpAmount: 0,
-      unsharpRadius: 0,
-      unsharpThreshold: 0
+      unsharpAmount: 80,
+      unsharpRadius: 0.6,
+      unsharpThreshold: 2
     });
 
     const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
@@ -581,7 +581,7 @@ export default function PdfEditor() {
       const novoTratamentoImg = await tratamentoDimensoesBase64(base64, ampliacao.colunas);
       setImagemBase64(novoTratamentoImg);
       console.log(`🔄 Imagem carregada do handleFileChange e ajustada conforme ${ampliacao.colunas} colunas`);
-
+      setAlteracoesPendentes(true);
       setCarregando(false)
 
     }
@@ -589,52 +589,79 @@ export default function PdfEditor() {
     reader.readAsDataURL(file)
   }
 
+  // useEffect(() => {
+  //   const instance = pica({ features: ['js', 'wasm'] })
+  //   setPicaInstance(instance)
+  //   console.log('%c✅ Pica.js inicializado com sucesso', 'color: #10B981; font-weight: bold;')
+  // }, [])
+
+
+  // // 1. Efeito COMBINADO para carregar e inicializar a instância do Pica.js
+  // useEffect(() => {
+  //   if (picaInstance) return; // Se a instância já existe, não faça nada
+
+  //   // 1. Tenta inicializar se já estiver carregado (caso o componente renderize de novo)
+  //   if (typeof window.pica === 'function') {
+  //     setPicaInstance(window.pica());
+  //     console.log('✅ Pica.js já estava carregado e foi inicializado imediatamente.');
+  //     return;
+  //   }
+
+  //   // 2. Carrega o script dinamicamente via caminho local
+  //   console.log('%c⏳ Carregando Pica.js via caminho local (/js/pica.min.js)...', 'color: #38a169;');
+  //   const script = document.createElement('script');
+  //   script.src = '/js/pica.min.js';
+  //   script.async = true;
+
+  //   script.onload = () => {
+  //     console.log('✅ Pica.js carregado com sucesso via script.');
+  //     // 3. Inicializa a instância após o carregamento do script
+  //     if (typeof window.pica === 'function') {
+  //       setPicaInstance(window.pica());
+  //       console.log('✅ Instância do Pica.js inicializada no estado.');
+  //     } else {
+  //       console.error('❌ Pica.js carregado, mas a função global "pica" não foi encontrada.');
+  //       setErroPdf('Pica.js carregado, mas a função global não foi encontrada. Verifique o arquivo.');
+  //     }
+  //   };
+
+  //   script.onerror = (e) => {
+  //     console.error('❌ Erro ao carregar Pica.js do caminho local.', e);
+  //     setErroPdf('Erro ao carregar Pica.js. Verifique o caminho /js/pica.min.js');
+  //   };
+
+  //   document.body.appendChild(script);
+  //   // Limpeza: remove o script se o componente for desmontado
+  //   return () => { document.body.removeChild(script); };
+  // }, [picaInstance]); // Depende de picaInstance para evitar loop e garantir que inicialize apenas uma vez
+  // 2. Use apenas este useEffect para instanciar Pica na montagem
   useEffect(() => {
-    const instance = pica({ features: ['js', 'wasm'] })
-    setPicaInstance(instance)
-    console.log('%c✅ Pica.js inicializado com sucesso', 'color: #10B981; font-weight: bold;')
-  }, [])
+    // Flag de montagem (boa prática do React para evitar "memory leak")
+    let isMounted = true;
 
+    try {
+      // Cria a instância de forma síncrona, usando o módulo importado
+      const instance = pica({ features: ['js', 'wasm'] });
 
-  // 1. Efeito COMBINADO para carregar e inicializar a instância do Pica.js
-  useEffect(() => {
-    if (picaInstance) return; // Se a instância já existe, não faça nada
-
-    // 1. Tenta inicializar se já estiver carregado (caso o componente renderize de novo)
-    if (typeof window.pica === 'function') {
-      setPicaInstance(window.pica());
-      console.log('✅ Pica.js já estava carregado e foi inicializado imediatamente.');
-      return;
+      if (isMounted) {
+        setPicaInstance(instance);
+        setCarregando(false);
+        console.log('%c✅ Pica.js inicializado com sucesso (via Módulo)', 'color: #10B981; font-weight: bold;');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao inicializar Pica.js:', error);
+      if (isMounted) {
+        setCarregando(false);
+        // Opcional: setar erro para exibição
+        // setErroPdf('Erro fatal ao inicializar Pica.js');
+      }
     }
 
-    // 2. Carrega o script dinamicamente via caminho local
-    console.log('%c⏳ Carregando Pica.js via caminho local (/js/pica.min.js)...', 'color: #38a169;');
-    const script = document.createElement('script');
-    script.src = '/js/pica.min.js';
-    script.async = true;
-
-    script.onload = () => {
-      console.log('✅ Pica.js carregado com sucesso via script.');
-      // 3. Inicializa a instância após o carregamento do script
-      if (typeof window.pica === 'function') {
-        setPicaInstance(window.pica());
-        console.log('✅ Instância do Pica.js inicializada no estado.');
-      } else {
-        console.error('❌ Pica.js carregado, mas a função global "pica" não foi encontrada.');
-        setErroPdf('Pica.js carregado, mas a função global não foi encontrada. Verifique o arquivo.');
-      }
+    // Função de limpeza (cleanup)
+    return () => {
+      isMounted = false;
     };
-
-    script.onerror = (e) => {
-      console.error('❌ Erro ao carregar Pica.js do caminho local.', e);
-      setErroPdf('Erro ao carregar Pica.js. Verifique o caminho /js/pica.min.js');
-    };
-
-    document.body.appendChild(script);
-    // Limpeza: remove o script se o componente for desmontado
-    return () => { document.body.removeChild(script); };
-  }, [picaInstance]); // Depende de picaInstance para evitar loop e garantir que inicialize apenas uma vez
-
+  }, []); // Array de dependência vazio [] garante que rode APENAS uma vez
 
   // Sempre que o PDF ou a página atual mudar, converte a página para imagem
   useEffect(() => {
