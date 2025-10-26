@@ -159,7 +159,7 @@ export default function PdfEditor() {
     const options = {
       maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
       useWebWorker: true,
-      maxSizeMB: 5,
+      maxSizeMB: 20,
       initialQuality: 1.0,
       fileType: 'image/jpeg',
       alwaysKeepResolution: true,
@@ -207,61 +207,165 @@ export default function PdfEditor() {
          * Redimensiona a imagem real (realImg) para se ajustar proporcionalmente
          * ao tamanho ideal (larguraIdeal, alturaIdeal), limitando o fator de escala a 4x.
          */
-  async function ajustarImagemPica(realImg, larguraIdeal, alturaIdeal) {
-    const larguraReal = realImg.naturalWidth;
-    const alturaReal = realImg.naturalHeight;
+  // async function ajustarImagemPica(realImg, larguraIdeal, alturaIdeal) {
+  //   const larguraReal = realImg.naturalWidth;
+  //   const alturaReal = realImg.naturalHeight;
 
-    // 🔹 Calcula fator de escala proporcional
-    const fator = Math.max(larguraIdeal / larguraReal, alturaIdeal / alturaReal);
+  //   // 🔹 Calcula fator de escala proporcional
+  //   const fator = Math.max(larguraIdeal / larguraReal, alturaIdeal / alturaReal);
 
-    // 🔹 Aplica limite de até 4x (como você definiu)
-    const fatorLimite = 4;
-    const fatorFinal = Math.min(fator, fatorLimite);
+  //   // 🔹 Aplica limite de até 4x (como você definiu)
+  //   const fatorLimite = 4;
+  //   const fatorFinal = Math.min(fator, fatorLimite);
 
-    // 🔹 Define tamanho final
-    const newWidth = Math.round(larguraReal * fatorFinal);
-    const newHeight = Math.round(alturaReal * fatorFinal);
+  //   // 🔹 Define tamanho final
+  //   const newWidth = Math.round(larguraReal * fatorFinal);
+  //   const newHeight = Math.round(alturaReal * fatorFinal);
 
 
-    console.log('--- DETALHES DO REDIMENSIONAMENTO ---');
-    console.log(`Original: ${larguraReal}px x ${alturaReal}px`);
+  //   console.log('--- DETALHES DO REDIMENSIONAMENTO ---');
+  //   console.log(`Original: ${larguraReal}px x ${alturaReal}px`);
+  //   console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
+  //   console.log(`Fator Proporcional Calculado: ${fator.toFixed(4)}x`);
+  //   console.log(`Fator de escala FINAL (limite 4x aplicado): ${fatorFinal.toFixed(4)}x`);
+  //   console.log(`Tamanho Final Redimensionado: ${newWidth}px x ${newHeight}px`);
+
+  //   // 🔹 Cria canvas temporário de origem e destino
+  //   const canvasOrigem = document.createElement('canvas');
+  //   const canvasDestino = document.createElement('canvas');
+
+  //   canvasOrigem.width = larguraReal;
+  //   canvasOrigem.height = alturaReal;
+  //   canvasDestino.width = newWidth;
+  //   canvasDestino.height = newHeight;
+
+  //   const ctx = canvasOrigem.getContext('2d');
+  //   ctx.drawImage(realImg, 0, 0);
+
+  //   // 🔹 Usa Pica para redimensionar com qualidade
+  //   const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
+  //     quality: 3,
+  //     alpha: true,
+  //     unsharpAmount: 80,
+  //     unsharpRadius: 0.6,
+  //     unsharpThreshold: 2
+  //   });
+
+  //   const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
+  //   const base64 = await imageCompression.getDataUrlFromFile(blob);
+
+  //   // 🔹 Limpeza opcional
+  //   canvasOrigem.width = 0;
+  //   canvasDestino.width = 0;
+
+  //   // Retorna o canvas de destino
+  //   return { base64, blob, width: newWidth, height: newHeight };
+  // }
+
+  /**
+ * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
+ * ao tamanho ideal (larguraIdeal, alturaIdeal), escalonando em múltiplos passos,
+ * onde cada passo aumenta o tamanho em, no máximo, 4x.
+ * Isso é ideal para evitar estouro de memória em imagens muito grandes.
+ * * Estratégia de Nitidez para Qualidade vs. Performance:
+ * - Passos Intermediários: Aplica unsharpAmount: 5 (mínimo) para preservar a estrutura dos detalhes.
+ * - Passo Final: Aplica unsharpAmount: 30 (completo) para o acabamento da nitidez.
+ *
+ * @param {ImageBitmap} imgBitmap O objeto ImageBitmap (a imagem real).
+ * @param {number} larguraIdeal A largura máxima desejada.
+ * @param {number} alturaIdeal A altura máxima desejada.
+ * @returns {Promise<{base64: string, blob: Blob, width: number, height: number}>} Objeto com os dados da imagem final.
+ */
+  async function ajustarImagemPica(imgBitmap, larguraIdeal, alturaIdeal) {
+    const MAX_STEP = 4; // Fator máximo de escala por passo
+
+    // Inicializa o canvas de origem com a imagem original (o ponto de partida)
+    let currentCanvas = document.createElement('canvas');
+    currentCanvas.width = imgBitmap.width;
+    currentCanvas.height = imgBitmap.height;
+    currentCanvas.getContext('2d').drawImage(imgBitmap, 0, 0);
+
+    // --- LOGS INICIAIS ---
+    console.log('--- DETALHES DO REDIMENSIONAMENTO PICA (MULTI-PASSO) ---');
+    console.log(`Original: ${imgBitmap.width}px x ${imgBitmap.height}px`);
     console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
-    console.log(`Fator Proporcional Calculado: ${fator.toFixed(4)}x`);
-    console.log(`Fator de escala FINAL (limite 4x aplicado): ${fatorFinal.toFixed(4)}x`);
-    console.log(`Tamanho Final Redimensionado: ${newWidth}px x ${newHeight}px`);
+    // ----------------------
 
-    // 🔹 Cria canvas temporário de origem e destino
-    const canvasOrigem = document.createElement('canvas');
-    const canvasDestino = document.createElement('canvas');
+    // 1. Determina a proporção e o lado maior alvo
+    const ratio = imgBitmap.height / imgBitmap.width;
+    let isHeightGreater = imgBitmap.height > imgBitmap.width;
+    let currentMaxSide = isHeightGreater ? imgBitmap.height : imgBitmap.width;
+    const finalMaxSide = Math.max(larguraIdeal, alturaIdeal);
 
-    canvasOrigem.width = larguraReal;
-    canvasOrigem.height = alturaReal;
-    canvasDestino.width = newWidth;
-    canvasDestino.height = newHeight;
+    // Cria a instância do Pica (assumindo que está disponível no escopo)
+    const p = pica();
 
-    const ctx = canvasOrigem.getContext('2d');
-    ctx.drawImage(realImg, 0, 0);
+    // Loop de redimensionamento progressivo (em múltiplos passos)
+    while (currentMaxSide < finalMaxSide) {
+      // 2. Calcula a escala para este passo, limitada a MAX_STEP (4x)
+      let scale = Math.min(MAX_STEP, finalMaxSide / currentMaxSide);
 
-    // 🔹 Usa Pica para redimensionar com qualidade
-    const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
-      quality: 3,
-      alpha: true,
-      unsharpAmount: 80,
-      unsharpRadius: 0.6,
-      unsharpThreshold: 2
-    });
+      // Calcula o próximo lado maior que não ultrapasse o alvo final
+      let nextMaxSide = Math.min(Math.round(currentMaxSide * scale), finalMaxSide);
 
+      // Se não houver mudança, saímos do loop para evitar um ciclo infinito
+      if (nextMaxSide <= currentMaxSide) {
+        break;
+      }
+
+      // 3. Calcula as novas dimensões de Largura e Altura, respeitando o ratio
+      let nextW, nextH;
+
+      if (isHeightGreater) {
+        nextH = nextMaxSide;
+        nextW = Math.round(nextH / ratio);
+      } else {
+        nextW = nextMaxSide;
+        nextH = Math.round(nextW * ratio);
+      }
+
+      // 4. Atualiza o lado maior atual para o próximo passo
+      currentMaxSide = nextMaxSide;
+
+      // 5. Configura as opções de redimensionamento e filtros de nitidez
+      let resizeOptions = {
+        quality: 3,
+        alpha: true,
+        unsharpAmount: 30,
+        unsharpRadius: 0.8, // Mantido fixo para todos os passos
+        unsharpThreshold: 15 // Mantido fixo para todos os passos
+      };
+
+      // Cria o canvas de destino para este passo
+      const dst = document.createElement('canvas');
+      dst.width = nextW; dst.height = nextH;
+
+      // 6. Redimensiona usando o Pica
+      await p.resize(currentCanvas, dst, resizeOptions);
+
+      // O canvas de destino se torna o canvas de origem para o próximo passo
+      currentCanvas = dst;
+    }
+
+    // Obtém o canvas final que está em 'currentCanvas'
+    const resultadoCanvas = currentCanvas;
+    const newWidth = resultadoCanvas.width;
+    const newHeight = resultadoCanvas.height;
+
+    // --- LOG FINAL ---
+    console.log(`✅ Redimensionamento e Processamento Concluídos. Tamanho Final: ${newWidth}px x ${newHeight}px`);
+    // -----------------
+
+    // 7. Converte o Canvas para Blob (JPEG com qualidade 1.0)
     const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
+
+    // 8. Converte o Blob para Base64 (requer a biblioteca 'imageCompression' ou similar)
+    // ATENÇÃO: Estou assumindo que 'imageCompression' está disponível no escopo.
     const base64 = await imageCompression.getDataUrlFromFile(blob);
 
-    // 🔹 Limpeza opcional
-    canvasOrigem.width = 0;
-    canvasDestino.width = 0;
-
-    // Retorna o canvas de destino
+    // 9. Retorna o objeto de destino completo
     return { base64, blob, width: newWidth, height: newHeight };
   }
-
 
   const tratamentoDimensoesBase64 = (base64, colunas, margem = 0.10) => {
 
@@ -289,28 +393,37 @@ export default function PdfEditor() {
         // ============================================================
         // 3️⃣ ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO
         // ============================================================
-        const desvioLargura = (img.width - larguraReferencia) / larguraReferencia;
-        const desvioAltura = (img.height - alturaReferencia) / alturaReferencia;
-        const mediaDesvios = (desvioLargura + desvioAltura) / 2;
 
+        const margemAbsoluta = Math.abs(Number(margem));
+
+        const ladoMaiorImg = Math.max(img.width, img.height);
+        const ladoMaiorRef = Math.max(larguraReferencia, alturaReferencia);
+
+        const desvio = (ladoMaiorImg - ladoMaiorRef) / ladoMaiorRef;
         let acao = "manter";
-        const margemAbsoluta = Math.abs(margem);
 
-        if (Math.abs(mediaDesvios) <= margemAbsoluta) {
-          acao = "manter";
-        } else if (mediaDesvios > margemAbsoluta) {
-          acao = "diminuir";
-        } else if (mediaDesvios < -margemAbsoluta) {
-          acao = "aumentar";
+        // 🔍 Determina o que fazer baseado apenas no maior lado
+        if (Math.abs(desvio) > margemAbsoluta) {
+          if (desvio > 0) {
+            acao = "diminuir"; // está maior que a referência
+          } else {
+            acao = "aumentar"; // está menor que a referência
+          }
         }
 
-        console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color: #A855F7;');
-        console.log(`%c📐 Desvio Largura: ${(desvioLargura * 100).toFixed(2)}%`, 'color: #A855F7;');
-        console.log(`%c📐 Desvio Altura: ${(desvioAltura * 100).toFixed(2)}%`, 'color: #A855F7;');
-        console.log(`%c⚖️ Média dos Desvios: ${(mediaDesvios * 100).toFixed(2)}%`, 'color: #A855F7;');
-        console.log(`%c⚙️ Margem: ${(margem * 100).toFixed(0)}%`, 'color: #A855F7;');
-        console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, 'color: #A855F7; font-weight: bold;');
-        console.log(`%c==================================`, 'color: #3182CE;');
+        // 🧾 Logs detalhados
+        const ladoUsado = img.width > img.height ? "largura" : "altura";
+        console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color:#A855F7;');
+        console.log(`%c📐 Lado usado para cálculo: ${ladoUsado.toUpperCase()} (${ladoMaiorImg}px vs ${ladoMaiorRef}px)`, 'color:#A855F7;');
+        console.log(`%c📉 Desvio relativo: ${(desvio * 100).toFixed(2)}%`, 'color:#A855F7;');
+        console.log(`%c⚙️ Margem: ${(margemAbsoluta * 100).toFixed(0)}%`, 'color:#A855F7;');
+
+        let corAcao = "#A855F7";
+        if (acao === "diminuir") corAcao = "#F97316"; // laranja
+        if (acao === "aumentar") corAcao = "#10B981"; // verde
+        console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, `color:${corAcao}; font-weight:bold;`);
+        console.log(`%c==================================`, 'color:#3182CE;');
+
 
         // ============================================================
         // 4️⃣ ETAPA 4 — EXECUÇÃO DE AÇÃO DEFINIDA
@@ -324,9 +437,16 @@ export default function PdfEditor() {
           const resultadoBIC = await ajustarImagemBIC(fileOriginal, larguraReferencia, alturaReferencia);
 
           // 🔍 Pós-processamento
-          const finalSizeKB = (resultadoBIC.base64.size / 1024).toFixed(2);
-          const reducaoPercentual = (((originalBlob.size - resultadoBIC.base64.size) / originalBlob.size) * 100).toFixed(1);
+          const base64String = resultadoBIC.base64;
+          const base64Length = base64String.length - (base64String.indexOf(',') + 1); // remove o cabeçalho data:image/jpeg;base64,
+          const padding = base64String.endsWith('==') ? 2 : (base64String.endsWith('=') ? 1 : 0);
+          const finalSizeBytes = (base64Length * 3 / 4) - padding;
+          const finalSizeKB = (finalSizeBytes / 1024).toFixed(2);
 
+          // --- 📉 Cálculo de redução em relação ao original ---
+          const reducaoPercentual = (((originalBlob.size - finalSizeBytes) / originalBlob.size) * 100).toFixed(1);
+
+          // --- 🧾 Logs detalhados ---
           console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
           console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
           console.log(`%c==================================\n`, 'color: #3182CE;');
@@ -416,8 +536,31 @@ export default function PdfEditor() {
 
         // 🔸 4.3 MANTER
         else {
-          console.log(`%c📏 ETAPA 4.3 — IMAGEM MANTIDA NO TAMANHO ORIGINAL: ${img.width} × ${img.height}px`, 'color: #38A169; font-weight: bold;');
-          resolve(base64);
+
+          // console.log(`%c📏 ETAPA 4.3 — IMAGEM MANTIDA NO TAMANHO ORIGINAL: ${img.width} × ${img.height}px`, 'color: #38A169; font-weight: bold;');
+          // resolve(base64);
+          console.log('%c🔽 ETAPA 4.3 — AÇÃO MANTER: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
+
+          const fileOriginal = base64ToBlob(base64, 'image/jpeg');
+          const resultadoBIC = await ajustarImagemBIC(fileOriginal, larguraReferencia, alturaReferencia);
+
+          // 🔍 Pós-processamento
+          const base64String = resultadoBIC.base64;
+          const base64Length = base64String.length - (base64String.indexOf(',') + 1); // remove o cabeçalho data:image/jpeg;base64,
+          const padding = base64String.endsWith('==') ? 2 : (base64String.endsWith('=') ? 1 : 0);
+          const finalSizeBytes = (base64Length * 3 / 4) - padding;
+          const finalSizeKB = (finalSizeBytes / 1024).toFixed(2);
+
+          // --- 📉 Cálculo de redução em relação ao original ---
+          const reducaoPercentual = (((originalBlob.size - finalSizeBytes) / originalBlob.size) * 100).toFixed(1);
+
+          // --- 🧾 Logs detalhados ---
+          console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
+          console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
+          console.log(`%c==================================\n`, 'color: #3182CE;');
+
+          resolve(resultadoBIC.base64);
+          return;
         }
       };
 
