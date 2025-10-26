@@ -73,7 +73,7 @@ export default function PdfEditor() {
       const tempoTotal = ((fim - inicio) / 1000).toFixed(2)
 
       console.log(`⏱️ Tempo total de resposta do backend: ${tempoTotal} segundos`)
-      console.log('Resposta do backend:', response.data)
+      console.log('Resposta do backend:', response.data.tamanhos_debug)
 
       const { partes } = response.data
       return partes

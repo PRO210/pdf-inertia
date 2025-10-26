@@ -289,8 +289,8 @@ class PdfEditorController extends Controller
             'maxDpi' => $maxDpi,
         ];
 
-        $tamanhosDebug[] = ['larguraAlvo(px)' => $larguraAlvo];
-        $tamanhosDebug[] = ['alturaAlvo(px)' => $alturaAlvo];
+        // $tamanhosDebug[] = ['larguraAlvo(px)' => $larguraAlvo];
+        // $tamanhosDebug[] = ['alturaAlvo(px)' => $alturaAlvo];
 
         // Define limites de corte
         $xBounds = [];
@@ -331,8 +331,10 @@ class PdfEditorController extends Controller
                 $canvas->setImageResolution($dpi, $dpi);
 
                 // Centraliza se aspecto
-                $xOffset = (int) floor(($larguraAlvo - $recorte->getImageWidth()) / 2);
-                $yOffset = (int) floor(($alturaAlvo - $recorte->getImageHeight()) / 2);
+                // $xOffset = (int) floor(($larguraAlvo - $recorte->getImageWidth()) / 2);
+                // $yOffset = (int) floor(($alturaAlvo - $recorte->getImageHeight()) / 2);
+                $xOffset = 0;
+                $yOffset = 0;
                 $canvas->compositeImage($recorte, \Imagick::COMPOSITE_OVER, $xOffset, $yOffset);
 
                 $partes[] = 'data:image/jpeg;base64,' . base64_encode($canvas->getImageBlob());
@@ -341,15 +343,15 @@ class PdfEditorController extends Controller
                 $larguraConteudoPx = $recorte->getImageWidth();
                 $alturaConteudoPx = $recorte->getImageHeight();
 
-                $tamanhosDebug[] = ['larguraConteudoPx' => $larguraConteudoPx];
-                $tamanhosDebug[] = ['alturaConteudoPx' => $alturaConteudoPx];
+                // $tamanhosDebug[] = ['larguraConteudoPx' => $larguraConteudoPx];
+                // $tamanhosDebug[] = ['alturaConteudoPx' => $alturaConteudoPx];
 
                 // Converte essas dimensões para centímetros
-                $larguraConteudoCm = round($larguraConteudoPx / $dpi * 2.54, 2);
-                $alturaConteudoCm = round($alturaConteudoPx / $dpi * 2.54, 2);
+                // $larguraConteudoCm = round($larguraConteudoPx / $dpi * 2.54, 2);
+                // $alturaConteudoCm = round($alturaConteudoPx / $dpi * 2.54, 2);
 
-                $tamanhosDebug[] = ['larguraConteudoCm' => $larguraConteudoCm];
-                $tamanhosDebug[] = ['alturaConteudoCm' => $alturaConteudoCm];
+                // $tamanhosDebug[] = ['larguraConteudoCm' => $larguraConteudoCm];
+                // $tamanhosDebug[] = ['alturaConteudoCm' => $alturaConteudoCm];
 
                 $recorte->clear();
                 $canvas->clear();
