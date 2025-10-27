@@ -13,6 +13,7 @@ import imageCompression from 'browser-image-compression';
 import { resolucoesDeReferencia } from './Poster/Partials/resolucoesDeReferencia';
 import axios from 'axios';
 import pica from 'pica';
+import Spinner from '@/Components/Spinner'
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -27,6 +28,7 @@ export default function PdfEditor() {
   // const [partesRecortadas, setPartesRecortadas] = useState([])
   const [orientacao, setOrientacao] = useState('retrato')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
+  const [updateImg, setUpdateImg] = useState(false)
   const [erroPdf, setErroPdf] = useState(null)
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(0)
@@ -38,6 +40,7 @@ export default function PdfEditor() {
   const [resumoTamanho, setResumoTamanho] = useState("")
   // Ref para armazenar a instância do pica
   const [picaInstance, setPicaInstance] = useState(null);
+
 
 
   const resetarConfiguracoes = () => {
@@ -203,64 +206,6 @@ export default function PdfEditor() {
     return new Blob([u8arr], { type: mime });
   };
 
-  /**
-         * Redimensiona a imagem real (realImg) para se ajustar proporcionalmente
-         * ao tamanho ideal (larguraIdeal, alturaIdeal), limitando o fator de escala a 4x.
-         */
-  // async function ajustarImagemPica(realImg, larguraIdeal, alturaIdeal) {
-  //   const larguraReal = realImg.naturalWidth;
-  //   const alturaReal = realImg.naturalHeight;
-
-  //   // 🔹 Calcula fator de escala proporcional
-  //   const fator = Math.max(larguraIdeal / larguraReal, alturaIdeal / alturaReal);
-
-  //   // 🔹 Aplica limite de até 4x (como você definiu)
-  //   const fatorLimite = 4;
-  //   const fatorFinal = Math.min(fator, fatorLimite);
-
-  //   // 🔹 Define tamanho final
-  //   const newWidth = Math.round(larguraReal * fatorFinal);
-  //   const newHeight = Math.round(alturaReal * fatorFinal);
-
-
-  //   console.log('--- DETALHES DO REDIMENSIONAMENTO ---');
-  //   console.log(`Original: ${larguraReal}px x ${alturaReal}px`);
-  //   console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
-  //   console.log(`Fator Proporcional Calculado: ${fator.toFixed(4)}x`);
-  //   console.log(`Fator de escala FINAL (limite 4x aplicado): ${fatorFinal.toFixed(4)}x`);
-  //   console.log(`Tamanho Final Redimensionado: ${newWidth}px x ${newHeight}px`);
-
-  //   // 🔹 Cria canvas temporário de origem e destino
-  //   const canvasOrigem = document.createElement('canvas');
-  //   const canvasDestino = document.createElement('canvas');
-
-  //   canvasOrigem.width = larguraReal;
-  //   canvasOrigem.height = alturaReal;
-  //   canvasDestino.width = newWidth;
-  //   canvasDestino.height = newHeight;
-
-  //   const ctx = canvasOrigem.getContext('2d');
-  //   ctx.drawImage(realImg, 0, 0);
-
-  //   // 🔹 Usa Pica para redimensionar com qualidade
-  //   const resultadoCanvas = await picaInstance.resize(canvasOrigem, canvasDestino, {
-  //     quality: 3,
-  //     alpha: true,
-  //     unsharpAmount: 80,
-  //     unsharpRadius: 0.6,
-  //     unsharpThreshold: 2
-  //   });
-
-  //   const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
-  //   const base64 = await imageCompression.getDataUrlFromFile(blob);
-
-  //   // 🔹 Limpeza opcional
-  //   canvasOrigem.width = 0;
-  //   canvasDestino.width = 0;
-
-  //   // Retorna o canvas de destino
-  //   return { base64, blob, width: newWidth, height: newHeight };
-  // }
 
   /**
  * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
@@ -278,6 +223,8 @@ export default function PdfEditor() {
  */
   async function ajustarImagemPica(imgBitmap, larguraIdeal, alturaIdeal) {
     const MAX_STEP = 4; // Fator máximo de escala por passo
+
+    setUpdateImg(true);
 
     // Inicializa o canvas de origem com a imagem original (o ponto de partida)
     let currentCanvas = document.createElement('canvas');
@@ -362,6 +309,8 @@ export default function PdfEditor() {
     // 8. Converte o Blob para Base64 (requer a biblioteca 'imageCompression' ou similar)
     // ATENÇÃO: Estou assumindo que 'imageCompression' está disponível no escopo.
     const base64 = await imageCompression.getDataUrlFromFile(blob);
+
+    setUpdateImg(false);
 
     // 9. Retorna o objeto de destino completo
     return { base64, blob, width: newWidth, height: newHeight };
@@ -732,51 +681,39 @@ export default function PdfEditor() {
     reader.readAsDataURL(file)
   }
 
-  // useEffect(() => {
-  //   const instance = pica({ features: ['js', 'wasm'] })
-  //   setPicaInstance(instance)
-  //   console.log('%c✅ Pica.js inicializado com sucesso', 'color: #10B981; font-weight: bold;')
-  // }, [])
+  // ... (todas as suas outras funções, como handleFileChange, etc.)
 
+  /**
+   * Função para baixar a imagem processada (imagemBase64)
+   */
+  const handleDownloadImagemProcessada = () => {
+    // Verifica se há uma imagem no estado para baixar
+    if (!imagemBase64) {
+      alert("Não há imagem processada para baixar.");
+      return;
+    }
 
-  // // 1. Efeito COMBINADO para carregar e inicializar a instância do Pica.js
-  // useEffect(() => {
-  //   if (picaInstance) return; // Se a instância já existe, não faça nada
+    // 1. Cria um elemento de link <a> na memória
+    const link = document.createElement('a');
 
-  //   // 1. Tenta inicializar se já estiver carregado (caso o componente renderize de novo)
-  //   if (typeof window.pica === 'function') {
-  //     setPicaInstance(window.pica());
-  //     console.log('✅ Pica.js já estava carregado e foi inicializado imediatamente.');
-  //     return;
-  //   }
+    // 2. Define o href do link como a string base64 (Data URL)
+    link.href = imagemBase64;
 
-  //   // 2. Carrega o script dinamicamente via caminho local
-  //   console.log('%c⏳ Carregando Pica.js via caminho local (/js/pica.min.js)...', 'color: #38a169;');
-  //   const script = document.createElement('script');
-  //   script.src = '/js/pica.min.js';
-  //   script.async = true;
+    // 3. Define o nome do arquivo que será baixado
+    link.download = 'imagem-processada-aumentada.jpg';
 
-  //   script.onload = () => {
-  //     console.log('✅ Pica.js carregado com sucesso via script.');
-  //     // 3. Inicializa a instância após o carregamento do script
-  //     if (typeof window.pica === 'function') {
-  //       setPicaInstance(window.pica());
-  //       console.log('✅ Instância do Pica.js inicializada no estado.');
-  //     } else {
-  //       console.error('❌ Pica.js carregado, mas a função global "pica" não foi encontrada.');
-  //       setErroPdf('Pica.js carregado, mas a função global não foi encontrada. Verifique o arquivo.');
-  //     }
-  //   };
+    // 4. Adiciona o link ao corpo do documento (necessário para o Firefox)
+    document.body.appendChild(link);
 
-  //   script.onerror = (e) => {
-  //     console.error('❌ Erro ao carregar Pica.js do caminho local.', e);
-  //     setErroPdf('Erro ao carregar Pica.js. Verifique o caminho /js/pica.min.js');
-  //   };
+    // 5. Simula um clique no link
+    link.click();
 
-  //   document.body.appendChild(script);
-  //   // Limpeza: remove o script se o componente for desmontado
-  //   return () => { document.body.removeChild(script); };
-  // }, [picaInstance]); // Depende de picaInstance para evitar loop e garantir que inicialize apenas uma vez
+    // 6. Remove o link do corpo do documento
+    document.body.removeChild(link);
+  };
+
+  // ... (o resto das suas funções e useEffects)
+
   // 2. Use apenas este useEffect para instanciar Pica na montagem
   useEffect(() => {
     // Flag de montagem (boa prática do React para evitar "memory leak")
@@ -1378,24 +1315,44 @@ export default function PdfEditor() {
     ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
   `}
                 >
-                  {/* Botão único para remover PDF ou imagem */}
+                  {/* Contêiner para os Botões de Ação */}
                   {(pdfUrl || imagemBase64) && (
-                    <button
-                      title="Remover PDF / Imagem"
-                      onClick={() => {
-                        setPdfUrl(null);           // Remove PDF
-                        setPdfDownloadUrl(null);    // ❌ limpa o PDF para download
-                        setImagemBase64(null);      // Remove imagem
-                        setAlteracoesPendentes(false);
-                        setPaginaAtual(1);
-                        setResumoTamanho("");       // Limpa resumo
-                      }}
-                      className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 
-                 hover:bg-opacity-100 rounded-full p-1 shadow text-xs sm:text-sm"
-                    >
-                      Remover
-                    </button>
+                    <>
+                      {/* ⬅️ Botão de Download (lado esquerdo) */}
+                      {(imagemBase64 && !pdfUrl) && (
+                        <div className="absolute top-2 left-2 z-20 ">
+                          <button
+                            title="Baixar Imagem Processada"
+                            onClick={handleDownloadImagemProcessada}
+                            className="bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full
+                             p-2 shadow text-xs sm:text-sm font-bold w-full flex justify-center items-center"
+                          >
+                            {updateImg ? <Spinner size={20} borderWidth={3} texto='' /> : '⬇️'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ❌ Botão de Remover (lado direito) */}
+                      <div className="absolute top-2 right-2 z-20">
+                        <button
+                          title="Remover PDF / Imagem"
+                          onClick={() => {
+                            setPdfUrl(null);
+                            setPdfDownloadUrl(null);
+                            setImagemBase64(null);
+                            setAlteracoesPendentes(false);
+                            setPaginaAtual(1);
+                            setResumoTamanho("");
+                          }}
+                          className="bg-white bg-opacity-80 
+          hover:bg-opacity-100 rounded-full p-2 shadow text-xs sm:text-sm font-bold"
+                        >
+                          ❌ 
+                        </button>
+                      </div>
+                    </>
                   )}
+
 
                   {/* Conteúdo do PDF ou imagem */}
                   {pdfUrl ? (

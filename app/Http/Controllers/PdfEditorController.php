@@ -227,26 +227,15 @@ class PdfEditorController extends Controller
         $dpi  = (int) round(min($dpiX, $dpiY));
 
         // // 🔹 Limite superior adaptativo conforme tamanho do pôster
-        $maxDpi = match (true) {
-            $colunas <= 2 => 144,  // pôster pequeno
-            $colunas <= 3 => 100,  // pequeno
-            $colunas <= 4 => 100,  // médio
-            $colunas <= 5 => 100,  // médio
-            $colunas <= 6 => 100,   // grande
-            $colunas <= 8 => 100,  // grande
-            default       => 82,  // gigante (até 10x10)
-        };
-        //  // 🔹 Define limite de DPI de forma proporcional conforme o tamanho (colunas/folhas)
-        // $minDpi = 72;   // limite inferior (outdoors, 100 folhas)
-        // $maxDpi = 150;  // limite superior (pequeno, A4–A3)
-        // $maxColunas = 100; // limite máximo considerado
-
-        // // Calcula o DPI de forma inversamente proporcional ao número de colunas
-        // $maxDpi = max(
-        //     $minDpi,
-        //     round($maxDpi - (($colunas - 1) / ($maxColunas - 1)) * ($maxDpi - $minDpi))
-        // );
-
+        // $maxDpi = match (true) {
+        //     $colunas <= 2 => 144,  // pôster pequeno
+        //     $colunas <= 3 => 100,  // pequeno
+        //     $colunas <= 4 => 100,  // médio
+        //     $colunas <= 5 => 100,  // médio
+        //     $colunas <= 6 => 100,   // grande
+        //     $colunas <= 8 => 100,  // grande
+        //     default       => 82,  // gigante (até 10x10)
+        // };
 
         // 🔹 DPI mínimo adaptativo (evita pixelização em imagens pequenas)
         $minDpi = match (true) {
@@ -256,13 +245,16 @@ class PdfEditorController extends Controller
             default       => 40,   // muito grande, não precisa forçar DPI
         };
 
-        // // 🔹 Limite superior adaptativo conforme tamanho do pôster (Revisado)
-        // $maxDpi = match (true) {
-        //     $colunas <= 2 => 150,  // A2/A3/A4
-        //     $colunas <= 4 => 120,  // Médio
-        //     $colunas <= 6 => 100,  // Grande
-        //     default       => 90,   // Gigante (7+ colunas)
-        // };
+        // 🔹 Define limite de DPI de forma proporcional conforme o tamanho (colunas/folhas)
+        // $minDpi = 72;   // limite inferior (outdoors, 100 folhas)
+        $maxDpi = 150;  // limite superior (pequeno, A4–A3)
+        $maxColunas = 100; // limite máximo considerado
+
+        // Calcula o DPI de forma inversamente proporcional ao número de colunas
+        $maxDpi = max(
+            $minDpi,
+            round($maxDpi - (($colunas - 1) / ($maxColunas - 1)) * ($maxDpi - $minDpi))
+        );
 
         // 🔹 Aplica o DPI final dentro dos limites
         $dpi = max($minDpi, min($dpi, $maxDpi));
@@ -298,7 +290,7 @@ class PdfEditorController extends Controller
         for ($i = 0; $i <= $colunas; $i++) $xBounds[$i] = (int) round($i * $imgWidthPx / $colunas);
         for ($j = 0; $j <= $linhas; $j++) $yBounds[$j] = (int) round($j * $imgHeightPx / $linhas);
 
-        $imagick->sharpenImage(0.5, 0.3);    
+        $imagick->sharpenImage(0.5, 0.3);
 
         $partes = [];
         $larguraConteudoCm = 0;
