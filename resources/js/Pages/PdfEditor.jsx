@@ -87,72 +87,6 @@ export default function PdfEditor() {
     }
   }
 
-  // 🔹 Função genérica de redimensionamento conforme número de colunas
-  const redimensionarSeNecessario = (width, height, colunas) => {
-    const maxDim = Math.max(width, height);
-
-    // 🔹 Aplica limite apenas se imagem for muito grande e pôster pequeno
-    if (maxDim > 5000 && colunas < 6) {
-      const fator = 5000 / maxDim;
-      const newWidth = Math.round(width * fator);
-      const newHeight = Math.round(height * fator);
-
-      console.log(
-        `%c📏 Imagem redimensionada:`,
-        'color: #6b46c1; font-weight: bold;'
-      );
-      console.log(`Dimensões originais: ${width} × ${height}px`);
-      console.log(`Dimensões reduzidas: ${newWidth} × ${newHeight}px`);
-      console.log(`Fator de redução aplicado: ${(fator * 100).toFixed(1)}%`);
-      console.log(`Colunas do pôster: ${colunas}`);
-
-      return { width: newWidth, height: newHeight };
-    }
-
-    // Aplica redução fixa de 15% se maxDim entre 6000 e 8000, e 20% se maior que 8000
-    if (maxDim >= 10000 && colunas > 5) {
-      let fator = 0.05;
-
-      const newWidth = Math.round(width * (1 - fator));
-      const newHeight = Math.round(height * (1 - fator));
-
-      console.log(
-        `%c📏 Imagem redimensionada:`,
-        'color: #6b46c1; font-weight: bold;'
-      );
-      console.log(`Dimensões originais: ${width} × ${height}px`);
-      console.log(`Dimensões reduzidas: ${newWidth} × ${newHeight}px`);
-      console.log(`Redução aplicada: ${(fator * 100).toFixed(1)}%`);
-      console.log(`Colunas do pôster: ${colunas}`);
-
-      return { width: newWidth, height: newHeight };
-    }
-
-    // 🔹 Caso não precise redimensionar
-    console.log(`%c📏 Imagem mantida no tamanho original: ${width} × ${height}px`, 'color: #38a169; font-weight: bold;');
-
-    return { width, height };
-  };
-
-  const getJpegQuality = (width, height) => {
-    const maxDim = Math.max(width, height);
-    let quality = 1;
-
-    return quality;
-  };
-
-
-  // Função para converter Base64 de volta para um Blob (Auxiliar para log)
-  const dataURLtoBlob = (dataurl) => {
-    const arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
-      bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-  };
 
   /**
    * Redimensiona usando browser-image-compression (modo mais natural)
@@ -162,7 +96,7 @@ export default function PdfEditor() {
     const options = {
       maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
       useWebWorker: true,
-      maxSizeMB: 20,
+      maxSizeMB: 40,
       initialQuality: 1.0,
       fileType: 'image/jpeg',
       alwaysKeepResolution: true,
@@ -208,19 +142,57 @@ export default function PdfEditor() {
 
 
   /**
+   * Função utilitária para converter um número decimal em uma fração simples (string).
+   * Utiliza um algoritmo de frações contínuas com limite de denominador para manter a simplicidade.
+   * @param {number} decimal O número decimal (proporção).
+   * @returns {string} A fração formatada (ex: '3/2').
+   */
+  function toFraction(decimal) {
+    if (decimal === 0) return '0/1';
+
+    // Define a precisão da busca
+    const tolerance = 1.0E-6;
+
+    // Verifica se é inteiro
+    if (Math.floor(decimal) === decimal) {
+      return decimal.toString() + '/1';
+    }
+
+    let h1 = 1, h2 = 0;
+    let k1 = 0, k2 = 1;
+    let b = decimal;
+
+    // Algorítmo de Frações Contínuas
+    do {
+      let a = Math.floor(b);
+      let aux = h1;
+      h1 = a * h1 + h2;
+      h2 = aux;
+      aux = k1;
+      k1 = a * k1 + k2;
+      k2 = aux;
+
+      // Evita divisão por zero se b-a for muito pequeno
+      if (b - a === 0) break;
+
+      b = 1 / (b - a);
+    } while (Math.abs(decimal - h1 / k1) > decimal * tolerance && k1 < 100); // Limita o denominador a 100
+
+    return `${h1}/${k1}`;
+  }
+
+
+  /**
  * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
  * ao tamanho ideal (larguraIdeal, alturaIdeal), escalonando em múltiplos passos,
  * onde cada passo aumenta o tamanho em, no máximo, 4x.
- * Isso é ideal para evitar estouro de memória em imagens muito grandes.
- * * Estratégia de Nitidez para Qualidade vs. Performance:
- * - Passos Intermediários: Aplica unsharpAmount: 5 (mínimo) para preservar a estrutura dos detalhes.
- * - Passo Final: Aplica unsharpAmount: 30 (completo) para o acabamento da nitidez.
  *
  * @param {ImageBitmap} imgBitmap O objeto ImageBitmap (a imagem real).
  * @param {number} larguraIdeal A largura máxima desejada.
  * @param {number} alturaIdeal A altura máxima desejada.
  * @returns {Promise<{base64: string, blob: Blob, width: number, height: number}>} Objeto com os dados da imagem final.
  */
+
   async function ajustarImagemPica(imgBitmap, larguraIdeal, alturaIdeal) {
     const MAX_STEP = 4; // Fator máximo de escala por passo
 
@@ -278,7 +250,7 @@ export default function PdfEditor() {
       let resizeOptions = {
         quality: 3,
         alpha: true,
-        unsharpAmount: 30,
+        unsharpAmount: 80,
         unsharpRadius: 0.8, // Mantido fixo para todos os passos
         unsharpThreshold: 15 // Mantido fixo para todos os passos
       };
@@ -333,7 +305,7 @@ export default function PdfEditor() {
         console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
         console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
         console.log(`%c==================================`, 'color: #3182CE;');
-
+     
         // ============================================================
         // 2️⃣ ETAPA 2 — OBTENDO DADOS DE REFERÊNCIA (NOVOS TAMANHOS)
         // ============================================================
@@ -833,6 +805,7 @@ export default function PdfEditor() {
         console.clear();
         const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);
         setImagemBase64(novoTratamentoImg);
+
         console.log(`🔄 Imagem ajustada conforme ${ampliacao.colunas} colunas`);
       } catch (err) {
         console.error("Erro ao redimensionar imagem:", err);
@@ -1190,10 +1163,14 @@ export default function PdfEditor() {
                   <>
                     {imagemBase64 && alteracoesPendentes && (
                       <button
+                        // O botão fica desabilitado se `updateImg` OU `carregando` for true
+                        disabled={updateImg || carregando}
+
                         onClick={async () => {
-                          // A verificação interna `if (!imagemBase64) return` ainda é boa prática
-                          // para garantir, caso o estado mude entre a renderização e o clique.
-                          setCarregando(true);
+                          // Se o botão estiver desabilitado, o onClick não será executado, mas a checagem é segura.
+                          if (updateImg || carregando) return;
+
+                          setCarregando(true); // Inicia o estado de carregamento para as ações do backend
 
                           const partes = await enviarParaCorteBackend();
 
@@ -1204,11 +1181,18 @@ export default function PdfEditor() {
 
                           setCarregando(false);
                         }}
+                        // Mantemos a classe de cor principal
                         className={alteracoesPendentes ? "pro-btn-red" : "pro-btn-purple"}
                       >
-                        Aplicar alterações
+                        {/* Lógica para decidir o texto do botão */}
+                        {updateImg ? (
+                          'Atualizando Imagem...' // Quando a imagem está sendo redimensionada/comprimida (Pica/BIC)
+                        ) : carregando ? (
+                          'Preparando Alterações...' // Quando o backend e o PDF estão sendo gerados
+                        ) : (
+                          'Aplicar alterações ' // Estado padrão
+                        )}
                       </button>
-
                     )}
 
                     <>
@@ -1332,6 +1316,7 @@ export default function PdfEditor() {
                         </div>
                       )}
 
+
                       {/* ❌ Botão de Remover (lado direito) */}
                       <div className="absolute top-2 right-2 z-20">
                         <button
@@ -1347,10 +1332,31 @@ export default function PdfEditor() {
                           className="bg-white bg-opacity-80 
           hover:bg-opacity-100 rounded-full p-2 shadow text-xs sm:text-sm font-bold"
                         >
-                          ❌ 
+                          ❌
                         </button>
                       </div>
                     </>
+                  )}
+
+                  {/* 🔄 Botão Restaurar Imagem Original */}
+                  {imagemBase64Original && !imagemBase64 && (
+                    <div className="absolute top-2 left-2 z-20">
+                      <button
+                        title="Restaurar Imagem Original"
+                        onClick={() => {
+                          setImagemBase64(imagemBase64Original)
+                          setPdfUrl(null);
+                          setPdfDownloadUrl(null);
+                          setAlteracoesPendentes(true);
+                          setPaginaAtual(1);
+                          setResumoTamanho("");
+                        }}
+                        className="bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full
+                     p-2 shadow text-xs sm:text-sm font-bold w-full flex justify-center items-center"
+                      >
+                        🔄
+                      </button>
+                    </div>
                   )}
 
 

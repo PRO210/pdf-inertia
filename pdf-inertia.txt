@@ -92,3 +92,6 @@ QHD (Quad HD) / 2K (1440p):
   const fator = (larguraIdeal/Math.min(larguraReal, alturaReal)); =  Tamanho Final Redimensionado: 3840px x 5763px
   const fator = (larguraIdeal/Math.max(larguraReal, alturaReal)); =  Tamanho Final Redimensionado: 2559px x 3840px
 
+
+imagens quadradas = 2*3 e multiplos, paisagem 
+imagens quadradas = 4*3 e multiplos, paisagem 

@@ -332,8 +332,8 @@ class PdfEditorController extends Controller
                 $partes[] = 'data:image/jpeg;base64,' . base64_encode($canvas->getImageBlob());
 
                 // Obtém as dimensões em pixels do recorte após o redimensionamento
-                $larguraConteudoPx = $recorte->getImageWidth();
-                $alturaConteudoPx = $recorte->getImageHeight();
+                // $larguraConteudoPx = $recorte->getImageWidth();
+                // $alturaConteudoPx = $recorte->getImageHeight();
 
                 // $tamanhosDebug[] = ['larguraConteudoPx' => $larguraConteudoPx];
                 // $tamanhosDebug[] = ['alturaConteudoPx' => $alturaConteudoPx];
