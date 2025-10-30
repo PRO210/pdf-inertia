@@ -43,6 +43,7 @@ export default function PdfEditor() {
 
 
 
+
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
     setPdfDownloadUrl(null)
@@ -57,6 +58,7 @@ export default function PdfEditor() {
     setTotalPaginas(0)
     setZoom(1)
     setAspecto(true)
+
   }
 
 
@@ -112,7 +114,11 @@ export default function PdfEditor() {
 
     // Cria uma URL temporária e carrega como imagem
     const tempURL = URL.createObjectURL(compressedBlob);
+
     const img = new Image();
+
+    img.crossOrigin = "Anonymous";
+
     await new Promise((resolve) => {
       img.onload = () => {
         URL.revokeObjectURL(tempURL);
@@ -251,8 +257,8 @@ export default function PdfEditor() {
         quality: 3,
         alpha: true,
         unsharpAmount: 80,
-        unsharpRadius: 0.8, // Mantido fixo para todos os passos
-        unsharpThreshold: 15 // Mantido fixo para todos os passos
+        unsharpRadius: 0.8,
+        unsharpThreshold: 15
       };
 
       // Cria o canvas de destino para este passo
@@ -292,6 +298,9 @@ export default function PdfEditor() {
 
     return new Promise((resolve) => {
       const img = new Image();
+
+      img.crossOrigin = "Anonymous";
+
       img.onload = async () => { // ⬅️ Tornar `onload` assíncrono para usar `await`
 
         // ============================================================
@@ -305,7 +314,7 @@ export default function PdfEditor() {
         console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
         console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
         console.log(`%c==================================`, 'color: #3182CE;');
-     
+
         // ============================================================
         // 2️⃣ ETAPA 2 — OBTENDO DADOS DE REFERÊNCIA (NOVOS TAMANHOS)
         // ============================================================
@@ -576,6 +585,8 @@ export default function PdfEditor() {
   const corrigirOrientacaoPura = (base64) => {
     return new Promise((resolve) => {
       const img = new Image();
+
+      img.crossOrigin = "Anonymous";
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
@@ -631,7 +642,9 @@ export default function PdfEditor() {
 
     // Se não for PDF, processar como IMAGEM
     const reader = new FileReader()
+
     reader.onload = async (e) => {
+
       const base64 = e.target.result
 
       //Limpeza o console para melhor visualização
@@ -653,7 +666,6 @@ export default function PdfEditor() {
     reader.readAsDataURL(file)
   }
 
-  // ... (todas as suas outras funções, como handleFileChange, etc.)
 
   /**
    * Função para baixar a imagem processada (imagemBase64)
@@ -956,6 +968,8 @@ export default function PdfEditor() {
     }
 
     const img = new Image();
+
+    img.crossOrigin = "Anonymous";
     img.src = imagemBase64;
 
     img.onload = () => {
@@ -1062,40 +1076,47 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
+
+            
+
               {/* Orientação */}
               <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
-                <select
-                  className="px-2 w-full rounded-full pro-input"
-                  name="orientacao"
-                  id="orientacao"
-                  value={orientacao}
-                  onChange={(e) => {
-                    setOrientacao(e.target.value)
-                    setAlteracoesPendentes(true)
-                  }}
-                >
-                  <option value="retrato">Retrato</option>
-                  <option value="paisagem">Paisagem</option>
-                </select>
+                <div className='flex flex-col md:flex-row justify-center items-center'>
+                  <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
+                  <select
+                    className="px-2 w-full rounded-full pro-input"
+                    name="orientacao"
+                    id="orientacao"
+                    value={orientacao}
+                    onChange={(e) => {
+                      setOrientacao(e.target.value)
+                      setAlteracoesPendentes(true)
+                    }}
+                  >
+                    <option value="retrato">Retrato</option>
+                    <option value="paisagem">Paisagem</option>
+                  </select>
+                </div>
               </div>
               <br />
               {/* Aspecto */}
               <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
-                <select
-                  className="px-2 w-full rounded-full pro-input"
-                  name="aspecto"
-                  id="aspecto"
-                  value={aspecto}
-                  onChange={(e) => {
-                    setAspecto(e.target.value === "true")
-                    setAlteracoesPendentes(true)
-                  }}
-                >
-                  <option value="true">Manter o aspecto original</option>
-                  <option value="false">Preencher toda a folha</option>
-                </select>
+                <div className='flex flex-col md:flex-row justify-center items-center'>
+                  <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
+                  <select
+                    className="px-2 w-full rounded-full pro-input"
+                    name="aspecto"
+                    id="aspecto"
+                    value={aspecto}
+                    onChange={(e) => {
+                      setAspecto(e.target.value === "true")
+                      setAlteracoesPendentes(true)
+                    }}
+                  >
+                    <option value="true">Manter o aspecto original</option>
+                    <option value="false">Preencher toda a folha</option>
+                  </select>
+                </div>
               </div>
 
               <div className="w-full flex flex-col">
@@ -1383,7 +1404,7 @@ export default function PdfEditor() {
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 px-2">
                       <label className="pro-label text-center text-xl">
-                        Envie imagem ou PDF :)
+                        Carregar imagem ou PDF :)
                       </label>
                       <div className="flex justify-center w-full">
                         <input
