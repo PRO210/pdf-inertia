@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { PDFDocument, rgb } from 'pdf-lib'
 import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
@@ -40,8 +40,80 @@ export default function PdfEditor() {
   const [resumoTamanho, setResumoTamanho] = useState("")
   // Ref para armazenar a instância do pica
   const [picaInstance, setPicaInstance] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [arquivoOriginal, setArquivoOriginal] = useState(null);
+  const inputFileRef = useRef(null);
 
 
+  // Função para converter o arquivo File para Base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Função central que processa o arquivo (chamada no onChange e no onDrop)
+  const processarArquivo = useCallback(async (file) => {
+    if (file) {
+      // 1. Guarda o arquivo File (Original)
+      setArquivoOriginal(file);
+
+      // 2. Converte e guarda o Base64 para visualização ou trabalho imediato
+      try {
+        handleFileChange({ target: { files: [file] } }); // já faz tudo
+
+        console.log('Arquivo processado e Base64 gerado.');
+      } catch (error) {
+        console.error('Erro ao converter para Base64:', error);
+        setImagemBase64(null);
+      }
+    } else {
+      // Caso não haja arquivo (ex: limpeza)
+      setArquivoOriginal(null);
+      setImagemBase64(null);
+    }
+    setIsDragging(false); // Garante que o estado de arrasto seja limpo
+  }, []);
+
+  // --- Handlers de Eventos ---
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setAlteracoesPendentes(true)
+
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+    setAlteracoesPendentes(true)
+  };
+
+const handleDrop = (e) => {
+  e.preventDefault();
+
+  const file = e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+  if (!file) return;
+
+  // 🔹 Faz o input original receber o arquivo (sincroniza visualmente)
+  if (inputFileRef.current) {
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    inputFileRef.current.files = dataTransfer.files;
+  }
+
+  // 🔹 Processa normalmente
+  processarArquivo(file);
+  setAlteracoesPendentes(true);
+};
+
+
+  const handleAreaClick = () => {
+    inputFileRef.current.click();
+    setAlteracoesPendentes(true)
+  };
 
 
   const resetarConfiguracoes = () => {
@@ -58,6 +130,10 @@ export default function PdfEditor() {
     setTotalPaginas(0)
     setZoom(1)
     setAspecto(true)
+    if (inputFileRef.current) {
+      inputFileRef.current.value = '';
+    }
+    setArquivoOriginal(null)
 
   }
 
@@ -88,7 +164,6 @@ export default function PdfEditor() {
       return null
     }
   }
-
 
   /**
    * Redimensiona usando browser-image-compression (modo mais natural)
@@ -1076,8 +1151,23 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
+              <div className='w-full'>
+                <div className='flex flex-col md:flex-row justify-center items-center'>
+                  <label className="block mb-1 pro-label text-center text-xl">Imagem/Pdf:</label>
+                  <input
+                    type="file"
+                    accept="image/*, application/pdf"
+                    onChange={handleFileChange}
+                    ref={inputFileRef}
+                    className="
+                          pro-btn-blue file:mr-4  file:rounded-full file:border-0
+                          file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700
+                          hover:file:bg-blue-100 cursor-pointer
+                        " />
+                </div>
+              </div>
 
-            
+
 
               {/* Orientação */}
               <div className="w-full">
@@ -1403,22 +1493,39 @@ export default function PdfEditor() {
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-2 px-2">
-                      <label className="pro-label text-center text-xl">
-                        Carregar imagem ou PDF :)
-                      </label>
-                      <div className="flex justify-center w-full">
-                        <input
-                          type="file"
-                          accept="image/*, application/pdf"
-                          onChange={handleFileChange}
-                          className="
-                          pro-btn-blue file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 
-                          file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 
-                          hover:file:bg-blue-100 cursor-pointer
-                        "
-                        />
+
+                      {/* Área de Drag and Drop */}
+                      <div className={`${orientacao === 'retrato' ? 'min-h-screen my-3' : 'min-h-64'}
+                                                    flex flex-col items-center justify-center w-full p-10 border-2
+                                                    border-dashed rounded-lg cursor-pointer transition-all
+                                                    ${isDragging
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+                        }
+        `}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onClick={handleAreaClick}
+                      >
+                        <p className="text-gray-500 text-sm mb-2">
+                          {isDragging ? "Solte o arquivo aqui!" : "Arraste e solte o arquivo, ou clique para selecionar."}
+                        </p>
+
+                        {/* Pré-visualização e/ou Nome do Arquivo */}
+                        {arquivoOriginal && imagemBase64Original && (
+                          <div className="mt-4 text-center ">
+                            {/* <p className="text-blue-700 font-semibold">
+                                                            Arquivo Original: {arquivoOriginal.name}
+                                                        </p> */}
+                            {imagemBase64 && arquivoOriginal.type.startsWith('image/') && (
+                              <img src={imagemBase64} alt="Pré-visualização" className="mt-2 max-w-full h-auto max-h-40 object-contain mx-auto border" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
+
                   )}
 
                   {/* Overlay de carregamento */}
