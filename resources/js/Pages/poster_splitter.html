@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poster Splitter (HTML/JS)</title>
+    <!-- Carrega Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carrega a biblioteca pdf-lib via CDN para resolver o problema de importação -->
+    <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+    <style>
+        .font-sans { font-family: 'Inter', sans-serif; }
+        /* Estilos para o spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffffff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-right: 0.75rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+
+    <div class="max-w-7xl mx-auto font-sans">
+        <h1 class="text-3xl font-extrabold mb-6 text-gray-900 border-b pb-2">Poster Splitter (HTML/JS)</h1>
+
+        <div class="bg-white shadow-2xl overflow-hidden rounded-xl p-8 border border-gray-100">
+
+             <!-- CAMPO DE UPLOAD DE IMAGEM -->
+            <div class="mb-6 pb-4 border-b border-gray-200">
+                <label for="file-upload" class="block text-lg font-semibold text-gray-800 mb-2">
+                    1. Carregar Imagem (JPEG/PNG)
+                </label>
+                <input
+                    id="file-upload"
+                    type="file"
+                    accept="image/jpeg, image/png"
+                    class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p id="upload-status" class="mt-2 text-sm text-red-600">Por favor, selecione uma imagem para começar.</p>
+            </div>
+
+            <!-- NOVO GRID: 2 COLUNAS PARA MELHOR LAYOUT E INCLUSÃO DA ORIENTAÇÃO -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">2.1. Colunas (Largura)</label>
+                    <input
+                        id="colunas"
+                        type="number"
+                        min="1"
+                        value="2"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">2.2. Linhas (Altura)</label>
+                    <input
+                        id="linhas"
+                        type="number"
+                        min="1"
+                        value="2"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    />
+                </div>
+                
+                <!-- NOVO: Orientação da Página -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">2.3. Orientação da Página (A4)</label>
+                    <select
+                        id="orientacao"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                    >
+                        <option value="retrato">Retrato (Vertical)</option>
+                        <option value="paisagem">Paisagem (Horizontal)</option>
+                    </select>
+                </div>
+
+                <!-- Aspecto Proporcional (Ajustado para novo grid) -->
+                <div class="flex items-end h-full">
+                    <div class="flex items-center">
+                        <input
+                            id="aspecto"
+                            type="checkbox"
+                            checked
+                            class="h-5 w-5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                        />
+                        <label for="aspecto" class="text-sm font-medium text-gray-700 ml-2">Manter Aspecto Proporcional da Imagem</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button
+                id="process-button"
+                disabled
+                class="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition duration-150 transform hover:scale-[1.005]"
+            >
+                3. Processar Imagem, Cortar e Gerar PDF
+            </button>
+
+            <div id="pdf-output">
+                <!-- A prévia do PDF será injetada aqui -->
+            </div>
+
+            <div id="debug-output">
+                <!-- Os dados de debug serão injetados aqui -->
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Acessar a biblioteca através do namespace correto 'window.PDFLib'
+        const { PDFDocument, rgb } = window.PDFLib;
+        
+        // --- ESTADO GLOBAL ---
+        let base64Image = null;
+        let pdfUrl = null;
+
+        // --- REFERÊNCIAS DOM ---
+        const fileUpload = document.getElementById('file-upload');
+        const uploadStatus = document.getElementById('upload-status');
+        const colunasInput = document.getElementById('colunas');
+        const linhasInput = document.getElementById('linhas');
+        const aspectoInput = document.getElementById('aspecto');
+        // NOVA REFERÊNCIA DOM
+        const orientacaoInput = document.getElementById('orientacao');
+        const processButton = document.getElementById('process-button');
+        const pdfOutput = document.getElementById('pdf-output');
+        const debugOutput = document.getElementById('debug-output');
+
+
+        // =========================================================
+        // 🛠️ HELPERS DE CONVERSÃO E CANVAS
+        // =========================================================
+        
+        const base64ToImage = (base64) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = (e) => reject(new Error("Falha ao carregar imagem a partir do Base64: " + e.message));
+                img.src = base64;
+            });
+        };
+
+        const canvasToBase64Jpeg = (canvas, quality = 0.85) => {
+            return new Promise((resolve) => {
+                // Forçamos a saída como JPEG.
+                const base64 = canvas.toDataURL('image/jpeg', quality);
+                resolve(base64);
+            });
+        };
+
+        // =========================================================
+        // 核心 LÓGICA DE CORTE E REDIMENSIONAMENTO
+        // =========================================================
+
+        const processarImagemParaCorte = async (base64, colunas = 2, linhas = 2, orientacao = 'retrato', aspecto = true) => {
+            const tamanhosDebug = [];
+            const img = await base64ToImage(base64);
+            const imgWidthPx = img.width;
+            const imgHeightPx = img.height;
+
+            tamanhosDebug.push({ 'imgWidthPx': imgWidthPx });
+            tamanhosDebug.push({ 'imgHeightPx': imgHeightPx });
+
+            // USO DO PARÂMETRO 'orientacao'
+            const larguraFolhaIn = orientacao === 'retrato' ? 8.27 : 11.69;
+            const alturaFolhaIn  = orientacao === 'retrato' ? 11.69 : 8.27;
+
+            // --- CÁLCULO DE DPI (MÉTRICA) ---
+            const dpiX = imgWidthPx / (larguraFolhaIn * colunas);
+            const dpiY = imgHeightPx / (alturaFolhaIn * linhas);
+            let dpi = Math.round(Math.min(dpiX, dpiY));
+
+            let minDpi;
+            if (colunas <= 2) { minDpi = 72; } 
+            else if (colunas <= 4) { minDpi = 60; } 
+            else if (colunas <= 6) { minDpi = 50; } 
+            else { minDpi = 40; }
+
+            const maxDpiInicial = 150;
+            const maxColunas = 100;
+            let maxDpi = maxDpiInicial;
+
+            maxDpi = Math.max(
+                minDpi,
+                Math.round(maxDpiInicial - ((colunas - 1) / (maxColunas - 1)) * (maxDpiInicial - minDpi))
+            );
+
+            dpi = Math.max(minDpi, Math.min(dpi, maxDpi));
+
+            tamanhosDebug.push({
+                'dpiX': parseFloat(dpiX.toFixed(2)),
+                'dpiY': parseFloat(dpiY.toFixed(2)),
+                'dpiFinal': dpi,
+                'minDpi': minDpi,
+                'maxDpi': maxDpi,
+            });
+            
+            // --- CÁLCULO DAS DIMENSÕES ALVO (Pixel) ---
+            const margemCm = 2;
+            const margemIn = margemCm / 2.54;
+            let larguraAlvo, alturaAlvo;
+
+            if (aspecto) {
+                larguraAlvo = Math.round(larguraFolhaIn * dpi);
+                alturaAlvo  = Math.round(alturaFolhaIn  * dpi);
+            } else {
+                larguraAlvo = Math.round((larguraFolhaIn - margemIn) * dpi);
+                alturaAlvo  = Math.round((alturaFolhaIn  - margemIn) * dpi);
+            }
+
+            tamanhosDebug.push({ 'larguraAlvo_Px': larguraAlvo });
+            tamanhosDebug.push({ 'alturaAlvo_Px': alturaAlvo });
+
+            // --- CORTE E REDIMENSIONAMENTO ---
+            const xBounds = [];
+            const yBounds = [];
+            for (let i = 0; i <= colunas; i++) { xBounds[i] = Math.round(i * imgWidthPx / colunas); }
+            for (let j = 0; j <= linhas; j++) { yBounds[j] = Math.round(j * imgHeightPx / linhas); }
+
+            const partes = [];
+
+            for (let y = 0; y < linhas; y++) {
+                for (let x = 0; x < colunas; x++) {
+                    const x0 = xBounds[x];
+                    const x1 = xBounds[x + 1];
+                    const y0 = yBounds[y];
+                    const y1 = yBounds[y + 1];
+                    
+                    const cropWidth = x1 - x0;
+                    const cropHeight = y1 - y0;
+
+                    const destCanvas = document.createElement('canvas');
+                    destCanvas.width = larguraAlvo;
+                    destCanvas.height = alturaAlvo;
+                    const ctx = destCanvas.getContext('2d');
+                    
+                    try {
+                        ctx.drawImage(
+                            img, 
+                            x0, y0, 
+                            cropWidth, cropHeight, 
+                            0, 0, 
+                            larguraAlvo, alturaAlvo
+                        );
+
+                        const parteBase64 = await canvasToBase64Jpeg(destCanvas, 0.85);
+                        partes.push(parteBase64);
+                    } catch (error) {
+                        console.error("Erro ao processar fatia da imagem:", error);
+                        throw new Error("Falha ao processar e redimensionar as fatias da imagem.");
+                    }
+                }
+            }
+
+            return { partes, dpi, tamanhos_debug: tamanhosDebug };
+        };
+
+        // =========================================================
+        // GERAÇÃO DE PDF
+        // =========================================================
+
+        const gerarPDF = async (partesRecortadasParaUsar, colunas, linhas, orientacao) => {
+            if (pdfUrl) { URL.revokeObjectURL(pdfUrl); } 
+
+            const pdfDoc = await PDFDocument.create();
+            // USO DO PARÂMETRO 'orientacao' AQUI TAMBÉM
+            const a4Retrato = [595.28, 841.89];
+            const a4Paisagem = [841.89, 595.28];
+            const [pageWidth, pageHeight] = orientacao === 'retrato' ? a4Retrato : a4Paisagem;
+
+            const CM_TO_POINTS = 28.3465;
+            const margem = 0.5 * CM_TO_POINTS; 
+
+            for (const parte of partesRecortadasParaUsar) {
+                const page = pdfDoc.addPage([pageWidth, pageHeight]);
+                
+                const base64String = parte.split(',')[1];
+                const imageBytes = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
+
+                let image;
+                
+                try {
+                    image = await pdfDoc.embedJpg(imageBytes);
+                } catch (e) {
+                    console.error("Erro ao incorporar imagem como JPG. Tentando PNG:", e);
+                    try {
+                        // Tentar como PNG se a incorporação JPEG falhar.
+                        image = await pdfDoc.embedPng(imageBytes);
+                    } catch (e2) {
+                        console.error("Erro ao incorporar imagem como PNG também.", e2);
+                        continue; 
+                    }
+                }
+
+                const escala = Math.min(
+                    (pageWidth - margem * 2) / image.width,
+                    (pageHeight - margem * 2) / image.height
+                );
+
+                const largura = image.width * escala;
+                const altura = image.height * escala;
+
+                // Centraliza a imagem na área de impressão
+                const x = (pageWidth - largura) / 2; 
+                const y = (pageHeight - altura) / 2; 
+                
+                page.drawImage(image, { x, y, width: largura, height: altura });
+            }
+
+            const pdfBytes = await pdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+            pdfUrl = URL.createObjectURL(blob);
+            renderPdfOutput();
+        };
+
+        // =========================================================
+        // LÓGICA DE INTERAÇÃO E RENDERIZAÇÃO
+        // =========================================================
+
+        function updateProcessButton(isProcessing) {
+            // O botão é habilitado se NÃO estiver processando E se uma imagem estiver carregada
+            processButton.disabled = isProcessing || !base64Image; 
+            processButton.innerHTML = isProcessing 
+                ? '<div class="spinner"></div> Processando...' 
+                : '3. Processar Imagem, Cortar e Gerar PDF';
+
+            if (isProcessing) {
+                // Remove preview e debug ao iniciar o processamento
+                pdfOutput.innerHTML = '';
+                debugOutput.innerHTML = '';
+            }
+        }
+
+        function renderPdfOutput() {
+            if (!pdfUrl) {
+                pdfOutput.innerHTML = '';
+                return;
+            }
+            pdfOutput.innerHTML = `
+                <div class="mt-10 p-6 bg-green-50 border border-green-300 rounded-xl shadow-inner">
+                    <h3 class="text-xl font-bold text-green-800 mb-4">🎉 Sucesso! Prévia do PDF Gerado</h3>
+                    <iframe 
+                        src="${pdfUrl}" 
+                        width="100%" 
+                        height="500px" 
+                        class="rounded-lg shadow-md border border-gray-300"
+                        title="Preview do PDF"
+                    ></iframe>
+                    <a 
+                        href="${pdfUrl}" 
+                        download="poster.pdf"
+                        class="mt-4 block text-center py-3 px-4 rounded-lg text-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition duration-150"
+                    >
+                        Baixar PDF
+                    </a>
+                </div>
+            `;
+        }
+        
+        function renderDebugOutput(debugData) {
+            if (!debugData || debugData.length === 0) {
+                debugOutput.innerHTML = '';
+                return;
+            }
+            debugOutput.innerHTML = `
+                <div class="mt-8 p-4 border border-yellow-300 rounded-lg bg-yellow-50">
+                    <h3 class="text-lg font-medium text-yellow-800 mb-2">Dados de Debug (Lógica de DPI)</h3>
+                    <pre class="text-xs text-yellow-700 overflow-x-auto p-2 bg-yellow-100 rounded">
+                        ${JSON.stringify(debugData, null, 2)}
+                    </pre>
+                </div>
+            `;
+        }
+
+        // --- HANDLERS DE EVENTOS ---
+
+        fileUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (pdfUrl) { URL.revokeObjectURL(pdfUrl); pdfUrl = null; }
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    base64Image = reader.result;
+                    uploadStatus.className = "mt-2 text-sm text-green-600";
+                    uploadStatus.textContent = "✅ Imagem carregada e pronta para processamento.";
+                    // Habilita o botão após o carregamento da imagem
+                    updateProcessButton(false); 
+                };
+                reader.readAsDataURL(file);
+            } else {
+                base64Image = null;
+                uploadStatus.className = "mt-2 text-sm text-red-600";
+                uploadStatus.textContent = "Por favor, selecione uma imagem para começar.";
+                // Desabilita o botão se nenhuma imagem estiver selecionada
+                updateProcessButton(false);
+            }
+        });
+
+        processButton.addEventListener('click', async () => {
+            if (!base64Image) {
+                uploadStatus.className = "mt-2 text-sm text-red-600 font-bold";
+                uploadStatus.textContent = "⚠️ Por favor, carregue uma imagem primeiro para processar.";
+                return;
+            }
+
+            const colunas = parseInt(colunasInput.value) || 1;
+            const linhas = parseInt(linhasInput.value) || 1;
+            const aspecto = aspectoInput.checked;
+            // LEITURA DO NOVO CAMPO DE ORIENTAÇÃO
+            const orientacao = orientacaoInput.value; 
+
+            updateProcessButton(true);
+
+            try {
+                // PASSANDO A ORIENTAÇÃO PARA O CÁLCULO
+                const { partes, tamanhos_debug } = await processarImagemParaCorte(
+                    base64Image,
+                    colunas,
+                    linhas,
+                    orientacao,
+                    aspecto
+                );
+                
+                renderDebugOutput(tamanhos_debug);
+                
+                // PASSANDO A ORIENTAÇÃO PARA A GERAÇÃO DE PDF
+                await gerarPDF(partes, colunas, linhas, orientacao);
+                
+            } catch (error) {
+                console.error("Erro fatal no processamento:", error);
+                pdfOutput.innerHTML = `<div class="mt-10 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">Erro ao processar imagem e gerar PDF: ${error.message}</div>`;
+                renderDebugOutput([]);
+            } finally {
+                updateProcessButton(false);
+            }
+        });
+
+    </script>
+</body>
+</html>

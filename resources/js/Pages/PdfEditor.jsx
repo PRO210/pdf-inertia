@@ -173,7 +173,7 @@ const handleDrop = (e) => {
     const options = {
       maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
       useWebWorker: true,
-      maxSizeMB: 40,
+      maxSizeMB: 30,
       initialQuality: 1.0,
       fileType: 'image/jpeg',
       alwaysKeepResolution: true,
