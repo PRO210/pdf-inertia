@@ -1006,10 +1006,13 @@ export default function PdfEditor() {
       // 🔹 Sempre JPEG
       const image = await pdfDoc.embedJpg(imageBytes)
 
-      const escala = Math.min(
-        (pageWidth - margem * 2) / image.width,
-        (pageHeight - margem * 2) / image.height
-      )
+      // const escala = Math.min(
+      //   (pageWidth - margem * 2) / image.width,
+      //   (pageHeight - margem * 2) / image.height
+      // )
+      
+      // Se as partes já vieram redimensionadas, mantém a escala 1:1
+      const escala = Math.min(1, (pageWidth - margem * 2) / image.width, (pageHeight - margem * 2) / image.height)
 
       const largura = image.width * escala
       const altura = image.height * escala

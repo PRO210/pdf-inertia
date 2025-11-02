@@ -34,7 +34,8 @@ export function calcularRedimensionamentoProporcional(
   imgAlturaPx,
   numColunas,
   numLinhas,
-  orientacao = 'retrato'
+  orientacao = 'retrato',
+  aspect = true
 ) {
   // Conversão de polegadas para centímetros
   const INCH_TO_CM = 2.54;
@@ -62,20 +63,37 @@ export function calcularRedimensionamentoProporcional(
   const dpiY = pedacoAlturaPx / alturaIn;
 
   // 📸 6. Usa o menor DPI como base para manter a proporção sem esticar
-  const dpiCanvas = Math.min(dpiX, dpiY);
+  let dpiCanvas = Math.min(dpiX, dpiY);
+
+  // 🎚️ Limita o DPI máximo (evita DPIs muito altos)
+  const DPI_MAX = 150;
+  dpiCanvas = Math.min(dpiCanvas, DPI_MAX);
 
   // 🧭 7. Calcula a área útil total do A4 em pixels com base no DPI final
   const larguraUtilPx = Math.round(larguraIn * dpiCanvas);
   const alturaUtilPx = Math.round(alturaIn * dpiCanvas);
 
   // 🧩 8. Calcula a largura e altura alvo de cada pedaço no canvas,
-  // proporcionalmente ao DPI final
-  const larguraAlvoPx = Math.round(pedacoLarguraPx * (dpiCanvas / dpiX));
-  const alturaAlvoPx = Math.round(pedacoAlturaPx * (dpiCanvas / dpiY));
+  // ajustando pela escala mínima necessária para caber na área útil
+  // (isso preserva a proporção do pedaço e evita qualquer esticamento)
+  const scaleX = larguraUtilPx / pedacoLarguraPx;
+  const scaleY = alturaUtilPx / pedacoAlturaPx;
+  const scale = Math.min(scaleX, scaleY);
+
+  const larguraAlvoPx = Math.round(pedacoLarguraPx * scale);
+  const alturaAlvoPx = Math.round(pedacoAlturaPx * scale);
+
 
   // 📐 9. Converte o tamanho final do pedaço para centímetros (para debug ou exibição)
   const larguraFinalCm = (larguraAlvoPx / dpiCanvas) * INCH_TO_CM;
   const alturaFinalCm = (alturaAlvoPx / dpiCanvas) * INCH_TO_CM;
+
+  // 📋 Logs informativos
+  console.log("🧾 Dimensões finais com margens e DPI limitado:");
+  console.log(`Área útil total (cm): ${larguraFinalCm.toFixed(2)} × ${alturaFinalCm.toFixed(2)}`);
+  // console.log(`Área por parte (cm): ${larg.toFixed(2)} × ${alturaParteCm.toFixed(2)}`);
+  console.log(`DPI Canvas usado: ${dpiCanvas.toFixed(2)}`);
+  console.log(`Parte alvo (px): ${larguraAlvoPx.toFixed(2)} × ${alturaAlvoPx.toFixed(2)}`);
 
   // 📦 10. Retorna os valores calculados
   return {
