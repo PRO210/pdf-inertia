@@ -14,6 +14,7 @@ import { resolucoesDeReferencia } from './Poster/Partials/resolucoesDeReferencia
 import axios from 'axios';
 import pica from 'pica';
 import Spinner from '@/Components/Spinner'
+import { calcularRedimensionamentoProporcional } from './Poster/Partials/imagemUtils'
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -91,23 +92,23 @@ export default function PdfEditor() {
     setAlteracoesPendentes(true)
   };
 
-const handleDrop = (e) => {
-  e.preventDefault();
+  const handleDrop = (e) => {
+    e.preventDefault();
 
-  const file = e.dataTransfer.files ? e.dataTransfer.files[0] : null;
-  if (!file) return;
+    const file = e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+    if (!file) return;
 
-  // 🔹 Faz o input original receber o arquivo (sincroniza visualmente)
-  if (inputFileRef.current) {
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    inputFileRef.current.files = dataTransfer.files;
-  }
+    // 🔹 Faz o input original receber o arquivo (sincroniza visualmente)
+    if (inputFileRef.current) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      inputFileRef.current.files = dataTransfer.files;
+    }
 
-  // 🔹 Processa normalmente
-  processarArquivo(file);
-  setAlteracoesPendentes(true);
-};
+    // 🔹 Processa normalmente
+    processarArquivo(file);
+    setAlteracoesPendentes(true);
+  };
 
 
   const handleAreaClick = () => {
@@ -164,6 +165,84 @@ const handleDrop = (e) => {
       return null
     }
   }
+
+
+
+  const enviarParaCorteFrontend = async () => {
+    try {
+      const inicio = performance.now();
+
+      const partes = await cortarImagemFrontend(
+        imagemBase64,
+        ampliacao.colunas,
+        ampliacao.linhas,
+        orientacao,
+        aspecto,
+      );
+
+      const fim = performance.now();
+      console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
+      // console.log(`🖨️ DPI calculado: ${dpiCanvas}`);
+      console.log(`🔢 Partes geradas: ${partes.length}`);
+
+      return partes;
+    } catch (error) {
+      console.error('Erro ao cortar imagem localmente:', error);
+      alert('Erro ao processar a imagem.');
+      return null;
+    }
+  };
+
+  const cortarImagemFrontend = async (imagemBase64, colunas, linhas, orientacao, aspecto) => {
+    const img = new Image();
+    img.src = imagemBase64;
+    await img.decode();
+
+    // ⚙️ Calcula dimensões de redimensionamento
+    const {
+      larguraAlvoPx,
+      alturaAlvoPx,
+      dpiCanvas,
+    } = calcularRedimensionamentoProporcional(
+      img.width,
+      img.height,
+      colunas,
+      linhas,
+      orientacao,
+    );
+
+    const partes = [];
+    const destCanvas = document.createElement('canvas');
+    const ctx = destCanvas.getContext('2d');
+
+    destCanvas.width = larguraAlvoPx;
+    destCanvas.height = alturaAlvoPx;
+
+    // 🔁 Loop de corte
+    for (let linha = 0; linha < linhas; linha++) {
+      for (let coluna = 0; coluna < colunas; coluna++) {
+        const sx = (img.width / colunas) * coluna;
+        const sy = (img.height / linhas) * linha;
+        const sw = img.width / colunas;
+        const sh = img.height / linhas;
+
+        ctx.clearRect(0, 0, destCanvas.width, destCanvas.height);
+        ctx.drawImage(
+          img,
+          sx, sy, sw, sh, // origem na imagem
+          0, 0, larguraAlvoPx, alturaAlvoPx // destino no canvas
+        );
+
+        const parteBase64 = destCanvas.toDataURL('image/jpeg', 1);
+        partes.push(parteBase64);
+      }
+    }
+
+    console.log(`🔢 Total de partes cortadas: ${partes.length}, DPI usado: ${dpiCanvas}`);
+
+    return partes;
+  };
+
 
   /**
    * Redimensiona usando browser-image-compression (modo mais natural)
@@ -1283,7 +1362,8 @@ const handleDrop = (e) => {
 
                           setCarregando(true); // Inicia o estado de carregamento para as ações do backend
 
-                          const partes = await enviarParaCorteBackend();
+                          // const partes = await enviarParaCorteBackend();
+                          const partes = await enviarParaCorteFrontend();
 
                           if (partes) {
                             await gerarPDF(partes);
@@ -1492,10 +1572,10 @@ const handleDrop = (e) => {
                       }}
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 px-2">
+                    <div className="flex flex-col items-center justify-center gap-2 px-6">
 
                       {/* Área de Drag and Drop */}
-                      <div className={`${orientacao === 'retrato' ? 'min-h-screen my-3' : 'min-h-64'}
+                      <div className={`${orientacao === 'retrato' ? 'min-h-screen m-6' : 'min-h-64'}
                                                     flex flex-col items-center justify-center w-full p-10 border-2
                                                     border-dashed rounded-lg cursor-pointer transition-all
                                                     ${isDragging

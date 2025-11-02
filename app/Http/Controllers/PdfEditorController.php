@@ -209,7 +209,7 @@ class PdfEditorController extends Controller
 
         // Dimensões A4 em polegadas
         $larguraFolhaIn = $orientacao === 'retrato' ? 8.27 : 11.69;
-        $alturaFolhaIn  = $orientacao === 'retrato' ? 11.69 : 8.27;
+        $alturaFolhaIn  = $orientacao !== 'retrato' ? 11.69 : 8.27;
 
         $tamanhosDebug[] = ['larguraFolhaIn' => $larguraFolhaIn];
         $tamanhosDebug[] = ['alturaFolhaIn' => $alturaFolhaIn];

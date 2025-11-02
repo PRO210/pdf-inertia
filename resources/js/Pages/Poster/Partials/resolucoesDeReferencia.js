@@ -63,8 +63,8 @@ export const resolucoesDeReferencia = [
   {
     nome: "Pôster 6x6 (6K Ext. Dpi: 78)",
     colunas: 7,
-    larguraPx: 6758 /*6144*/,
-    alturaPx: 3801 /*3456*/,
+    larguraPx: 6758,
+    alturaPx: 3801,
   },
 
   // Base: 8x8. DPI real: 77 DPI.

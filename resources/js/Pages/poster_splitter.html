@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,10 @@
     <!-- Carrega a biblioteca pdf-lib via CDN para resolver o problema de importação -->
     <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
     <style>
-        .font-sans { font-family: 'Inter', sans-serif; }
+        .font-sans {
+            font-family: 'Inter', sans-serif;
+        }
+
         /* Estilos para o spinner */
         .spinner {
             border: 4px solid rgba(255, 255, 255, 0.3);
@@ -20,12 +24,19 @@
             animation: spin 1s linear infinite;
             margin-right: 0.75rem;
         }
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
     </style>
 </head>
+
 <body class="bg-gray-50 min-h-screen p-4">
 
     <div class="max-w-7xl mx-auto font-sans">
@@ -33,50 +44,35 @@
 
         <div class="bg-white shadow-2xl overflow-hidden rounded-xl p-8 border border-gray-100">
 
-             <!-- CAMPO DE UPLOAD DE IMAGEM -->
+            <!-- CAMPO DE UPLOAD DE IMAGEM -->
             <div class="mb-6 pb-4 border-b border-gray-200">
                 <label for="file-upload" class="block text-lg font-semibold text-gray-800 mb-2">
                     1. Carregar Imagem (JPEG/PNG)
                 </label>
-                <input
-                    id="file-upload"
-                    type="file"
-                    accept="image/jpeg, image/png"
-                    class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-                <p id="upload-status" class="mt-2 text-sm text-red-600">Por favor, selecione uma imagem para começar.</p>
+                <input id="file-upload" type="file" accept="image/jpeg, image/png"
+                    class="mt-1 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                <p id="upload-status" class="mt-2 text-sm text-red-600">Por favor, selecione uma imagem para começar.
+                </p>
             </div>
 
             <!-- NOVO GRID: 2 COLUNAS PARA MELHOR LAYOUT E INCLUSÃO DA ORIENTAÇÃO -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700">2.1. Colunas (Largura)</label>
-                    <input
-                        id="colunas"
-                        type="number"
-                        min="1"
-                        value="2"
-                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
+                    <input id="colunas" type="number" min="1" value="2"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700">2.2. Linhas (Altura)</label>
-                    <input
-                        id="linhas"
-                        type="number"
-                        min="1"
-                        value="2"
-                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    />
+                    <input id="linhas" type="number" min="1" value="2"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
                 </div>
-                
+
                 <!-- NOVO: Orientação da Página -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700">2.3. Orientação da Página (A4)</label>
-                    <select
-                        id="orientacao"
-                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
-                    >
+                    <select id="orientacao"
+                        class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2.5">
                         <option value="retrato">Retrato (Vertical)</option>
                         <option value="paisagem">Paisagem (Horizontal)</option>
                     </select>
@@ -85,22 +81,16 @@
                 <!-- Aspecto Proporcional (Ajustado para novo grid) -->
                 <div class="flex items-end h-full">
                     <div class="flex items-center">
-                        <input
-                            id="aspecto"
-                            type="checkbox"
-                            checked
-                            class="h-5 w-5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                        />
-                        <label for="aspecto" class="text-sm font-medium text-gray-700 ml-2">Manter Aspecto Proporcional da Imagem</label>
+                        <input id="aspecto" type="checkbox" checked
+                            class="h-5 w-5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
+                        <label for="aspecto" class="text-sm font-medium text-gray-700 ml-2">Manter Aspecto Proporcional
+                            da Imagem</label>
                     </div>
                 </div>
             </div>
-            
-            <button
-                id="process-button"
-                disabled
-                class="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition duration-150 transform hover:scale-[1.005]"
-            >
+
+            <button id="process-button" disabled
+                class="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-lg text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition duration-150 transform hover:scale-[1.005]">
                 3. Processar Imagem, Cortar e Gerar PDF
             </button>
 
@@ -118,7 +108,7 @@
     <script>
         // Acessar a biblioteca através do namespace correto 'window.PDFLib'
         const { PDFDocument, rgb } = window.PDFLib;
-        
+
         // --- ESTADO GLOBAL ---
         let base64Image = null;
         let pdfUrl = null;
@@ -139,7 +129,7 @@
         // =========================================================
         // 🛠️ HELPERS DE CONVERSÃO E CANVAS
         // =========================================================
-        
+
         const base64ToImage = (base64) => {
             return new Promise((resolve, reject) => {
                 const img = new Image();
@@ -157,74 +147,146 @@
             });
         };
 
-        // =========================================================
-        // 核心 LÓGICA DE CORTE E REDIMENSIONAMENTO
-        // =========================================================
+        /**
+         * Calcula as dimensões finais de impressão (em cm) para caber no A4 (com DPI fixo)
+         * E, crucialmente, retorna as dimensões em PIXELS que o CANVAS deve usar.
+         *
+         * @param {number} imgLarguraPx Largura total da imagem original em pixels.
+         * @param {number} imgAlturaPx Altura total da imagem original em pixels.
+         * @param {number} numColunas Número de cortes na largura.
+         * @param {number} numLinhas Número de cortes na altura.
+         * @param {string} orientacao Orientação do papel ('retrato' ou 'paisagem').
+         * @param {number} dpiFixo Resolução de impressão fixa (ex: 150).
+         * @returns {object} Objeto com dimensões em CM e as dimensões ALVO em PX para o Canvas.
+         */
+       
+        function calcularRedimensionamentoProporcional(
+            imgLarguraPx,
+            imgAlturaPx,
+            numColunas,
+            numLinhas,
+            orientacao = 'retrato'
+        ) {
+            const INCH_TO_CM = 2.54;
 
-        const processarImagemParaCorte = async (base64, colunas = 2, linhas = 2, orientacao = 'retrato', aspecto = true) => {
+            // --- 1. Limites do Papel A4 (CM e Polegadas) ---
+            let limitePapelLarguraCm = 21.0;
+            let limitePapelAlturaCm = 29.7;
+
+            if (orientacao.toLowerCase() === 'paisagem') {
+                limitePapelLarguraCm = 29.7;
+                limitePapelAlturaCm = 21.0;
+            }
+
+            // --- 1.1 Limites do Papel A4 (Polegadas) ---
+            const limitePapelLarguraIn = limitePapelLarguraCm / INCH_TO_CM;
+            const limitePapelAlturaIn = limitePapelAlturaCm / INCH_TO_CM;
+
+            // --- 2. CÁLCULO DO DPI PROPORCIONAL (DPI_P) ---
+            // Cada pedaço é uma fração da imagem total
+            const pedacoLarguraPx = imgLarguraPx / numColunas;
+            const pedacoAlturaPx = imgAlturaPx / numLinhas;
+
+            // DPI proporcional do pedaço no tamanho de uma folha A4
+            const dpiXprop = pedacoLarguraPx / limitePapelLarguraIn;
+            const dpiYprop = pedacoAlturaPx / limitePapelAlturaIn;
+
+            // Lógica "contain" → usa o menor DPI para caber sem cortar
+            const DPIcanvas = Math.min(dpiXprop, dpiYprop);
+
+            // --- 3. DIMENSÕES DO CANVAS (A4 convertido com o DPI escolhido) ---
+            const larguraUtilPx = Math.round(limitePapelLarguraIn * DPIcanvas);
+            const alturaUtilPx = Math.round(limitePapelAlturaIn * DPIcanvas);
+
+            // --- 4. DIMENSÕES DO PEDAÇO NO CANVAS (respeitando proporção) ---
+            const larguraAlvoPx = Math.round(pedacoLarguraPx * (DPIcanvas / dpiXprop));
+            const alturaAlvoPx = Math.round(pedacoAlturaPx * (DPIcanvas / dpiYprop));
+
+            // --- 5. TAMANHO FINAL EM CM ---
+            const larguraFinalCm = (larguraAlvoPx / DPIcanvas) * INCH_TO_CM;
+            const alturaFinalCm = (alturaAlvoPx / DPIcanvas) * INCH_TO_CM;
+
+            // --- 6. RESULTADO ---
+            return {
+                dpiCanvas: DPIcanvas.toFixed(2),
+                larguraUtilPx,
+                alturaUtilPx,
+                larguraAlvoPx,
+                alturaAlvoPx,
+                larguraFinalCm: larguraFinalCm.toFixed(2),
+                alturaFinalCm: alturaFinalCm.toFixed(2),
+            };
+        }
+
+
+        const processarImagemParaCorte = async (
+            base64,
+            colunas = 2,
+            linhas = 2,
+            orientacao = "retrato",
+            aspecto = true
+        ) => {
             const tamanhosDebug = [];
             const img = await base64ToImage(base64);
+
             const imgWidthPx = img.width;
             const imgHeightPx = img.height;
 
-            tamanhosDebug.push({ 'imgWidthPx': imgWidthPx });
-            tamanhosDebug.push({ 'imgHeightPx': imgHeightPx });
+            // --- Folha A4 em polegadas ---
+            const larguraFolhaIn = orientacao === "retrato" ? 8.27 : 11.69;
+            const alturaFolhaIn = orientacao !== "retrato" ? 11.69 : 8.27;
 
-            // USO DO PARÂMETRO 'orientacao'
-            const larguraFolhaIn = orientacao === 'retrato' ? 8.27 : 11.69;
-            const alturaFolhaIn  = orientacao === 'retrato' ? 11.69 : 8.27;
+            // --- Margens ---
+            const margemCm = 1;
+            const margemIn = margemCm / 2.54;
 
-            // --- CÁLCULO DE DPI (MÉTRICA) ---
-            const dpiX = imgWidthPx / (larguraFolhaIn * colunas);
-            const dpiY = imgHeightPx / (alturaFolhaIn * linhas);
-            let dpi = Math.round(Math.min(dpiX, dpiY));
+            const larguraUtilIn = larguraFolhaIn - 2 * margemIn;
+            const alturaUtilIn = alturaFolhaIn - 2 * margemIn;
 
-            let minDpi;
-            if (colunas <= 2) { minDpi = 72; } 
-            else if (colunas <= 4) { minDpi = 60; } 
-            else if (colunas <= 6) { minDpi = 50; } 
-            else { minDpi = 40; }
 
-            const maxDpiInicial = 150;
-            const maxColunas = 100;
-            let maxDpi = maxDpiInicial;
+            // --- 🛑 NOVO: DPI FIXO A SER USADO NO CÁLCULO PROPORCIONAL ---
+            // 💡 Você precisa definir este DPI em algum lugar (pode ser hardcoded ou em um input)
+            const DPI_FIXO_ALVO = 150;
 
-            maxDpi = Math.max(
-                minDpi,
-                Math.round(maxDpiInicial - ((colunas - 1) / (maxColunas - 1)) * (maxDpiInicial - minDpi))
+            // 1. CHAMA A FUNÇÃO CENTRALIZADA
+            const calculo = calcularRedimensionamentoProporcional(
+                imgWidthPx,
+                imgHeightPx,
+                colunas,
+                linhas,
+                orientacao,
+                DPI_FIXO_ALVO
             );
 
-            dpi = Math.max(minDpi, Math.min(dpi, maxDpi));
+            // 2. RECEBE OS VALORES EM PIXELS DO CÁLCULO
+            const dpi = calculo.dpiCanvas; // O DPI real de renderização do Canvas
+            const larguraUtilPx = calculo.larguraUtilPx; // O tamanho do Canvas (área útil do papel em Px)
+            const alturaUtilPx = calculo.alturaUtilPx;   // O tamanho do Canvas (área útil do papel em Px)
+            const larguraAlvo = calculo.larguraAlvoPx;   // A dimensão do pedaço no Canvas (mantém proporção)
+            const alturaAlvo = calculo.alturaAlvoPx;     // A dimensão do pedaço no Canvas (mantém proporção)
+       
+
+            // --- Fim da Lógica de Redimensionamento ---
 
             tamanhosDebug.push({
-                'dpiX': parseFloat(dpiX.toFixed(2)),
-                'dpiY': parseFloat(dpiY.toFixed(2)),
-                'dpiFinal': dpi,
-                'minDpi': minDpi,
-                'maxDpi': maxDpi,
+                larguraAlvoPx: larguraAlvo,
+                alturaAlvoPx: alturaAlvo,
+                larguraUtilPx,
+                alturaUtilPx,
+                dpiCanvas: dpi,
+                // Adicionamos os CMs para verificar
+                larguraFinalCm: calculo.larguraFinalCm,
+                alturaFinalCm: calculo.alturaFinalCm,
             });
-            
-            // --- CÁLCULO DAS DIMENSÕES ALVO (Pixel) ---
-            const margemCm = 2;
-            const margemIn = margemCm / 2.54;
-            let larguraAlvo, alturaAlvo;
 
-            if (aspecto) {
-                larguraAlvo = Math.round(larguraFolhaIn * dpi);
-                alturaAlvo  = Math.round(alturaFolhaIn  * dpi);
-            } else {
-                larguraAlvo = Math.round((larguraFolhaIn - margemIn) * dpi);
-                alturaAlvo  = Math.round((alturaFolhaIn  - margemIn) * dpi);
-            }
 
-            tamanhosDebug.push({ 'larguraAlvo_Px': larguraAlvo });
-            tamanhosDebug.push({ 'alturaAlvo_Px': alturaAlvo });
+            tamanhosDebug.push({ larguraAlvo, alturaAlvo, larguraUtilPx, alturaUtilPx, dpi });
 
-            // --- CORTE E REDIMENSIONAMENTO ---
+            // --- Coordenadas de recorte ---
             const xBounds = [];
             const yBounds = [];
-            for (let i = 0; i <= colunas; i++) { xBounds[i] = Math.round(i * imgWidthPx / colunas); }
-            for (let j = 0; j <= linhas; j++) { yBounds[j] = Math.round(j * imgHeightPx / linhas); }
+            for (let i = 0; i <= colunas; i++) xBounds[i] = Math.round((i * imgWidthPx) / colunas);
+            for (let j = 0; j <= linhas; j++) yBounds[j] = Math.round((j * imgHeightPx) / linhas);
 
             const partes = [];
 
@@ -234,32 +296,44 @@
                     const x1 = xBounds[x + 1];
                     const y0 = yBounds[y];
                     const y1 = yBounds[y + 1];
-                    
                     const cropWidth = x1 - x0;
                     const cropHeight = y1 - y0;
 
-                    const destCanvas = document.createElement('canvas');
-                    destCanvas.width = larguraAlvo;
-                    destCanvas.height = alturaAlvo;
-                    const ctx = destCanvas.getContext('2d');
-                    
-                    try {
-                        ctx.drawImage(
-                            img, 
-                            x0, y0, 
-                            cropWidth, cropHeight, 
-                            0, 0, 
-                            larguraAlvo, alturaAlvo
-                        );
+                    // cria canvas para o corte
+                    const destCanvas = document.createElement("canvas");
+                    destCanvas.width = larguraUtilPx;
+                    destCanvas.height = alturaUtilPx;
+                    const ctx = destCanvas.getContext("2d");
 
-                        const parteBase64 = await canvasToBase64Jpeg(destCanvas, 0.85);
-                        partes.push(parteBase64);
-                    } catch (error) {
-                        console.error("Erro ao processar fatia da imagem:", error);
-                        throw new Error("Falha ao processar e redimensionar as fatias da imagem.");
-                    }
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(0, 0, destCanvas.width, destCanvas.height);
+
+                    const offsetX = (larguraUtilPx - larguraAlvo) / 2;
+                    const offsetY = (alturaUtilPx - alturaAlvo) / 2;
+
+                    ctx.drawImage(
+                        img,
+                        x0, y0, cropWidth, cropHeight,
+                        offsetX, offsetY, larguraAlvo, alturaAlvo
+                    );
+
+                    // debug visual
+                    ctx.strokeStyle = "gray";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 10]);      // 10px traço, 5px espaço
+                    ctx.strokeRect(0, 0, destCanvas.width, destCanvas.height);
+
+                    document.querySelectorAll('canvas').forEach(c => c.remove());
+                    document.body.appendChild(destCanvas); // 👈 mostra o resultado no corpo da página!
+
+                    const parteBase64 = await canvasToBase64Jpeg(destCanvas, 1);
+                    partes.push(parteBase64);
                 }
             }
+
+            console.clear();
+
+            console.table(tamanhosDebug);
 
             return { partes, dpi, tamanhos_debug: tamanhosDebug };
         };
@@ -269,7 +343,7 @@
         // =========================================================
 
         const gerarPDF = async (partesRecortadasParaUsar, colunas, linhas, orientacao) => {
-            if (pdfUrl) { URL.revokeObjectURL(pdfUrl); } 
+            if (pdfUrl) { URL.revokeObjectURL(pdfUrl); }
 
             const pdfDoc = await PDFDocument.create();
             // USO DO PARÂMETRO 'orientacao' AQUI TAMBÉM
@@ -278,16 +352,16 @@
             const [pageWidth, pageHeight] = orientacao === 'retrato' ? a4Retrato : a4Paisagem;
 
             const CM_TO_POINTS = 28.3465;
-            const margem = 0.5 * CM_TO_POINTS; 
+            const margem = 0.5 * CM_TO_POINTS;
 
             for (const parte of partesRecortadasParaUsar) {
                 const page = pdfDoc.addPage([pageWidth, pageHeight]);
-                
+
                 const base64String = parte.split(',')[1];
                 const imageBytes = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
 
                 let image;
-                
+
                 try {
                     image = await pdfDoc.embedJpg(imageBytes);
                 } catch (e) {
@@ -297,7 +371,7 @@
                         image = await pdfDoc.embedPng(imageBytes);
                     } catch (e2) {
                         console.error("Erro ao incorporar imagem como PNG também.", e2);
-                        continue; 
+                        continue;
                     }
                 }
 
@@ -310,9 +384,9 @@
                 const altura = image.height * escala;
 
                 // Centraliza a imagem na área de impressão
-                const x = (pageWidth - largura) / 2; 
-                const y = (pageHeight - altura) / 2; 
-                
+                const x = (pageWidth - largura) / 2;
+                const y = (pageHeight - altura) / 2;
+
                 page.drawImage(image, { x, y, width: largura, height: altura });
             }
 
@@ -329,9 +403,9 @@
 
         function updateProcessButton(isProcessing) {
             // O botão é habilitado se NÃO estiver processando E se uma imagem estiver carregada
-            processButton.disabled = isProcessing || !base64Image; 
-            processButton.innerHTML = isProcessing 
-                ? '<div class="spinner"></div> Processando...' 
+            processButton.disabled = isProcessing || !base64Image;
+            processButton.innerHTML = isProcessing
+                ? '<div class="spinner"></div> Processando...'
                 : '3. Processar Imagem, Cortar e Gerar PDF';
 
             if (isProcessing) {
@@ -366,7 +440,7 @@
                 </div>
             `;
         }
-        
+
         function renderDebugOutput(debugData) {
             if (!debugData || debugData.length === 0) {
                 debugOutput.innerHTML = '';
@@ -395,7 +469,7 @@
                     uploadStatus.className = "mt-2 text-sm text-green-600";
                     uploadStatus.textContent = "✅ Imagem carregada e pronta para processamento.";
                     // Habilita o botão após o carregamento da imagem
-                    updateProcessButton(false); 
+                    updateProcessButton(false);
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -418,7 +492,7 @@
             const linhas = parseInt(linhasInput.value) || 1;
             const aspecto = aspectoInput.checked;
             // LEITURA DO NOVO CAMPO DE ORIENTAÇÃO
-            const orientacao = orientacaoInput.value; 
+            const orientacao = orientacaoInput.value;
 
             updateProcessButton(true);
 
@@ -431,12 +505,12 @@
                     orientacao,
                     aspecto
                 );
-                
+
                 renderDebugOutput(tamanhos_debug);
-                
+
                 // PASSANDO A ORIENTAÇÃO PARA A GERAÇÃO DE PDF
                 await gerarPDF(partes, colunas, linhas, orientacao);
-                
+
             } catch (error) {
                 console.error("Erro fatal no processamento:", error);
                 pdfOutput.innerHTML = `<div class="mt-10 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">Erro ao processar imagem e gerar PDF: ${error.message}</div>`;
@@ -448,4 +522,5 @@
 
     </script>
 </body>
+
 </html>
