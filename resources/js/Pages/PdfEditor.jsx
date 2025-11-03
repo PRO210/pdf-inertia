@@ -198,49 +198,20 @@ export default function PdfEditor() {
     img.src = imagemBase64;
     await img.decode();
 
-    // ⚙️ Calcula dimensões de redimensionamento
-    const {
-      larguraAlvoPx,
-      alturaAlvoPx,
-      dpiCanvas,
-    } = calcularRedimensionamentoProporcional(
-      img.width,
-      img.height,
-      colunas,
-      linhas,
-      orientacao,
+    const partes = calcularRedimensionamentoProporcional(
+      img,
+      img.width,    // largura real da imagem
+      img.height,   // altura real da imagem
+      colunas,      // número de colunas
+      linhas,       // número de linhas
+      orientacao,   // 'retrato' ou 'paisagem'
+      aspecto       // true ou false
     );
 
-    const partes = [];
-    const destCanvas = document.createElement('canvas');
-    const ctx = destCanvas.getContext('2d');
-
-    destCanvas.width = larguraAlvoPx;
-    destCanvas.height = alturaAlvoPx;
-
-    // 🔁 Loop de corte
-    for (let linha = 0; linha < linhas; linha++) {
-      for (let coluna = 0; coluna < colunas; coluna++) {
-        const sx = (img.width / colunas) * coluna;
-        const sy = (img.height / linhas) * linha;
-        const sw = img.width / colunas;
-        const sh = img.height / linhas;
-
-        ctx.clearRect(0, 0, destCanvas.width, destCanvas.height);
-        ctx.drawImage(
-          img,
-          sx, sy, sw, sh, // origem na imagem
-          0, 0, larguraAlvoPx, alturaAlvoPx // destino no canvas
-        );
-
-        const parteBase64 = destCanvas.toDataURL('image/jpeg', 1);
-        partes.push(parteBase64);
-      }
-    }
-
-    console.log(`🔢 Total de partes cortadas: ${partes.length}, DPI usado: ${dpiCanvas}`);
+    console.log('🔢 Partes geradas:', partes);
 
     return partes;
+
   };
 
 
@@ -982,117 +953,201 @@ export default function PdfEditor() {
   }, [ampliacao.colunas]);
 
 
-  const gerarPDF = async (partesRecortadasParaUsar = partesRecortadas) => {
+  // const gerarPDF = async (partesRecortadasParaUsar = partesRecortadas) => {
+
+  //   setCarregando(true)
+
+  //   const pdfDoc = await PDFDocument.create()
+
+  //   const a4Retrato = [595.28, 841.89]
+  //   const a4Paisagem = [841.89, 595.28]
+  //   const [pageWidth, pageHeight] = orientacao === 'retrato' ? a4Retrato : a4Paisagem
+
+  //   const CM_TO_POINTS = 28.3465
+  //   const margem = 0 * CM_TO_POINTS // 1 cm em pontos
+
+  //   let pageIndex = 0; // Adiciona um índice para a página atual, começando de 0
+
+  //   for (const parte of partesRecortadasParaUsar) {
+  //     const page = pdfDoc.addPage([pageWidth, pageHeight])
+  //     const imageBytes = await fetch(parte).then(res => res.arrayBuffer())
+
+  //     // const image = parte.includes('png')
+  //     //   ? await pdfDoc.embedPng(imageBytes)
+  //     //   : await pdfDoc.embedJpg(imageBytes)
+  //     // 🔹 Sempre JPEG
+  //     const image = await pdfDoc.embedJpg(imageBytes)
+
+  //     // const escala = Math.min(
+  //     //   (pageWidth - margem * 2) / image.width,
+  //     //   (pageHeight - margem * 2) / image.height
+  //     // )
+
+  //     // Se as partes já vieram redimensionadas, mantém a escala 1:1
+  //     // const escala = Math.min(1, (pageWidth - margem * 2) / image.width, (pageHeight - margem * 2) / image.height)
+  //     // const largura = image.width * escala
+  //     // const altura = image.height * escala
+
+  //     const largura = image.width;
+  //     const altura = image.height;
+
+  //     // const x = margem
+  //     // const y = pageHeight - altura - margem
+
+  //     const x = margem; // A imagem sempre começa da margem esquerda
+
+  //     // === INÍCIO DA NOVA LÓGICA DE POSICIONAMENTO Y ===
+
+  //     // Determina a "linha" atual da imagem original que esta parte representa (0-based)
+  //     const linhaDaImagemOriginal = Math.floor(pageIndex / ampliacao.colunas);
+
+  //     let y;
+  //     // Se for a primeira linha da imagem original (linha 0)
+  //     if (linhaDaImagemOriginal === 0) {
+  //       y = margem; // Alinha a parte inferior da imagem com a margem inferior da página
+  //     }
+  //     // Se for a última linha da imagem original
+  //     else if (linhaDaImagemOriginal === ampliacao.linhas - 1) {
+  //       y = pageHeight - altura - margem; // Alinha a parte superior da imagem com a margem superior da página
+  //     }
+  //     // Se for qualquer linha intermediária (não a primeira nem a última)
+  //     else {
+  //       y = pageHeight - altura - margem; // Alinha a parte superior da imagem com a margem superior da página
+  //     }
+
+  //     page.drawImage(image, { x, y, width: largura, height: altura })
+
+  //     // Número da página
+  //     page.drawText(`${pdfDoc.getPageCount()}`, {
+  //       x: pageWidth - margem,
+  //       y: margem - 10,
+  //       size: 8,
+  //       color: rgb(0, 0, 0),
+  //     })
+
+  //     pageIndex++; // Não esqueça de incrementar o índice da página
+
+  //     // Pontilhado nas bordas
+  //     const desenharLinhaPontilhada = (x1, y1, x2, y2, segmento = 5, espaco = 20) => {
+  //       const dx = x2 - x1
+  //       const dy = y2 - y1
+  //       const comprimento = Math.sqrt(dx * dx + dy * dy)
+  //       const passos = Math.floor(comprimento / (segmento + espaco))
+  //       const incX = dx / comprimento
+  //       const incY = dy / comprimento
+  //       for (let i = 0; i < passos; i++) {
+  //         const inicioX = x1 + (segmento + espaco) * i * incX
+  //         const inicioY = y1 + (segmento + espaco) * i * incY
+  //         const fimX = inicioX + segmento * incX
+  //         const fimY = inicioY + segmento * incY
+  //         page.drawLine({
+  //           start: { x: inicioX, y: inicioY },
+  //           end: { x: fimX, y: fimY },
+  //           thickness: 0.5,
+  //           color: rgb(0.7, 0.7, 0.7),
+  //         })
+  //       }
+  //     }
+  //     desenharLinhaPontilhada(margem, margem, pageWidth - margem, margem)
+  //     desenharLinhaPontilhada(margem, pageHeight - margem, pageWidth - margem, pageHeight - margem)
+  //     desenharLinhaPontilhada(margem, margem, margem, pageHeight - margem)
+  //     desenharLinhaPontilhada(pageWidth - margem, margem, pageWidth - margem, pageHeight - margem)
+  //   }
+
+  //   const pdfBytes = await pdfDoc.save()
+  //   const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+
+  //   // ⚡ PDF para preview
+  //   setPdfUrl(URL.createObjectURL(blob))
+
+  //   // ⚡ PDF para download (não será alterado ao folhear)
+  //   setPdfDownloadUrl(URL.createObjectURL(blob));
+
+  //   setCarregando(false)
+
+  //   setPaginaAtual(1)
+  // }
+
+
+  // =========================================================
+  // GERAÇÃO DE PDF
+  // =========================================================
+
+  const gerarPDF = async (dadosPartes) => {
+
+    const { partes, dpiCanvas, larguraFinalCm: larguraParteCm, alturaFinalCm: alturaParteCm } = dadosPartes;
+
+    // if (pdfUrl) { URL.revokeObjectURL(pdfUrl); }
 
     setCarregando(true)
 
-    const pdfDoc = await PDFDocument.create()
-    const a4Retrato = [595.28, 841.89]
-    const a4Paisagem = [841.89, 595.28]
-    const [pageWidth, pageHeight] = orientacao === 'retrato' ? a4Retrato : a4Paisagem
+    const pdfDoc = await PDFDocument.create();
+    // USO DO PARÂMETRO 'orientacao' AQUI TAMBÉM
+    const a4Retrato = [595.28, 841.89];
+    const a4Paisagem = [841.89, 595.28];
+    const [pageWidth, pageHeight] = orientacao === 'retrato' ? a4Retrato : a4Paisagem;
 
-    const CM_TO_POINTS = 28.3465
-    const margem = 1 * CM_TO_POINTS // 1 cm em pontos
+    console.log(`🖨️ Gerando PDF (${orientacao})`);
+    console.log(`🧩 Cada parte: ${larguraParteCm.toFixed(2)}cm × ${alturaParteCm.toFixed(2)}cm`);
 
-    let pageIndex = 0; // Adiciona um índice para a página atual, começando de 0
+    const CM_TO_POINTS = 72 / 2.54;
+    const margem = 1 * CM_TO_POINTS;
 
-    for (const parte of partesRecortadasParaUsar) {
-      const page = pdfDoc.addPage([pageWidth, pageHeight])
-      const imageBytes = await fetch(parte).then(res => res.arrayBuffer())
+    for (const parte of partes) {
 
-      // const image = parte.includes('png')
-      //   ? await pdfDoc.embedPng(imageBytes)
-      //   : await pdfDoc.embedJpg(imageBytes)
-      // 🔹 Sempre JPEG
-      const image = await pdfDoc.embedJpg(imageBytes)
+      const page = pdfDoc.addPage([pageWidth, pageHeight]);
 
-      // const escala = Math.min(
-      //   (pageWidth - margem * 2) / image.width,
-      //   (pageHeight - margem * 2) / image.height
-      // )
-      
-      // Se as partes já vieram redimensionadas, mantém a escala 1:1
-      const escala = Math.min(1, (pageWidth - margem * 2) / image.width, (pageHeight - margem * 2) / image.height)
+      const base64String = parte.split(',')[1];
+      const imageBytes = Uint8Array.from(atob(base64String), c => c.charCodeAt(0));
 
-      const largura = image.width * escala
-      const altura = image.height * escala
+      let image;
 
-      // const x = margem
-      // const y = pageHeight - altura - margem
-
-      const x = margem; // A imagem sempre começa da margem esquerda
-
-      // === INÍCIO DA NOVA LÓGICA DE POSICIONAMENTO Y ===
-
-      // Determina a "linha" atual da imagem original que esta parte representa (0-based)
-      const linhaDaImagemOriginal = Math.floor(pageIndex / ampliacao.colunas);
-
-      let y;
-      // Se for a primeira linha da imagem original (linha 0)
-      if (linhaDaImagemOriginal === 0) {
-        y = margem; // Alinha a parte inferior da imagem com a margem inferior da página
-      }
-      // Se for a última linha da imagem original
-      else if (linhaDaImagemOriginal === ampliacao.linhas - 1) {
-        y = pageHeight - altura - margem; // Alinha a parte superior da imagem com a margem superior da página
-      }
-      // Se for qualquer linha intermediária (não a primeira nem a última)
-      else {
-        y = pageHeight - altura - margem; // Alinha a parte superior da imagem com a margem superior da página
-      }
-
-      page.drawImage(image, { x, y, width: largura, height: altura })
-
-      // Número da página
-      page.drawText(`${pdfDoc.getPageCount()}`, {
-        x: pageWidth - margem,
-        y: margem - 10,
-        size: 8,
-        color: rgb(0, 0, 0),
-      })
-
-      pageIndex++; // Não esqueça de incrementar o índice da página
-
-      // Pontilhado nas bordas
-      const desenharLinhaPontilhada = (x1, y1, x2, y2, segmento = 5, espaco = 20) => {
-        const dx = x2 - x1
-        const dy = y2 - y1
-        const comprimento = Math.sqrt(dx * dx + dy * dy)
-        const passos = Math.floor(comprimento / (segmento + espaco))
-        const incX = dx / comprimento
-        const incY = dy / comprimento
-        for (let i = 0; i < passos; i++) {
-          const inicioX = x1 + (segmento + espaco) * i * incX
-          const inicioY = y1 + (segmento + espaco) * i * incY
-          const fimX = inicioX + segmento * incX
-          const fimY = inicioY + segmento * incY
-          page.drawLine({
-            start: { x: inicioX, y: inicioY },
-            end: { x: fimX, y: fimY },
-            thickness: 0.5,
-            color: rgb(0.7, 0.7, 0.7),
-          })
+      try {
+        image = await pdfDoc.embedJpg(imageBytes);
+      } catch (e) {
+        console.error("Erro ao incorporar imagem como JPG. Tentando PNG:", e);
+        try {
+          // Tentar como PNG se a incorporação JPEG falhar.
+          image = await pdfDoc.embedPng(imageBytes);
+        } catch (e2) {
+          console.error("Erro ao incorporar imagem como PNG também.", e2);
+          continue;
         }
       }
-      desenharLinhaPontilhada(margem, margem, pageWidth - margem, margem)
-      desenharLinhaPontilhada(margem, pageHeight - margem, pageWidth - margem, pageHeight - margem)
-      desenharLinhaPontilhada(margem, margem, margem, pageHeight - margem)
-      desenharLinhaPontilhada(pageWidth - margem, margem, pageWidth - margem, pageHeight - margem)
+
+      // 🔹 Converte o tamanho em cm para points
+      const larguraPt = larguraParteCm * CM_TO_POINTS;
+      const alturaPt = alturaParteCm * CM_TO_POINTS;
+
+      // Centraliza a imagem na área de impressão
+      // const x = (pageWidth - larguraPt) / 2;
+      // const y = (pageHeight - alturaPt) / 2;
+      const x = margem + (pageWidth - margem * 2 - larguraPt) / 2;
+      const y = margem + (pageHeight - margem * 2 - alturaPt) / 2;
+
+      page.drawImage(image, { x, y, width: larguraPt, height: alturaPt });
     }
 
-    const pdfBytes = await pdfDoc.save()
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+
+    console.log("✅ PDF final respeitando tamanho físico real (cm)");
 
     // ⚡ PDF para preview
-    setPdfUrl(URL.createObjectURL(blob))
+    setPdfUrl(url);
 
     // ⚡ PDF para download (não será alterado ao folhear)
-    setPdfDownloadUrl(URL.createObjectURL(blob));
+    setPdfDownloadUrl(url);
 
-    setCarregando(false)
+    setCarregando(false);
 
-    setPaginaAtual(1)
-  }
+    setPaginaAtual(1);
+
+    return url;
+
+  };
+
 
   const downloadPDF = async (fileName, pdfUrl) => {
     if (!pdfUrl) return

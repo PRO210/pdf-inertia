@@ -1,108 +1,111 @@
-// Poster/Partials/imagemUtils.js
+// constantes
+const INCH_TO_CM = 2.54;
 
-/**
- * 🧮 calcularRedimensionamentoProporcional()
- *
- * Esta função calcula como redimensionar proporcionalmente uma imagem
- * (ou um pedaço dela) para caber dentro do tamanho de uma folha A4
- * mantendo a proporção e a escala corretas.
- *
- * Ela serve como base para cortes de imagem ou geração de PDFs,
- * garantindo que cada "pedaço" da imagem ocupe o espaço certo no papel,
- * sem distorção.
- *
- * Parâmetros:
- * - imgLarguraPx: largura total da imagem original (em pixels)
- * - imgAlturaPx: altura total da imagem original (em pixels)
- * - numColunas: número de colunas em que a imagem será dividida
- * - numLinhas: número de linhas em que a imagem será dividida
- * - orientacao: 'retrato' (padrão) ou 'paisagem' — define a orientação da folha A4
- *
- * Retorna um objeto com:
- * {
- *   dpiCanvas,        // resolução real usada para encaixar no A4
- *   larguraUtilPx,    // largura total útil do A4 em pixels
- *   alturaUtilPx,     // altura total útil do A4 em pixels
- *   larguraAlvoPx,    // largura final de cada pedaço no canvas
- *   alturaAlvoPx,     // altura final de cada pedaço no canvas
- *   larguraFinalCm,   // largura final do pedaço no A4 (em cm)
- *   alturaFinalCm     // altura final do pedaço no A4 (em cm)
- * }
- */
 export function calcularRedimensionamentoProporcional(
-  imgLarguraPx,
-  imgAlturaPx,
+  img,                // Image
+  imgLarguraPx,       // largura real da imagem (px) - normalmente img.width
+  imgAlturaPx,        // altura real da imagem (px) - normalmente img.height
   numColunas,
   numLinhas,
   orientacao = 'retrato',
-  aspect = true
+  aspecto = true,
+  DPI_MAX = 150       // você pode ajustar se quiser outro DPI máximo
 ) {
-  // Conversão de polegadas para centímetros
-  const INCH_TO_CM = 2.54;
-
-  // 📄 1. Define dimensões padrão de uma folha A4 em cm
-  let larguraCm = 21.0;
-  let alturaCm = 29.7;
-
-  // 📐 2. Ajusta dimensões caso a orientação seja "paisagem"
-  if (orientacao.toLowerCase() === 'paisagem') {
-    [larguraCm, alturaCm] = [29.7, 21.0];
+  // 1) área útil em cm
+  let larguraCm = 19.0;
+  let alturaCm = 27.7;
+  if (orientacao === 'paisagem') {
+    [larguraCm, alturaCm] = [27.7, 19.0];
   }
 
-  // 📏 3. Converte dimensões do A4 para polegadas
+  // 2) converte para polegadas
   const larguraIn = larguraCm / INCH_TO_CM;
   const alturaIn = alturaCm / INCH_TO_CM;
 
-  // 🔹 4. Calcula o tamanho de cada pedaço da imagem em pixels
+  // 3) tamanho de cada pedaço em px (originais)
   const pedacoLarguraPx = imgLarguraPx / numColunas;
   const pedacoAlturaPx = imgAlturaPx / numLinhas;
 
-  // 🎯 5. Calcula o DPI proporcional de cada pedaço em relação ao A4
-  // (quanto mais DPI, mais detalhes cabem no mesmo espaço físico)
+  // 4) DPI teórico para preencher a área útil
   const dpiX = pedacoLarguraPx / larguraIn;
   const dpiY = pedacoAlturaPx / alturaIn;
 
-  // 📸 6. Usa o menor DPI como base para manter a proporção sem esticar
-  let dpiCanvas = Math.min(dpiX, dpiY);
+  // 5) escolhe DPI sem ultrapassar DPI_MAX
+  let dpiCanvas = Math.min(dpiX, dpiY, DPI_MAX);
+  // se por algum motivo dpiCanvas for 0 ou NaN, fallback
+  if (!isFinite(dpiCanvas) || dpiCanvas <= 0) dpiCanvas = Math.min(dpiX || DPI_MAX, dpiY || DPI_MAX, DPI_MAX);
 
-  // 🎚️ Limita o DPI máximo (evita DPIs muito altos)
-  const DPI_MAX = 150;
-  dpiCanvas = Math.min(dpiCanvas, DPI_MAX);
-
-  // 🧭 7. Calcula a área útil total do A4 em pixels com base no DPI final
+  // 6) calcula em pixels qual seria a área "útil" com esse DPI
   const larguraUtilPx = Math.round(larguraIn * dpiCanvas);
   const alturaUtilPx = Math.round(alturaIn * dpiCanvas);
 
-  // 🧩 8. Calcula a largura e altura alvo de cada pedaço no canvas,
-  // ajustando pela escala mínima necessária para caber na área útil
-  // (isso preserva a proporção do pedaço e evita qualquer esticamento)
-  const scaleX = larguraUtilPx / pedacoLarguraPx;
-  const scaleY = alturaUtilPx / pedacoAlturaPx;
-  const scale = Math.min(scaleX, scaleY);
+  // 7) cálculo da parte alvo em px respeitando o aspecto (ou preenchendo)
+  let larguraAlvoPx, alturaAlvoPx, scale;
+  if (aspecto) {
+    // manter proporção: calcula escala separada e aplica a menor (não estica)
+    const scaleX = larguraUtilPx / pedacoLarguraPx;
+    const scaleY = alturaUtilPx / pedacoAlturaPx;
+    scale = Math.min(scaleX, scaleY);
 
-  const larguraAlvoPx = Math.round(pedacoLarguraPx * scale);
-  const alturaAlvoPx = Math.round(pedacoAlturaPx * scale);
+    // se scale for >1 e você não deseja upscaling, pode limitar com 1
+    // scale = Math.min(scale, 1);
 
+    larguraAlvoPx = Math.round(pedacoLarguraPx * scale);
+    alturaAlvoPx = Math.round(pedacoAlturaPx * scale);
+  } else {
+    // estica totalmente para preencher a área útil
+    larguraAlvoPx = larguraUtilPx;
+    alturaAlvoPx = alturaUtilPx;
+    scale = null;
+  }
 
-  // 📐 9. Converte o tamanho final do pedaço para centímetros (para debug ou exibição)
+  // 8) dimensões finais em cm (baseadas no dpiCanvas usado)
   const larguraFinalCm = (larguraAlvoPx / dpiCanvas) * INCH_TO_CM;
   const alturaFinalCm = (alturaAlvoPx / dpiCanvas) * INCH_TO_CM;
 
-  // 📋 Logs informativos
+  // logs úteis (sem limpar console)
   console.log("🧾 Dimensões finais com margens e DPI limitado:");
-  console.log(`Área útil total (cm): ${larguraFinalCm.toFixed(2)} × ${alturaFinalCm.toFixed(2)}`);
-  // console.log(`Área por parte (cm): ${larg.toFixed(2)} × ${alturaParteCm.toFixed(2)}`);
+  console.log(`Área útil (cm): ${larguraCm.toFixed(2)} × ${alturaCm.toFixed(2)} (orientacao: ${orientacao})`);
   console.log(`DPI Canvas usado: ${dpiCanvas.toFixed(2)}`);
-  console.log(`Parte alvo (px): ${larguraAlvoPx.toFixed(2)} × ${alturaAlvoPx.toFixed(2)}`);
+  console.log(`Parte alvo (px): ${larguraAlvoPx} × ${alturaAlvoPx}`);
+  console.log(`Parte original (px): ${pedacoLarguraPx.toFixed(2)} × ${pedacoAlturaPx.toFixed(2)}`);
+  console.log(`Tamanho final (cm): ${larguraFinalCm.toFixed(2)} × ${alturaFinalCm.toFixed(2)}`);
+  console.log(`Escala aplicada: ${scale !== null ? scale : 'preenchimento total (esticado)'}`);
+  console.log(`${aspecto ? 'Mantendo proporção' : 'Esticando para preencher área útil'}`);
 
-  // 📦 10. Retorna os valores calculados
+  // 9) faz os cortes no canvas (usando larguraAlvoPx/alturaAlvoPx como destino)
+  const partes = [];
+  const destCanvas = document.createElement('canvas');
+  destCanvas.width = Math.max(1, Math.round(larguraAlvoPx));
+  destCanvas.height = Math.max(1, Math.round(alturaAlvoPx));
+  const ctx = destCanvas.getContext('2d');
+
+  for (let linha = 0; linha < numLinhas; linha++) {
+    for (let coluna = 0; coluna < numColunas; coluna++) {
+      const sx = (img.width / numColunas) * coluna;
+      const sy = (img.height / numLinhas) * linha;
+      const sw = img.width / numColunas;
+      const sh = img.height / numLinhas;
+
+      ctx.clearRect(0, 0, destCanvas.width, destCanvas.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, destCanvas.width, destCanvas.height);
+
+      partes.push(destCanvas.toDataURL('image/jpeg', 1));
+    }
+  }
+
+  // 10) retorno ampliado com tudo que o gerarPDF precisa
   return {
-    dpiCanvas: dpiCanvas.toFixed(2),
-    larguraUtilPx,
-    alturaUtilPx,
+    partes,                  // array de base64
+    dpiCanvas,               // DPI usado para converter px -> cm
     larguraAlvoPx,
     alturaAlvoPx,
-    larguraFinalCm: larguraFinalCm.toFixed(2),
-    alturaFinalCm: alturaFinalCm.toFixed(2),
+    larguraFinalCm,
+    alturaFinalCm,
+    larguraAreaUtilCm: larguraCm,
+    alturaAreaUtilCm: alturaCm,
+    numColunas,
+    numLinhas,
+    aspecto
   };
 }
