@@ -167,7 +167,6 @@ export default function PdfEditor() {
   }
 
 
-
   const enviarParaCorteFrontend = async () => {
     try {
       const inicio = performance.now();
@@ -182,8 +181,8 @@ export default function PdfEditor() {
 
       const fim = performance.now();
       console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
-      // console.log(`🖨️ DPI calculado: ${dpiCanvas}`);
-      console.log(`🔢 Partes geradas: ${partes.length}`);
+
+      console.log(`🔢 Partes geradas: ${partes.partes.length}`);
 
       return partes;
     } catch (error) {
@@ -208,7 +207,7 @@ export default function PdfEditor() {
       aspecto       // true ou false
     );
 
-    console.log('🔢 Partes geradas:', partes);
+    console.log('🔢 Partes geradas:', partes.partes.length);
 
     return partes;
 
@@ -1126,6 +1125,14 @@ export default function PdfEditor() {
       const y = margem + (pageHeight - margem * 2 - alturaPt) / 2;
 
       page.drawImage(image, { x, y, width: larguraPt, height: alturaPt });
+
+      // Número da página
+          page.drawText(`${pdfDoc.getPageCount()}`, {
+            x: pageWidth - margem,
+            y: margem - 10,
+            size: 8,
+            color: rgb(0, 0, 0),
+          })
     }
 
     const pdfBytes = await pdfDoc.save();
@@ -1513,8 +1520,8 @@ export default function PdfEditor() {
 
                 <div className="mx-auto mb-4 p-2 rounded-2xl">
                   <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
-                    Preview do{" "}
-                    <span>{pdfUrl ? "Banner em PDF" : "da Imagem"}</span>
+                    Preview{" "}
+                    <span>{pdfUrl ? " do Banner em PDF " : "da Imagem"}</span>
                   </h1>
 
                   {/* Paginação */}

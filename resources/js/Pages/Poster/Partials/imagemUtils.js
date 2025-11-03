@@ -41,6 +41,7 @@ export function calcularRedimensionamentoProporcional(
 
   // 7) cálculo da parte alvo em px respeitando o aspecto (ou preenchendo)
   let larguraAlvoPx, alturaAlvoPx, scale;
+
   if (aspecto) {
     // manter proporção: calcula escala separada e aplica a menor (não estica)
     const scaleX = larguraUtilPx / pedacoLarguraPx;
@@ -66,18 +67,20 @@ export function calcularRedimensionamentoProporcional(
   // logs úteis (sem limpar console)
   console.log("🧾 Dimensões finais com margens e DPI limitado:");
   console.log(`Área útil (cm): ${larguraCm.toFixed(2)} × ${alturaCm.toFixed(2)} (orientacao: ${orientacao})`);
-  console.log(`DPI Canvas usado: ${dpiCanvas.toFixed(2)}`);
+  console.log(`DPI Canvas usado: ${Math.round(dpiCanvas.toFixed(2))}`);
   console.log(`Parte alvo (px): ${larguraAlvoPx} × ${alturaAlvoPx}`);
   console.log(`Parte original (px): ${pedacoLarguraPx.toFixed(2)} × ${pedacoAlturaPx.toFixed(2)}`);
   console.log(`Tamanho final (cm): ${larguraFinalCm.toFixed(2)} × ${alturaFinalCm.toFixed(2)}`);
   console.log(`Escala aplicada: ${scale !== null ? scale : 'preenchimento total (esticado)'}`);
-  console.log(`${aspecto ? 'Mantendo proporção' : 'Esticando para preencher área útil'}`);
+  console.log(`Aspecto: ${aspecto ? 'Mantendo proporção' : 'Esticando para preencher área útil'}`);
 
   // 9) faz os cortes no canvas (usando larguraAlvoPx/alturaAlvoPx como destino)
   const partes = [];
+
   const destCanvas = document.createElement('canvas');
   destCanvas.width = Math.max(1, Math.round(larguraAlvoPx));
   destCanvas.height = Math.max(1, Math.round(alturaAlvoPx));
+  
   const ctx = destCanvas.getContext('2d');
 
   for (let linha = 0; linha < numLinhas; linha++) {
