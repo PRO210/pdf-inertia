@@ -379,11 +379,16 @@ export default function PdfEditor() {
       // 5. Configura as opções de redimensionamento e filtros de nitidez
       let resizeOptions = {
         quality: 3,
-        alpha: true,
-        unsharpAmount: 80,
-        unsharpRadius: 0.8,
-        unsharpThreshold: 15
+        alpha: true
       };
+
+      // Se for o ÚLTIMO passo (quando for atingir a largura/altura ideal)
+      if (nextMaxSide === finalMaxSide) {
+        resizeOptions.unsharpAmount = 160;
+        resizeOptions.unsharpRadius = 0.6;
+        resizeOptions.unsharpThreshold = 2;
+      }
+
 
       // Cria o canvas de destino para este passo
       const dst = document.createElement('canvas');
@@ -1068,6 +1073,7 @@ export default function PdfEditor() {
   // }
 
 
+
   // =========================================================
   // GERAÇÃO DE PDF
   // =========================================================
@@ -1118,22 +1124,51 @@ export default function PdfEditor() {
       const larguraPt = larguraParteCm * CM_TO_POINTS;
       const alturaPt = alturaParteCm * CM_TO_POINTS;
 
-      // Centraliza a imagem na área de impressão
-      // const x = (pageWidth - larguraPt) / 2;
-      // const y = (pageHeight - alturaPt) / 2;
-      const x = margem + (pageWidth - margem * 2 - larguraPt) / 2;
-      const y = margem + (pageHeight - margem * 2 - alturaPt) / 2;
+      const x = margem;
+      const y = margem;
+      //Centralizar
+      // const x = margem + (pageWidth - margem * 2 - larguraPt) / 2;
+      // const y = margem + (pageHeight - margem * 2 - alturaPt) / 2;
 
       page.drawImage(image, { x, y, width: larguraPt, height: alturaPt });
 
       // Número da página
-          page.drawText(`${pdfDoc.getPageCount()}`, {
-            x: pageWidth - margem,
-            y: margem - 10,
-            size: 8,
-            color: rgb(0, 0, 0),
+      page.drawText(`${pdfDoc.getPageCount()}`, {
+        x: pageWidth - margem,
+        y: margem - 10,
+        size: 8,
+        color: rgb(0, 0, 0),
+      })
+
+      // Pontilhado nas bordas
+      const desenharLinhaPontilhada = (x1, y1, x2, y2, segmento = 5, espaco = 30) => {
+        const dx = x2 - x1
+        const dy = y2 - y1
+        const comprimento = Math.sqrt(dx * dx + dy * dy)
+        const passos = Math.floor(comprimento / (segmento + espaco))
+        const incX = dx / comprimento
+        const incY = dy / comprimento
+        for (let i = 0; i < passos; i++) {
+          const inicioX = x1 + (segmento + espaco) * i * incX
+          const inicioY = y1 + (segmento + espaco) * i * incY
+          const fimX = inicioX + segmento * incX
+          const fimY = inicioY + segmento * incY
+          page.drawLine({
+            start: { x: inicioX, y: inicioY },
+            end: { x: fimX, y: fimY },
+            thickness: 0.5,
+            color: rgb(0.7, 0.7, 0.7),
           })
+        }
+      }
+
+
+      desenharLinhaPontilhada(margem, margem, pageWidth - margem, margem)
+      desenharLinhaPontilhada(margem, pageHeight - margem, pageWidth - margem, pageHeight - margem)
+      desenharLinhaPontilhada(margem, margem, margem, pageHeight - margem)
+      desenharLinhaPontilhada(pageWidth - margem, margem, pageWidth - margem, pageHeight - margem)
     }
+
 
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
