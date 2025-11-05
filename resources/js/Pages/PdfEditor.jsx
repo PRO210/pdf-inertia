@@ -15,6 +15,7 @@ import axios from 'axios';
 import pica from 'pica';
 import Spinner from '@/Components/Spinner'
 import { calcularRedimensionamentoProporcional } from './Poster/Partials/imagemUtils'
+import { useCalculatedScale } from './hooks/useCalculatedScale'
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -44,6 +45,14 @@ export default function PdfEditor() {
   const [isDragging, setIsDragging] = useState(false);
   const [arquivoOriginal, setArquivoOriginal] = useState(null);
   const inputFileRef = useRef(null);
+
+  // 1. Chame o Hook para obter o fator de ajuste (1.0 ou 0.50)
+  // Não precisa mais passar o 'zoom' manual para o Hook
+  const ajusteScale = useCalculatedScale(pdfUrl, carregando, 'landscape');
+
+  // 2. Calcule o SCALE FINAL a ser usado na renderização
+  // Multiplica o zoom manual (ex: 0.9) pelo ajuste condicional (ex: 0.5)
+  const scaleFinal = zoom * ajusteScale;
 
 
   // Função para converter o arquivo File para Base64
@@ -180,9 +189,9 @@ export default function PdfEditor() {
       );
 
       const fim = performance.now();
-      console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
+      // console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
 
-      console.log(`🔢 Partes geradas: ${partes.partes.length}`);
+      // console.log(`🔢 Partes geradas: ${partes.partes.length}`);
 
       return partes;
     } catch (error) {
@@ -228,9 +237,9 @@ export default function PdfEditor() {
       alwaysKeepResolution: true,
     };
 
-    console.log('--- DETALHES DO REDIMENSIONAMENTO (BIC) ---');
-    console.log(`Ideal: ${larguraIdeal}px x ${alturaIdeal}px`);
-    console.log('Opções:', options);
+    // console.log('--- DETALHES DO REDIMENSIONAMENTO (BIC) ---');
+    // console.log(`Ideal: ${larguraIdeal}px x ${alturaIdeal}px`);
+    // console.log('Opções:', options);
 
     const compressedBlob = await imageCompression(file, options);
 
@@ -324,7 +333,7 @@ export default function PdfEditor() {
  */
 
   async function ajustarImagemPica(imgBitmap, larguraIdeal, alturaIdeal) {
-    const MAX_STEP = 4; // Fator máximo de escala por passo
+    const MAX_STEP = 3; // Fator máximo de escala por passo
 
     setUpdateImg(true);
 
@@ -335,9 +344,9 @@ export default function PdfEditor() {
     currentCanvas.getContext('2d').drawImage(imgBitmap, 0, 0);
 
     // --- LOGS INICIAIS ---
-    console.log('--- DETALHES DO REDIMENSIONAMENTO PICA (MULTI-PASSO) ---');
-    console.log(`Original: ${imgBitmap.width}px x ${imgBitmap.height}px`);
-    console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
+    // console.log('--- DETALHES DO REDIMENSIONAMENTO PICA (MULTI-PASSO) ---');
+    // console.log(`Original: ${imgBitmap.width}px x ${imgBitmap.height}px`);
+    // console.log(`Ideal (Alvo): ${larguraIdeal}px x ${alturaIdeal}px`);
     // ----------------------
 
     // 1. Determina a proporção e o lado maior alvo
@@ -389,7 +398,6 @@ export default function PdfEditor() {
         resizeOptions.unsharpThreshold = 2;
       }
 
-
       // Cria o canvas de destino para este passo
       const dst = document.createElement('canvas');
       dst.width = nextW; dst.height = nextH;
@@ -407,7 +415,7 @@ export default function PdfEditor() {
     const newHeight = resultadoCanvas.height;
 
     // --- LOG FINAL ---
-    console.log(`✅ Redimensionamento e Processamento Concluídos. Tamanho Final: ${newWidth}px x ${newHeight}px`);
+    // console.log(`✅ Redimensionamento e Processamento Concluídos. Tamanho Final: ${newWidth}px x ${newHeight}px`);
     // -----------------
 
     // 7. Converte o Canvas para Blob (JPEG com qualidade 1.0)
@@ -438,20 +446,22 @@ export default function PdfEditor() {
         const originalBlob = base64ToBlob(base64);
         const originalSizeKB = (originalBlob.size / 1024).toFixed(2);
 
-        console.log(`\n%c==================================`, 'color: #3182CE;');
+        // console.log(`\n%c==================================`, 'color: #3182CE;');
         console.log(`%c📊 ETAPA 1 — ANÁLISE DE COMPRESSÃO/UPSCALE - INÍCIO`, 'color: #3182CE; font-weight: bold;');
-        console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
-        console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
-        console.log(`%c==================================`, 'color: #3182CE;');
+        // console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
+        // console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
+        // console.log(`%c==================================`, 'color: #3182CE;');
 
         // ============================================================
         // 2️⃣ ETAPA 2 — OBTENDO DADOS DE REFERÊNCIA (NOVOS TAMANHOS)
         // ============================================================
+        console.log(`%c📊 ETAPA 2 — OBTENÇÃO DOS DADOS REAIS `, 'color: #10B981; font-weight: bold;');
         const { larguraReferencia, alturaReferencia, nomeReferencia } = getTargetDimensions(img.width, img.height, colunas);
 
         // ============================================================
         // 3️⃣ ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO
         // ============================================================
+        console.log(`%c📊 ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO`, 'color: #38A169; font-weight: bold;');
 
         const margemAbsoluta = Math.abs(Number(margem));
 
@@ -472,15 +482,16 @@ export default function PdfEditor() {
 
         // 🧾 Logs detalhados
         const ladoUsado = img.width > img.height ? "largura" : "altura";
-        console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color:#A855F7;');
-        console.log(`%c📐 Lado usado para cálculo: ${ladoUsado.toUpperCase()} (${ladoMaiorImg}px vs ${ladoMaiorRef}px)`, 'color:#A855F7;');
-        console.log(`%c📉 Desvio relativo: ${(desvio * 100).toFixed(2)}%`, 'color:#A855F7;');
-        console.log(`%c⚙️ Margem: ${(margemAbsoluta * 100).toFixed(0)}%`, 'color:#A855F7;');
+        // console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color:#A855F7;');
+        // console.log(`%c📐 Lado usado para cálculo: ${ladoUsado.toUpperCase()} (${ladoMaiorImg}px vs ${ladoMaiorRef}px)`, 'color:#A855F7;');
+        // console.log(`%c📉 Desvio relativo: ${(desvio * 100).toFixed(2)}%`, 'color:#A855F7;');
+        // console.log(`%c⚙️ Margem: ${(margemAbsoluta * 100).toFixed(0)}%`, 'color:#A855F7;');
 
         let corAcao = "#A855F7";
         if (acao === "diminuir") corAcao = "#F97316"; // laranja
         if (acao === "aumentar") corAcao = "#10B981"; // verde
-        console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, `color:${corAcao}; font-weight:bold;`);
+
+        // console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, `color:${corAcao}; font-weight:bold;`);
         console.log(`%c==================================`, 'color:#3182CE;');
 
 
@@ -506,8 +517,8 @@ export default function PdfEditor() {
           const reducaoPercentual = (((originalBlob.size - finalSizeBytes) / originalBlob.size) * 100).toFixed(1);
 
           // --- 🧾 Logs detalhados ---
-          console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
-          console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
+          // console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
+          // console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
           console.log(`%c==================================\n`, 'color: #3182CE;');
 
           resolve(resultadoBIC.base64);
@@ -535,21 +546,23 @@ export default function PdfEditor() {
           const originalHeight = img.height;
           const originalSizeMB = (blobOrientado.size / 1024 / 1024).toFixed(2);
 
-          console.log(`%c📸 Dimensões Originais: ${originalWidth}×${originalHeight}px`, 'color:#A0AEC0; font-weight:bold;');
-          console.log(`💾 Tamanho Original: ${originalSizeMB} MB`);
+          // console.log(`%c📸 Dimensões Originais: ${originalWidth}×${originalHeight}px`, 'color:#A0AEC0; font-weight:bold;');
+          // console.log(`💾 Tamanho Original: ${originalSizeMB} MB`);
 
           // 🟣 ETAPA 4.2.3 — Cálculo de Dimensões de Referência
           console.log('%c📏 ETAPA 4.2.3 — Cálculo de Dimensões Alvo', 'color:#38A169; font-weight:bold;');
+
           const refData = getTargetDimensions(originalWidth, originalHeight, ampliacao.colunas);
           const maxDimRef = Math.max(refData.larguraReferencia, refData.alturaReferencia);
-          console.table({
-            'Largura Ref.': refData.larguraReferencia,
-            'Altura Ref.': refData.alturaReferencia,
-            'Dimensão Máxima': maxDimRef
-          });
+          // console.table({
+          //   'Largura Ref.': refData.larguraReferencia,
+          //   'Altura Ref.': refData.alturaReferencia,
+          //   'Dimensão Máxima': maxDimRef
+          // });
 
           // 🟣 ETAPA 4.2.4 — Redimensionamento com Pica.js
           console.log('%c⚙️ ETAPA 4.2.4 — Redimensionamento de Alta Qualidade (Pica.js)...', 'color:#4299E1; font-weight:bold;');
+
           const inicio = performance.now();
           const compressedBlob = await ajustarImagemPica(img, refData.larguraReferencia, refData.alturaReferencia);
           const fim = performance.now();
@@ -560,12 +573,12 @@ export default function PdfEditor() {
           const status = diferencaPercentual > 0 ? 'AUMENTO' : 'REDUÇÃO';
 
           console.log('%c📊 ETAPA 4.2.5 — ANÁLISE FINAL', 'color:#805AD5; font-weight:bold; font-size:13px;');
-          console.table({
-            'Tamanho Final (MB)': finalSizeMB,
-            'Redução/Aumento (%)': `${status} de ${Math.abs(diferencaPercentual)}%`,
-            'Duração (ms)': (fim - inicio).toFixed(2)
-          });
-          console.log('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
+          // console.table({
+          //   'Tamanho Final (MB)': finalSizeMB,
+          //   'Redução/Aumento (%)': `${status} de ${Math.abs(diferencaPercentual)}%`,
+          //   'Duração (ms)': (fim - inicio).toFixed(2)
+          // });
+          // console.log('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
 
 
           console.log('%c🔽 ETAPA 5 — AÇÃO de compactar: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
@@ -576,16 +589,16 @@ export default function PdfEditor() {
           const duracaoBIC = (fimBIC - inicioBIC).toFixed(1);
           const tamanhoFinalMB = (resultadoBIC.blob.size / (1024 * 1024)).toFixed(2);
 
-          console.log('%c📈 ETAPA BIC — ANÁLISE FINAL', 'color:#805AD5; font-weight:bold;');
-          console.table({
-            '📐 Dimensões Finais': `${resultadoBIC.width} × ${resultadoBIC.height}px`,
-            '💾 Tamanho Final': `${tamanhoFinalMB} MB`,
-            '⏱️ Duração': `${duracaoBIC} ms`,
-            '🔗 Blob URL': resultadoBIC.url.slice(0, 60) + '...', // corta pra não poluir
-            '📦 Base64 (preview)': resultadoBIC.base64.slice(0, 80) + '...',
-          });
+          // console.log('%c📈 ETAPA BIC — ANÁLISE FINAL', 'color:#805AD5; font-weight:bold;');
+          // console.table({
+          //   '📐 Dimensões Finais': `${resultadoBIC.width} × ${resultadoBIC.height}px`,
+          //   '💾 Tamanho Final': `${tamanhoFinalMB} MB`,
+          //   '⏱️ Duração': `${duracaoBIC} ms`,
+          //   '🔗 Blob URL': resultadoBIC.url.slice(0, 60) + '...', // corta pra não poluir
+          //   '📦 Base64 (preview)': resultadoBIC.base64.slice(0, 80) + '...',
+          // });
 
-          console.log('%c✅ ETAPA BIC — Concluído com sucesso!', 'color:#48BB78; font-weight:bold; font-size:14px;');
+          // console.log('%c✅ ETAPA BIC — Concluído com sucesso!', 'color:#48BB78; font-weight:bold; font-size:14px;');
 
           setImagemBase64(resultadoBIC.base64);
           setAlteracoesPendentes(true);
@@ -614,9 +627,9 @@ export default function PdfEditor() {
           const reducaoPercentual = (((originalBlob.size - finalSizeBytes) / originalBlob.size) * 100).toFixed(1);
 
           // --- 🧾 Logs detalhados ---
-          console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
-          console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
-          console.log(`%c==================================\n`, 'color: #3182CE;');
+          // console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
+          // console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
+          // console.log(`%c==================================\n`, 'color: #3182CE;');
 
           resolve(resultadoBIC.base64);
           return;
@@ -649,7 +662,7 @@ export default function PdfEditor() {
       await page.render(renderContext).promise;
 
       // 🔹 Converte o canvas em imagem Base64 (JPEG)
-      const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+      const base64Image = canvas.toDataURL('image/jpeg', 1.0);
 
       // 🔹 Limpa o canvas da memória
       canvas.width = canvas.height = 0;
@@ -696,11 +709,11 @@ export default function PdfEditor() {
     const alturaReferencia = refAlvo.alturaPx;
     const nomeReferencia = refAlvo.nome;
 
-    console.log(`%c🔗 Dados Finais do getTargetDimensions:`, 'color: #10B981; font-weight: bold;');
-    console.log(`%cColunas Alvo: **${colunas}**`, 'color: #10B981; font-weight: bold;');
-    console.log(`%cReferência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)/(${alturaReferencia}px)`, 'color: #10B981; font-weight: bold;');
-    console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
-    console.log(`%c==================================`, 'color: #3182CE;');
+    // console.log(`%c🔗 Dados Finais do getTargetDimensions:`, 'color: #10B981; font-weight: bold;');
+    // console.log(`%cColunas Alvo: **${colunas}**`, 'color: #10B981; font-weight: bold;');
+    // console.log(`%cReferência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)/(${alturaReferencia}px)`, 'color: #10B981; font-weight: bold;');
+    // console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
+    // console.log(`%c==================================`, 'color: #3182CE;');
 
     // 4. Retorna os valores
     return {
@@ -834,7 +847,9 @@ export default function PdfEditor() {
 
     try {
       // Cria a instância de forma síncrona, usando o módulo importado
-      const instance = pica({ features: ['js', 'wasm'] });
+      const instance = pica({
+        features: ['js', 'wasm']
+      });
 
       if (isMounted) {
         setPicaInstance(instance);
@@ -907,8 +922,13 @@ export default function PdfEditor() {
         const unscaledViewport = page.getViewport({ scale: 1 })
 
         // Usamos o zoom para o scale
-        const scale = zoom
+        // 🔑 CORREÇÃO: Usamos o SCALE FINAL COMBINADO
+        const scale = scaleFinal // <--- AGORA USA O VALOR CORRETO
         const viewport = page.getViewport({ scale })
+
+        // DEBUG: Verifique qual valor de scale está sendo usado AQUI:
+        console.log("Scale usado na renderização do PDF.js:", scale);
+        console.log("Largura do Canvas:", viewport.width);
 
         const canvas = document.createElement('canvas')
         canvas.classList.add('mb-4', 'shadow-md', 'border', 'rounded')
@@ -927,15 +947,19 @@ export default function PdfEditor() {
           canvasContext: context,
           viewport: viewport,
         }
+
+
         await page.render(renderContext).promise
         container.appendChild(canvas)
+
+
       } catch (error) {
         setErroPdf('Erro ao renderizar o PDF. Verifique se o arquivo pdf.worker.min.js está disponível.')
         console.error("Erro ao renderizar PDF com PDF.js:", error)
       }
     }
     renderPDF()
-  }, [pdfUrl, paginaAtual, zoom])
+  }, [pdfUrl, paginaAtual,  scaleFinal])
 
 
   useEffect(() => {
@@ -957,7 +981,7 @@ export default function PdfEditor() {
   }, [ampliacao.colunas]);
 
 
-  // const gerarPDF = async (partesRecortadasParaUsar = partesRecortadas) => {
+  // const gerarPdfPhp = async (partesRecortadasParaUsar = partesRecortadas) => {
 
   //   setCarregando(true)
 
@@ -1124,8 +1148,9 @@ export default function PdfEditor() {
       const larguraPt = larguraParteCm * CM_TO_POINTS;
       const alturaPt = alturaParteCm * CM_TO_POINTS;
 
+      // 🔹 Alinhar no topo e à esquerda (PDF-lib usa origem no canto inferior)
       const x = margem;
-      const y = margem;
+      const y = page.getHeight() - alturaPt - margem;
       //Centralizar
       // const x = margem + (pageWidth - margem * 2 - larguraPt) / 2;
       // const y = margem + (pageHeight - margem * 2 - alturaPt) / 2;
@@ -1161,7 +1186,6 @@ export default function PdfEditor() {
           })
         }
       }
-
 
       desenharLinhaPontilhada(margem, margem, pageWidth - margem, margem)
       desenharLinhaPontilhada(margem, pageHeight - margem, pageWidth - margem, pageHeight - margem)
@@ -1524,7 +1548,7 @@ export default function PdfEditor() {
                         >
                           -
                         </button>
-                        <span className="flex items-center px-2">{(zoom * 100).toFixed(0)}%</span>
+                        <span className="flex items-center px-2">{(scaleFinal * 100).toFixed(0)}%</span>
                         <button
                           onClick={() => setZoom((z) => Math.min(z + 0.1, 3))}
                           disabled={zoom >= 3}
@@ -1585,9 +1609,9 @@ export default function PdfEditor() {
 
                 {/* Preview da Imagem ou PDF */}
                 <div
-                  className={`mx-auto w-full max-w-[842px] flex items-center justify-center relative
+                  className={`mx-auto w-full max-w-[842px] max-h-[700px] flex items-center justify-center relative
     ${!pdfUrl ? "border bg-white rounded-lg" : ""} 
-    ${orientacao === "retrato" ? "aspect-[595/842]" : "aspect-[842/595]"}
+    ${orientacao === "retrato" ? "aspect-[595/700]" : "aspect-[700/595]"}
   `}
                 >
                   {/* Contêiner para os Botões de Ação */}
@@ -1665,8 +1689,8 @@ export default function PdfEditor() {
                       className="rounded-md mx-auto"
                       style={{
                         ...(orientacao === "retrato"
-                          ? { width: "100%", maxWidth: "595px", aspectRatio: "595 / 842" }
-                          : { width: "100%", maxWidth: "842px", aspectRatio: "842 / 595" }),
+                          ? { width: "100%", maxWidth: "595px", aspectRatio: "595 / 700" }
+                          : { width: "100%", maxWidth: "700px", aspectRatio: "700 / 595" }),
                         objectFit: aspecto ? "contain" : "fill",
                         display: "block",
                       }}
@@ -1675,7 +1699,7 @@ export default function PdfEditor() {
                     <div className="flex flex-col items-center justify-center gap-2 px-6">
 
                       {/* Área de Drag and Drop */}
-                      <div className={`${orientacao === 'retrato' ? 'min-h-screen m-6' : 'min-h-64'}
+                      <div className={`${orientacao === 'retrato' ? 'min-h-96 m-6' : 'min-h-64'}
                                                     flex flex-col items-center justify-center w-full p-10 border-2
                                                     border-dashed rounded-lg cursor-pointer transition-all
                                                     ${isDragging
