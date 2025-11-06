@@ -15,7 +15,7 @@ import axios from 'axios';
 import pica from 'pica';
 import Spinner from '@/Components/Spinner'
 import { calcularRedimensionamentoProporcional } from './Poster/Partials/imagemUtils'
-import { useCalculatedScale } from './hooks/useCalculatedScale'
+import { useInitialScreenInfo } from './hooks/useInitialScreenInfo';
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -46,14 +46,8 @@ export default function PdfEditor() {
   const [arquivoOriginal, setArquivoOriginal] = useState(null);
   const inputFileRef = useRef(null);
 
-  // 1. Chame o Hook para obter o fator de ajuste (1.0 ou 0.50)
-  // Não precisa mais passar o 'zoom' manual para o Hook
-  const ajusteScale = useCalculatedScale(pdfUrl, carregando, 'landscape');
-
-  // 2. Calcule o SCALE FINAL a ser usado na renderização
-  // Multiplica o zoom manual (ex: 0.9) pelo ajuste condicional (ex: 0.5)
-  const scaleFinal = zoom * ajusteScale;
-
+  // 1. Chame o Hook passando o estado de orientação
+  const { isMobile, orientacaoLeitura } = useInitialScreenInfo(orientacao);
 
   // Função para converter o arquivo File para Base64
   const fileToBase64 = (file) => {
@@ -65,65 +59,6 @@ export default function PdfEditor() {
     });
   };
 
-  // Função central que processa o arquivo (chamada no onChange e no onDrop)
-  const processarArquivo = useCallback(async (file) => {
-    if (file) {
-      // 1. Guarda o arquivo File (Original)
-      setArquivoOriginal(file);
-
-      // 2. Converte e guarda o Base64 para visualização ou trabalho imediato
-      try {
-        handleFileChange({ target: { files: [file] } }); // já faz tudo
-
-        console.log('Arquivo processado e Base64 gerado.');
-      } catch (error) {
-        console.error('Erro ao converter para Base64:', error);
-        setImagemBase64(null);
-      }
-    } else {
-      // Caso não haja arquivo (ex: limpeza)
-      setArquivoOriginal(null);
-      setImagemBase64(null);
-    }
-    setIsDragging(false); // Garante que o estado de arrasto seja limpo
-  }, []);
-
-  // --- Handlers de Eventos ---
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-    setAlteracoesPendentes(true)
-
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-    setAlteracoesPendentes(true)
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-
-    const file = e.dataTransfer.files ? e.dataTransfer.files[0] : null;
-    if (!file) return;
-
-    // 🔹 Faz o input original receber o arquivo (sincroniza visualmente)
-    if (inputFileRef.current) {
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      inputFileRef.current.files = dataTransfer.files;
-    }
-
-    // 🔹 Processa normalmente
-    processarArquivo(file);
-    setAlteracoesPendentes(true);
-  };
-
-
-  const handleAreaClick = () => {
-    inputFileRef.current.click();
-    setAlteracoesPendentes(true)
-  };
 
 
   const resetarConfiguracoes = () => {
@@ -164,7 +99,7 @@ export default function PdfEditor() {
       const tempoTotal = ((fim - inicio) / 1000).toFixed(2)
 
       console.log(`⏱️ Tempo total de resposta do backend: ${tempoTotal} segundos`)
-      console.log('Resposta do backend:', response.data.tamanhos_debug)
+      // console.log('Resposta do backend:', response.data.tamanhos_debug)
 
       const { partes } = response.data
       return partes
@@ -402,6 +337,9 @@ export default function PdfEditor() {
       const dst = document.createElement('canvas');
       dst.width = nextW; dst.height = nextH;
 
+      // ⚡ Adiciona esse "respiro" para evitar travar a UI
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       // 6. Redimensiona usando o Pica
       await p.resize(currentCanvas, dst, resizeOptions);
 
@@ -529,13 +467,13 @@ export default function PdfEditor() {
         else if (acao === "aumentar") {
           console.log('%c🚀 ETAPA 4.2 — INICIANDO PROCESSO DE AUMENTO COM PICA.JS', 'color:#9F7AEA; font-weight:bold; font-size:14px;');
 
-          if (!picaInstance) {
-            const errorMessage = "O Pica.js ainda não foi carregado. (Verifique se /js/pica.min.js está acessível)";
-            console.error('%c❌ ERRO CRÍTICO:', 'color:#E53E3E; font-weight:bold;', errorMessage);
-            setCarregando(false);
-            setErroPdf(errorMessage);
-            return;
-          }
+          // if (!picaInstance) {
+          //   const errorMessage = "O Pica.js ainda não foi carregado. (Verifique se /js/pica.min.js está acessível)";
+          //   console.error('%c❌ ERRO CRÍTICO:', 'color:#E53E3E; font-weight:bold;', errorMessage);
+          //   setCarregando(false);
+          //   setErroPdf(errorMessage);
+          //   return;
+          // }
 
           // 🟣 ETAPA 4.2.1 — Orientação
           console.log('%c🔄 ETAPA 4.2.1 — Obtendo Blob Orientado...', 'color:#F6AD55; font-weight:bold;');
@@ -642,14 +580,16 @@ export default function PdfEditor() {
   };
 
 
-  const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 150) => {
+  const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 300) => {
     try {
+      console.log(`rasterizarPdfParaBase64 chamado com: pdfUrl=${pdfUrl}, paginaNum=${paginaNum}, dpi=${dpi}`);
+
       const loadingTask = pdfjsLib.getDocument(pdfUrl);
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(paginaNum);
 
-      // 🔹 Renderiza a página com o DPI especificado
-      const scale = dpi / 72;
+      // 1. Calcula o scale base com o DPI
+      let scale = dpi / 72;
       const viewport = page.getViewport({ scale });
 
       const canvas = document.createElement('canvas');
@@ -723,7 +663,6 @@ export default function PdfEditor() {
     };
   };
 
-
   const corrigirOrientacaoPura = (base64) => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -749,32 +688,92 @@ export default function PdfEditor() {
   };
 
 
+  /*  const handleFileChange = async (e) => {
+     const file = e.target.files[0]
+     if (!file) return
+ 
+     setCarregando(true)
+ 
+     const fileType = file.type
+ 
+     if (fileType === "application/pdf") {
+       // 1. Gerar URL de Blob para PDF.js usar
+       const pdfBlobUrl = URL.createObjectURL(file)
+       setPdfUrl(pdfBlobUrl)
+ 
+       // 2. Rasterizar a primeira página (pode levar tempo)
+       try {
+         // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
+         const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150);
+         setImagemBase64(base64Image);
+         setAlteracoesPendentes(true);
+         setCarregando(false);
+ 
+       } catch (error) {
+         setErroPdf(error.message);
+         setCarregando(false);
+         console.error(error);
+       } finally {
+         setCarregando(false);
+       }
+ 
+       return;
+     }
+ 
+     // Se não for PDF, processar como IMAGEM
+     const reader = new FileReader()
+ 
+     reader.onload = async (e) => {
+ 
+       const base64 = e.target.result
+ 
+       //Limpeza o console para melhor visualização
+       console.clear()
+ 
+       // Guarda o original
+       setImagemBase64Original(base64);
+       setCarregando(true); // Garante que o spinner está ligado
+       setErroPdf(null); // Limpa qualquer erro anterior
+ 
+       const novoTratamentoImg = await tratamentoDimensoesBase64(base64, ampliacao.colunas);
+       setImagemBase64(novoTratamentoImg);
+       console.log(`🔄 Imagem carregada do handleFileChange e ajustada conforme ${ampliacao.colunas} colunas`);
+       setAlteracoesPendentes(true);
+       setCarregando(false)
+ 
+     }
+ 
+     reader.readAsDataURL(file)
+   } */
 
   const handleFileChange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
 
-    setCarregando(true)
+    console.clear();
+    const file = e.target.files[0];
+    if (!file) {
+      console.warn("⚠️ Nenhum arquivo recebido em handleFileChange");
+      return;
+    }
 
-    const fileType = file.type
+    console.log("📂 handleFileChange iniciado:", file.name, file.type);
+
+    setCarregando(true);
+
+    const fileType = file.type;
 
     if (fileType === "application/pdf") {
-      // 1. Gerar URL de Blob para PDF.js usar
-      const pdfBlobUrl = URL.createObjectURL(file)
-      setPdfUrl(pdfBlobUrl)
+      const pdfBlobUrl = URL.createObjectURL(file);
+      setPdfUrl(pdfBlobUrl);
 
-      // 2. Rasterizar a primeira página (pode levar tempo)
+      console.log("📄 PDF detectado, rasterizando...");
       try {
-        // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
         const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150);
+        console.log("✅ PDF rasterizado com sucesso");
         setImagemBase64(base64Image);
         setAlteracoesPendentes(true);
-        setCarregando(false);
-
       } catch (error) {
+        console.error("❌ Erro na rasterização PDF:", error);
         setErroPdf(error.message);
-        setCarregando(false);
-        console.error(error);
       } finally {
         setCarregando(false);
       }
@@ -782,31 +781,96 @@ export default function PdfEditor() {
       return;
     }
 
-    // Se não for PDF, processar como IMAGEM
-    const reader = new FileReader()
+    // 🔹 Para imagens
+    const reader = new FileReader();
 
+    reader.onloadstart = () => console.log("⏳ FileReader iniciou leitura...");
+    reader.onerror = (err) => console.error("❌ Erro FileReader:", err);
     reader.onload = async (e) => {
+      const base64 = e.target.result;
+      console.log("📸 FileReader terminou — Base64 gerado:", base64?.slice(0, 50), "...");
 
-      const base64 = e.target.result
 
-      //Limpeza o console para melhor visualização
-      console.clear()
-
-      // Guarda o original
       setImagemBase64Original(base64);
-      setCarregando(true); // Garante que o spinner está ligado
-      setErroPdf(null); // Limpa qualquer erro anterior
+      setCarregando(true);
+      setErroPdf(null);
 
-      const novoTratamentoImg = await tratamentoDimensoesBase64(base64, ampliacao.colunas);
-      setImagemBase64(novoTratamentoImg);
-      console.log(`🔄 Imagem carregada do handleFileChange e ajustada conforme ${ampliacao.colunas} colunas`);
-      setAlteracoesPendentes(true);
-      setCarregando(false)
+      try {
+        console.log("🧩 Chamando tratamentoDimensoesBase64...");
+        const novoTratamentoImg = await tratamentoDimensoesBase64(base64, ampliacao.colunas);
+        console.log("✅ tratamentoDimensoesBase64 finalizado com sucesso!");
+        setImagemBase64(novoTratamentoImg);
+      } catch (err) {
+        console.error("❌ Erro dentro do tratamentoDimensoesBase64:", err);
+      } finally {
+        setAlteracoesPendentes(true);
+        setCarregando(false);
+      }
+    };
 
+    reader.readAsDataURL(file);
+    console.log("📥 FileReader.readAsDataURL chamado.");
+  };
+
+
+  // Função central que processa o arquivo (chamada no onChange e no onDrop)
+  const processarArquivo = useCallback(async (file) => {
+    if (file) {
+      // 1. Guarda o arquivo File (Original)
+      setArquivoOriginal(file);
+
+      // 2. Converte e guarda o Base64 para visualização ou trabalho imediato
+      try {
+        handleFileChange({ target: { files: [file] } }); // já faz tudo
+
+        console.log('Arquivo processado e Base64 gerado.');
+      } catch (error) {
+        console.error('Erro ao converter para Base64:', error);
+        setImagemBase64(null);
+      }
+    } else {
+      // Caso não haja arquivo (ex: limpeza)
+      setArquivoOriginal(null);
+      setImagemBase64(null);
+    }
+    setIsDragging(false); // Garante que o estado de arrasto seja limpo
+  }, []);
+
+  // --- Handlers de Eventos ---
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+    // setAlteracoesPendentes(true)
+
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+    // setAlteracoesPendentes(true)
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+
+    const file = e.dataTransfer.files ? e.dataTransfer.files[0] : null;
+    if (!file) return;
+
+    // 🔹 Faz o input original receber o arquivo (sincroniza visualmente)
+    if (inputFileRef.current) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      inputFileRef.current.files = dataTransfer.files;
     }
 
-    reader.readAsDataURL(file)
-  }
+    // 🔹 Processa normalmente
+    processarArquivo(file);
+    setAlteracoesPendentes(true);
+  };
+
+  const handleAreaClick = () => {
+    inputFileRef.current.click();
+    setAlteracoesPendentes(true)
+  };
 
 
   /**
@@ -838,7 +902,6 @@ export default function PdfEditor() {
     document.body.removeChild(link);
   };
 
-  // ... (o resto das suas funções e useEffects)
 
   // 2. Use apenas este useEffect para instanciar Pica na montagem
   useEffect(() => {
@@ -848,7 +911,7 @@ export default function PdfEditor() {
     try {
       // Cria a instância de forma síncrona, usando o módulo importado
       const instance = pica({
-        features: ['js', 'wasm']
+        features: ['js', 'wasm', 'ww']
       });
 
       if (isMounted) {
@@ -921,9 +984,8 @@ export default function PdfEditor() {
         const page = await pdf.getPage(paginaAtual)
         const unscaledViewport = page.getViewport({ scale: 1 })
 
-        // Usamos o zoom para o scale
-        // 🔑 CORREÇÃO: Usamos o SCALE FINAL COMBINADO
-        const scale = scaleFinal // <--- AGORA USA O VALOR CORRETO
+        let scale = zoom
+
         const viewport = page.getViewport({ scale })
 
         // DEBUG: Verifique qual valor de scale está sendo usado AQUI:
@@ -938,10 +1000,20 @@ export default function PdfEditor() {
         canvas.height = viewport.height
 
         // CSS para limitar altura e manter proporção
-        canvas.style.maxHeight = '600px'
-        canvas.style.width = 'auto'
-        canvas.style.height = 'auto'
+        canvas.style.maxWidth = '100%'
 
+        canvas.style.width = `${viewport.width}px`;
+
+        if (isMobile) {
+          canvas.style.height = 'auto';
+        } else {
+          if (orientacao === 'retrato') {
+            canvas.style.height = '700px';
+          } else {
+            canvas.style.height = '600px';
+          }
+
+        }
         const context = canvas.getContext('2d')
         const renderContext = {
           canvasContext: context,
@@ -959,7 +1031,7 @@ export default function PdfEditor() {
       }
     }
     renderPDF()
-  }, [pdfUrl, paginaAtual,  scaleFinal])
+  }, [pdfUrl, paginaAtual, zoom])
 
 
   useEffect(() => {
@@ -1548,7 +1620,7 @@ export default function PdfEditor() {
                         >
                           -
                         </button>
-                        <span className="flex items-center px-2">{(scaleFinal * 100).toFixed(0)}%</span>
+                        <span className="flex items-center px-2">{(zoom * 100).toFixed(0)}%</span>
                         <button
                           onClick={() => setZoom((z) => Math.min(z + 0.1, 3))}
                           disabled={zoom >= 3}
@@ -1575,37 +1647,37 @@ export default function PdfEditor() {
           {/* Coluna do Preview */}
           <div className="w-full lg:w-2/3 flex flex-col justify-center items-center mb-4">
             <div className="flex flex-col items-center justify-center gap-4 w-full" id="preview">
+
+              <div className="mx-auto mb-4 p-2 rounded-2xl">
+                <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
+                  Preview{" "}
+                  <span>{pdfUrl ? " do Banner em PDF " : "da Imagem"}</span>
+                </h1>
+
+                {/* Paginação */}
+                {pdfUrl && totalPaginas > 1 && (
+                  <div className="mt-4 px-4 flex justify-center items-center gap-4">
+                    <button
+                      onClick={() => setPaginaAtual((p) => Math.max(p - 1, 1))}
+                      disabled={paginaAtual === 1}
+                      className={`pro-btn-blue md:text-nowrap ${paginaAtual === 1 ? 'bg-gray-400 cursor-not-allowed' : ''}`}
+                    >
+                      Página anterior
+                    </button>
+                    <span className="text-lg whitespace-nowrap">
+                      {paginaAtual} / {totalPaginas}
+                    </span>
+                    <button
+                      onClick={() => setPaginaAtual((p) => Math.min(p + 1, totalPaginas))}
+                      disabled={paginaAtual === totalPaginas}
+                      className={`pro-btn-blue md:text-nowrap ${paginaAtual === totalPaginas ? 'bg-gray-400 cursor-not-allowed' : ''}`}
+                    >
+                      Próxima página
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="">
-
-                <div className="mx-auto mb-4 p-2 rounded-2xl">
-                  <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
-                    Preview{" "}
-                    <span>{pdfUrl ? " do Banner em PDF " : "da Imagem"}</span>
-                  </h1>
-
-                  {/* Paginação */}
-                  {pdfUrl && totalPaginas > 1 && (
-                    <div className="mt-4 px-4 flex justify-center items-center gap-4">
-                      <button
-                        onClick={() => setPaginaAtual((p) => Math.max(p - 1, 1))}
-                        disabled={paginaAtual === 1}
-                        className={`pro-btn-blue md:text-nowrap ${paginaAtual === 1 ? 'bg-gray-400 cursor-not-allowed' : ''}`}
-                      >
-                        Página anterior
-                      </button>
-                      <span className="text-lg whitespace-nowrap">
-                        {paginaAtual} / {totalPaginas}
-                      </span>
-                      <button
-                        onClick={() => setPaginaAtual((p) => Math.min(p + 1, totalPaginas))}
-                        disabled={paginaAtual === totalPaginas}
-                        className={`pro-btn-blue md:text-nowrap ${paginaAtual === totalPaginas ? 'bg-gray-400 cursor-not-allowed' : ''}`}
-                      >
-                        Próxima página
-                      </button>
-                    </div>
-                  )}
-                </div>
 
                 {/* Preview da Imagem ou PDF */}
                 <div
@@ -1739,7 +1811,6 @@ export default function PdfEditor() {
                     </div>
                   )}
                 </div>
-
 
 
                 {erroPdf && (
