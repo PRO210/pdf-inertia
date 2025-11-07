@@ -37,14 +37,14 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     />
                                 </svg> */}
 
-                                <img className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20]" src="/imagens/logo.png" alt="Logo" />
+                                <img className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20] rounded" src="/imagens/logo.png" alt="Logo" />
 
                             </div>
                             <nav className="-mx-3 flex flex-1 justify-end">
                                 {auth.user ? (
                                     <Link
                                         href={route('dashboard')}
-                                        className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
+                                        className="rounded-md font-semibold text-xl px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 dark:focus-visible:ring-white"
                                     >
                                         Dashboard
                                     </Link>
@@ -77,7 +77,8 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 >
                                     <div className="relative flex items-center gap-6 lg:items-end">
                                         <div id="docs-card-content" className="flex items-start gap-6 lg:flex-col">
-                                            <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#FF2D20]/10 sm:size-16">
+
+                                            {/* <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#FF2D20]/10 sm:size-16">
                                                 <svg className="size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <path
                                                         fill="#FF2D20"
@@ -91,20 +92,41 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                                 <div className="absolute top-2 left-0 right-0 flex items-center justify-center">
                                                     <h2 className="text-4xl font-semibold text-black dark:text-white">Motivação</h2>
                                                 </div>
-                                            </div>
+                                                
+                                            </div> */}
 
-                                            <div className="pt-10 sm:pt-5 lg:pt-0">
+                                            <div className="sm:pt-5 lg:pt-0">
+
+                                                <div className="flex items-center justify-around">
+
+                                                    <div className=''>
+                                                        <svg className="size-5 sm:size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <path
+                                                                fill="#FF2D20"
+                                                                d="M23 4a1 1 0 0 0-1.447-.894L12.224 7.77a.5.5 0 0 1-.448 0L2.447 3.106A1 1 0 0 0 1 4v13.382a1.99 1.99 0 0 0 1.105 1.79l9.448 4.728c.14.065.293.1.447.1.154-.005.306-.04.447-.105l9.453-4.724a1.99 1.99 0 0 0 1.1-1.789V4ZM3 6.023a.25.25 0 0 1 .362-.223l7.5 3.75a.251.251 0 0 1 .138.223v11.2a.25.25 0 0 1-.362.224l-7.5-3.75a.25.25 0 0 1-.138-.22V6.023Zm18 11.2a.25.25 0 0 1-.138.224l-7.5 3.75a.249.249 0 0 1-.329-.099.249.249 0 0 1-.033-.12V9.772a.251.251 0 0 1 .138-.224l7.5-3.75a.25.25 0 0 1 .362.224v11.2Z"
+                                                            />
+                                                            <path
+                                                                fill="#FF2D20"
+                                                                d="m3.55 1.893 8 4.048a1.008 1.008 0 0 0 .9 0l8-4.048a1 1 0 0 0-.9-1.785l-7.322 3.706a.506.506 0 0 1-.452 0L4.454.108a1 1 0 0 0-.9 1.785H3.55Z"
+                                                            />
+                                                        </svg>
+                                                    </div>
+                                                    <h2 className="text-4xl font-semibold text-black dark:text-white">Motivação</h2>
+                                                    <div></div>
+                                                </div>
+
                                                 <p className="mt-4 text-2xl/relaxed text-justify">
                                                     Nosso app transforma sua imagem em um pôster ampliado em PDF, pronto para impressão. É simples de usar,
                                                     não precisa instalar nada e funciona direto do navegador, em qualquer dispositivo. Ideal para quem deseja
                                                     criar pôsteres grandes sem complicação: basta fazer login e pronto! 🙂
                                                 </p>
-
                                                 <p className="mt-4 text-2xl/relaxed text-justify">
                                                     Também é possível fazer o inverso: usar suas imagens para montar um mosaico com a mesma facilidade! 🙂
                                                 </p>
 
                                             </div>
+
+
                                         </div>
                                     </div>
                                 </a>

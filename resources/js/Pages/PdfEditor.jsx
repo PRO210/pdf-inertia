@@ -436,6 +436,8 @@ export default function PdfEditor() {
         // ============================================================
         // 4️⃣ ETAPA 4 — EXECUÇÃO DE AÇÃO DEFINIDA
         // ============================================================
+        console.log('%c🔽 ETAPA 4 — EXECUÇÃO DE AÇÃO DEFINIDA', 'color:#E53E3E; font-weight:bold;');
+
 
         // 🔽 4.1 DIMINUIR
         if (acao === "diminuir") {

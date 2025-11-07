@@ -16,34 +16,27 @@ export const resolucoesDeReferencia = [
   {
     nome: "A4 Mínimo (Full HD Base Dpi: 150)",
     colunas: 1,
-    larguraPx: 1080,    // Min 600px L (72 DPI)
-    alturaPx: 1920,    // Min 842px A (72 DPI)
+    larguraPx: 1080,    
+    alturaPx: 1920,    
   },
-
-  // Base: 2 colunas (A3). DPI real: min(1280/16.54, 720/23.38) = 30 DPI. Aumentado para garantir 72 DPI.
   {
     nome: "A4 Mínimo (2k Base Dpi: 103)",
     colunas: 2,
     larguraPx: 2560,   // Base Full HD/2
     alturaPx: 1440,    // (Garante min 72 DPI na Altura)
   },
-
-  // Base: 3x3. DPI real: 36 DPI. Aumentado para 4K Base para garantir 72 DPI.
   {
     nome: "Pôster 3x3 (4K Base Dpi: 103)",
     colunas: 3,
     larguraPx: 3840,
     alturaPx: 2160,
   },
-
-  // Base: 4x4. DPI real: 27 DPI. Aumentado para 4K Estendido.
   {
     nome: "Pôster 4x4 (4K Ext. Dpi: 85)",
     colunas: 4,
     larguraPx: 4224 /*3840*/,
     alturaPx: 2376 /*2160*/,
   },
-
   // Base: 5x5. DPI real: 24 DPI. Aumentado para 6K Base.
   {
     nome: "Pôster 5x5 (6K Base Dpi: 83)",
@@ -51,30 +44,24 @@ export const resolucoesDeReferencia = [
     larguraPx: 5120,
     alturaPx: 2880,
   },
-
-  // Base: 6x6. DPI real: 21 DPI.
-  {
+   {
     nome: "Pôster 6x6 (6K Ext. Dpi: 83 )",
     colunas: 6,
     larguraPx: 6144,
     alturaPx: 3456,
-  },
-  // Base: 6x6. DPI real: 21 DPI.
+  }, 
   {
     nome: "Pôster 6x6 (6K Ext. Dpi: 78)",
     colunas: 7,
     larguraPx: 7434,
     alturaPx: 3801,
-  },
-
-  // Base: 8x8. DPI real: 77 DPI.
+  },  
   {
     nome: "Pôster 8x8 (8K Base)",
     colunas: 8,
     larguraPx: 8064,
     alturaPx: 4536,
   },
-  // Base: 8x8. DPI real: 18 DPI.
   {
     nome: "Pôster 9x9 (8K Base)",
     colunas: 9,
