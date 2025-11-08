@@ -16,10 +16,10 @@ export function useInitialScreenInfo(orientacaoInicial) {
   const isMobile = window.innerWidth < MOBILE_WIDTH_THRESHOLD;
   
   // 2. Log simples de inicialização
-  console.groupCollapsed(`[Info Inicial Mínima]`);
-  console.log(`Orientação (Estado): ${orientacaoInicial}`);
-  console.log(`É Celular (Largura ${window.innerWidth}px): ${isMobile}`);
-  console.groupEnd();
+  // console.groupCollapsed(`[Info Inicial Mínima]`);
+  // console.log(`Orientação (Estado): ${orientacaoInicial}`);
+  // console.log(`É Celular (Largura ${window.innerWidth}px): ${isMobile}`);
+  // console.groupEnd();
 
   // 3. Retorna os valores
   return {

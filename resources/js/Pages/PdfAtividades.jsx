@@ -5,8 +5,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
 import axios from 'axios'
-
-
 import * as pdfjsLib from 'pdfjs-dist'
 import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
@@ -30,7 +28,8 @@ const gerarPDF = async (
   alturaBorda = 5,
   larguraBorda = 5,
   cabecalhoTexto = "",
-  cabecalhoAtivo = false
+  cabecalhoAtivo = false,
+  cabecalhoModo = "ambas"
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
@@ -131,6 +130,24 @@ const gerarPDF = async (
         page = pdfDoc.addPage([pageWidth, pageHeight]);
       }
 
+      // CÁLCULO DA PÁGINA (ADICIONE ESTE BLOCO)
+      const pageIndex = slotIndexInPage + 1; // Índice da página: 0, 1, 2...
+      const isOddPage = (pageIndex % 2) === 0; // Se o índice é 0, 2, 4... (Página 1, 3, 5...)
+      const isEvenPage = (pageIndex % 2) !== 0; // Se o índice é 1, 3, 5... (Página 2, 4, 6...)
+
+      let shouldDrawHeader = false;
+
+      if (cabecalhoAtivo && cabecalhoTexto && cabecalhoTexto.some(t => t.trim() !== "")) { // Verifique se há texto
+        if (cabecalhoModo === "ambas") {
+          shouldDrawHeader = true;
+        } else if (cabecalhoModo === "impares" && isOddPage) {
+          shouldDrawHeader = true;
+        } else if (cabecalhoModo === "pares" && isEvenPage) {
+          shouldDrawHeader = true;
+        }
+        // cabecalhoModo="nenhuma" (e cabecalhoAtivo=true) já significa shouldDrawHeader=false
+      }
+    
       const item = imagens[i];
       if (!item) continue;
 
@@ -169,7 +186,8 @@ const gerarPDF = async (
       const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
 
       // verifica se existe cabeçalho
-      const temCabecalho = cabecalhoAtivo && cabecalhoAltura > 0;
+      // const temCabecalho = cabecalhoAtivo && cabecalhoAltura > 0;
+      const temCabecalho = shouldDrawHeader && cabecalhoAltura > 0;
 
       // dimensionamento da imagem respeitando bordas e cabeçalho
       const availableW = Math.max(1, cellW - totalBorderW);
@@ -254,7 +272,7 @@ const gerarPDF = async (
       }
 
       // --- desenhar cabeçalho ---
-      if (cabecalhoTexto && headerFont && cabecalhoAtivo) {
+      if (shouldDrawHeader && headerFont) {
         const fontSizeCab = 12;   // tamanho da fonte
         const lineHeight = 15;    // altura da linha
         const leftMargin = 2 + (bordaX ? fixedBorderHeight + 2 : 0);
@@ -326,7 +344,7 @@ export default function PdfEditor() {
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
   const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
   const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
-
+  const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     const makeItem = (img) =>
@@ -411,6 +429,7 @@ export default function PdfEditor() {
     setBorder("none");
     setCabecalhoAtivo(false);
     setCabecalhoTexto(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
+    setCabecalhoModo("ambas");
   }
 
 
@@ -421,10 +440,10 @@ export default function PdfEditor() {
       const response = await axios.post(route('user.downloads.store'), {
         file_name: fileName,
       })
-            
+
       const total = response.data.total_downloads
-      
-      const nomeArquivo = `Atividades-${total}.pdf`      
+
+      const nomeArquivo = `Atividades-${total}.pdf`
 
       const a = document.createElement('a')
       a.href = pdfUrl
@@ -435,7 +454,7 @@ export default function PdfEditor() {
       console.error(error)
       alert('Erro ao contabilizar o download.')
     }
-    
+
   }
 
 
@@ -692,7 +711,8 @@ export default function PdfEditor() {
               </div>
 
               {/* Cabeçalho */}
-              <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
+
+              {/* <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
                 <input
                   type="checkbox"
                   checked={cabecalhoAtivo}
@@ -738,6 +758,70 @@ export default function PdfEditor() {
                     </p>
                   </>
                 )}
+              </div> */}
+
+              <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={cabecalhoAtivo}
+                  onChange={(e) => {
+                    setCabecalhoAtivo(e.target.checked);
+                    setAlteracoesPendentes(true);
+                  }}
+                />
+                **Ativar Conteúdo do Cabeçalho:**
+              </label>
+
+              {cabecalhoAtivo && (
+                <div className="w-full mt-2">
+                  <label className="block mb-1 pro-label text-center text-xl">
+                    Modo de Exibição:
+                  </label>
+                  <select
+                    value={cabecalhoModo}
+                    onChange={(e) => {
+                      setCabecalhoModo(e.target.value);
+                      setAlteracoesPendentes(true);
+                    }}
+                    className="px-2 w-full rounded-full pro-input"
+                  >
+                    <option value="ambas">Todas as páginas</option>
+                    <option value="impares">Somente Páginas Ímpares</option>
+                    <option value="pares">Somente Páginas Pares</option>
+                    <option value="nenhuma">Não mostrar em nenhuma</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="w-full">
+                {cabecalhoAtivo && ( // Use cabecalhoAtivo para mostrar os inputs
+                  <>
+                    {/* ... Mantenha o seu cabecalhoTexto.map aqui ... */}
+                    {cabecalhoTexto.map((linha, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        value={linha}
+                        onChange={(e) => {
+                          const valor = e.target.value;
+                          const maxPorLinha = orientacao === "paisagem" ? 54 : 42;
+                          const ajustado = valor.slice(0, maxPorLinha);
+                          const novoTexto = [...cabecalhoTexto];
+                          novoTexto[index] = ajustado;
+                          setCabecalhoTexto(novoTexto);
+                          setAlteracoesPendentes(true);
+                        }}
+                        maxLength={orientacao === "paisagem" ? 54 : 42}
+                        className="w-full border rounded p-2 mt-2 pro-input"
+                        placeholder={`Linha ${index + 1}`}
+                      />
+                    ))}
+
+                    <p className="text-gray-500 mt-1">
+                      Máximo de {orientacao === "paisagem" ? 54 : 42} caracteres por linha.
+                    </p>
+                  </>
+                )}
               </div>
 
               <div className="flex flex-col gap-2 w-full">
@@ -763,7 +847,8 @@ export default function PdfEditor() {
                             5,
                             5,
                             cabecalhoTexto,
-                            cabecalhoAtivo
+                            cabecalhoAtivo,
+                            cabecalhoModo
                           );
 
                           setCarregando(false);

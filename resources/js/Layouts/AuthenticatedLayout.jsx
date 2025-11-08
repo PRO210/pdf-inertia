@@ -19,26 +19,24 @@ export default function AuthenticatedLayout({ header, children }) {
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block h-9 w-auto fill-current text-gray-800" />                                   
+                                    <ApplicationLogo className="block h-12 w-auto fill-current text-gray-800" />                                   
                                 </Link>
                             </div>
-
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                <NavLink
-                                    href={route('dashboard')}
-                                    active={route().current('dashboard')}
-                                >
+                                <NavLink href={route('dashboard')} active={route().current('dashboard')} >
                                     Dashboard
                                 </NavLink>
+
                                 <NavLink href={route('pdf.editor')} active={route().current('pdf.editor')} >
                                     Criar Posters
                                 </NavLink>
+
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
                                     Criar Atividades
                                 </NavLink>
                              
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >
-                                    Doações
+                                    Créditos
                                 </NavLink>
                             </div>
                         </div>
@@ -131,6 +129,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     </div>
                 </div>
 
+                {/* Parte Mobil */}
                 <div
                     className={
                         (showingNavigationDropdown ? 'block' : 'hidden') +
@@ -170,6 +169,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
                     </div>
                 </div>
+
             </nav>
 
             {header && (

@@ -65,14 +65,14 @@ export function calcularRedimensionamentoProporcional(
   const alturaFinalCm = (alturaAlvoPx / dpiCanvas) * INCH_TO_CM;
 
   // logs úteis (sem limpar console)
-  console.log("🧾 Dimensões finais com margens e DPI limitado:");
+  console.groupCollapsed("🧾 Dimensões finais com margens e DPI limitado:");
   console.log(`Área útil (cm): ${larguraCm.toFixed(2)} × ${alturaCm.toFixed(2)} (orientacao: ${orientacao})`);
   console.log(`DPI Canvas usado: ${Math.round(dpiCanvas.toFixed(2))}`);
   console.log(`Parte alvo (px): ${larguraAlvoPx} × ${alturaAlvoPx}`);
   console.log(`Parte original (px): ${pedacoLarguraPx.toFixed(2)} × ${pedacoAlturaPx.toFixed(2)}`);
   console.log(`Tamanho final (cm): ${larguraFinalCm.toFixed(2)} × ${alturaFinalCm.toFixed(2)}`);
   console.log(`Escala aplicada: ${scale !== null ? scale : 'preenchimento total (esticado)'}`);
-  console.log(`Aspecto: ${aspecto ? 'Mantendo proporção' : 'Esticando para preencher área útil'}`);
+  console.groupEnd(`Aspecto: ${aspecto ? 'Mantendo proporção' : 'Esticando para preencher área útil'}`);
 
   // 9) faz os cortes no canvas (usando larguraAlvoPx/alturaAlvoPx como destino)
   const partes = [];

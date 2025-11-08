@@ -27,7 +27,6 @@ export default function PdfEditor() {
   const [imagemBase64Original, setImagemBase64Original] = useState(null);
 
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
-  // const [partesRecortadas, setPartesRecortadas] = useState([])
   const [orientacao, setOrientacao] = useState('retrato')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [updateImg, setUpdateImg] = useState(false)
@@ -36,11 +35,9 @@ export default function PdfEditor() {
   const [totalPaginas, setTotalPaginas] = useState(0)
   const [zoom, setZoom] = useState(1)
   const [aspecto, setAspecto] = useState(true)
-
   const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
   const [resumoTamanho, setResumoTamanho] = useState("")
-  // Ref para armazenar a instância do pica
   const [picaInstance, setPicaInstance] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [arquivoOriginal, setArquivoOriginal] = useState(null);
@@ -124,7 +121,7 @@ export default function PdfEditor() {
       );
 
       const fim = performance.now();
-      // console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
+      console.log(`⏱️ Corte local feito em ${((fim - inicio) / 1000).toFixed(2)} segundos`);
 
       // console.log(`🔢 Partes geradas: ${partes.partes.length}`);
 
@@ -172,9 +169,9 @@ export default function PdfEditor() {
       alwaysKeepResolution: true,
     };
 
-    // console.log('--- DETALHES DO REDIMENSIONAMENTO (BIC) ---');
-    // console.log(`Ideal: ${larguraIdeal}px x ${alturaIdeal}px`);
-    // console.log('Opções:', options);
+    console.log('--- DETALHES DO REDIMENSIONAMENTO (BIC) ---');
+    console.log(`Ideal: ${larguraIdeal}px x ${alturaIdeal}px`);
+    console.log('Opções:', options);
 
     const compressedBlob = await imageCompression(file, options);
 
@@ -384,22 +381,25 @@ export default function PdfEditor() {
         const originalBlob = base64ToBlob(base64);
         const originalSizeKB = (originalBlob.size / 1024).toFixed(2);
 
-        // console.log(`\n%c==================================`, 'color: #3182CE;');
-        console.log(`%c📊 ETAPA 1 — ANÁLISE DE COMPRESSÃO/UPSCALE - INÍCIO`, 'color: #3182CE; font-weight: bold;');
-        // console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
-        // console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
-        // console.log(`%c==================================`, 'color: #3182CE;');
+        console.log(`\n%c==================================`, 'color: #3182CE;');
+        console.groupCollapsed(`%c📊 ETAPA 1 — ANÁLISE DE COMPRESSÃO/UPSCALE - INÍCIO`, 'color: #3182CE; font-weight: bold;');
+        console.log(`%c📏 Dimensão Original: ${img.width} × ${img.height} pixels`, 'color: #3182CE;');
+        console.log(`%c💾 Tamanho Original: ${originalSizeKB} KB`, 'color: #3182CE;');
+        console.groupEnd(``);
 
         // ============================================================
         // 2️⃣ ETAPA 2 — OBTENDO DADOS DE REFERÊNCIA (NOVOS TAMANHOS)
         // ============================================================
-        console.log(`%c📊 ETAPA 2 — OBTENÇÃO DOS DADOS REAIS `, 'color: #10B981; font-weight: bold;');
+        console.log(`%c==================================`, 'color: #10B981;');
+        console.groupCollapsed(`%c📊 ETAPA 2 — OBTENÇÃO DOS DADOS REAIS `, 'color: #10B981; font-weight: bold;');
         const { larguraReferencia, alturaReferencia, nomeReferencia } = getTargetDimensions(img.width, img.height, colunas);
+        console.groupEnd(``);
 
         // ============================================================
         // 3️⃣ ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO
         // ============================================================
-        console.log(`%c📊 ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO`, 'color: #38A169; font-weight: bold;');
+        console.log(`\n%c==================================`, 'color: #A855F7;');
+        console.groupCollapsed(`%c📊 ETAPA 3 — CÁLCULO DOS DESVIOS E DEFINIÇÃO DE AÇÃO`, 'color: #A855F7; font-weight: bold;');
 
         const margemAbsoluta = Math.abs(Number(margem));
 
@@ -420,28 +420,27 @@ export default function PdfEditor() {
 
         // 🧾 Logs detalhados
         const ladoUsado = img.width > img.height ? "largura" : "altura";
-        // console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color:#A855F7;');
-        // console.log(`%c📐 Lado usado para cálculo: ${ladoUsado.toUpperCase()} (${ladoMaiorImg}px vs ${ladoMaiorRef}px)`, 'color:#A855F7;');
-        // console.log(`%c📉 Desvio relativo: ${(desvio * 100).toFixed(2)}%`, 'color:#A855F7;');
-        // console.log(`%c⚙️ Margem: ${(margemAbsoluta * 100).toFixed(0)}%`, 'color:#A855F7;');
+        console.log(`%c📌 Referência (${nomeReferencia}): ${larguraReferencia} × ${alturaReferencia}`, 'color:#A855F7;');
+        console.log(`%c📐 Lado usado para cálculo: ${ladoUsado.toUpperCase()} (${ladoMaiorImg}px vs ${ladoMaiorRef}px)`, 'color:#A855F7;');
+        console.log(`%c📉 Desvio relativo: ${(desvio * 100).toFixed(2)}%`, 'color:#A855F7;');
+        console.log(`%c⚙️ Margem: ${(margemAbsoluta * 100).toFixed(0)}%`, 'color:#A855F7;');
 
         let corAcao = "#A855F7";
-        if (acao === "diminuir") corAcao = "#F97316"; // laranja
+        if (acao === "diminuir") corAcao = "#A855F7"; //#F97316"; // laranja
         if (acao === "aumentar") corAcao = "#10B981"; // verde
 
-        // console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, `color:${corAcao}; font-weight:bold;`);
-        console.log(`%c==================================`, 'color:#3182CE;');
-
+        console.log(`%c🧠 Resultado Final: Deve ${acao.toUpperCase()}`, `color:${corAcao}; font-weight:bold;`);
+        console.groupEnd(``);
+        console.log(`%c==================================`, 'color:#F77C2D;');
 
         // ============================================================
         // 4️⃣ ETAPA 4 — EXECUÇÃO DE AÇÃO DEFINIDA
         // ============================================================
         console.log('%c🔽 ETAPA 4 — EXECUÇÃO DE AÇÃO DEFINIDA', 'color:#E53E3E; font-weight:bold;');
 
-
         // 🔽 4.1 DIMINUIR
         if (acao === "diminuir") {
-          console.log('%c🔽 ETAPA 4.1 — AÇÃO DIMINUIR DETECTADA: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
+          console.groupCollapsed('%c🔽 ETAPA 4.1 — AÇÃO DIMINUIR DETECTADA: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
 
           const fileOriginal = base64ToBlob(base64, 'image/jpeg');
           const resultadoBIC = await ajustarImagemBIC(fileOriginal, larguraReferencia, alturaReferencia);
@@ -457,9 +456,11 @@ export default function PdfEditor() {
           const reducaoPercentual = (((originalBlob.size - finalSizeBytes) / originalBlob.size) * 100).toFixed(1);
 
           // --- 🧾 Logs detalhados ---
-          // console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
-          // console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
-          console.log(`%c==================================\n`, 'color: #3182CE;');
+          console.log(`%c💾 Tamanho Final (Lib): ${finalSizeKB} KB`, 'color: #38A169; font-weight: bold;');
+          console.log(`%c📉 REDUÇÃO TOTAL (Bytes): ${reducaoPercentual}%`, 'color: #E53E3E; font-weight: bold;');
+          console.log(`%c==================================\n`, 'color: #A855F7;');
+          console.groupEnd('')
+
 
           resolve(resultadoBIC.base64);
           return;
@@ -467,7 +468,7 @@ export default function PdfEditor() {
 
         // 🔼 4.2 AUMENTAR
         else if (acao === "aumentar") {
-          console.log('%c🚀 ETAPA 4.2 — INICIANDO PROCESSO DE AUMENTO COM PICA.JS', 'color:#9F7AEA; font-weight:bold; font-size:14px;');
+          console.groupCollapsed('%c🚀 ETAPA 4.2 — INICIANDO PROCESSO DE AUMENTO COM PICA.JS', 'color:#9F7AEA; font-weight:bold; font-size:14px;');
 
           // if (!picaInstance) {
           //   const errorMessage = "O Pica.js ainda não foi carregado. (Verifique se /js/pica.min.js está acessível)";
@@ -494,6 +495,7 @@ export default function PdfEditor() {
 
           const refData = getTargetDimensions(originalWidth, originalHeight, ampliacao.colunas);
           const maxDimRef = Math.max(refData.larguraReferencia, refData.alturaReferencia);
+
           // console.table({
           //   'Largura Ref.': refData.larguraReferencia,
           //   'Altura Ref.': refData.alturaReferencia,
@@ -518,7 +520,7 @@ export default function PdfEditor() {
           //   'Redução/Aumento (%)': `${status} de ${Math.abs(diferencaPercentual)}%`,
           //   'Duração (ms)': (fim - inicio).toFixed(2)
           // });
-          // console.log('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
+          console.groupEnd('%c✅ PROCESSO CONCLUÍDO COM SUCESSO', 'color:#48BB78; font-weight:bold; font-size:14px;');
 
 
           console.log('%c🔽 ETAPA 5 — AÇÃO de compactar: Chamando ajustarImagemBIC...', 'color:#E53E3E; font-weight:bold;');
@@ -620,8 +622,6 @@ export default function PdfEditor() {
   /**
    * Encontra a referência de pixels para a coluna alvo do pôster.
    * Prioriza a correspondência exata de colunas e usa a aproximação como fallback.
-   * * @param {number} width - Largura original da imagem (em pixels).
-   * @param {number} height - Altura original da imagem (em pixels).
    * @param {number} colunas - Número de colunas do pôster (entrada do usuário).
    * @returns {{widthOriginal: number, heightOriginal: number, larguraReferencia: number, alturaReferencia:number ,nomeReferencia: string}} Dados para o Pica.js.
    */
@@ -651,11 +651,10 @@ export default function PdfEditor() {
     const alturaReferencia = refAlvo.alturaPx;
     const nomeReferencia = refAlvo.nome;
 
-    // console.log(`%c🔗 Dados Finais do getTargetDimensions:`, 'color: #10B981; font-weight: bold;');
-    // console.log(`%cColunas Alvo: **${colunas}**`, 'color: #10B981; font-weight: bold;');
-    // console.log(`%cReferência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)/(${alturaReferencia}px)`, 'color: #10B981; font-weight: bold;');
-    // console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
-    // console.log(`%c==================================`, 'color: #3182CE;');
+    console.log(`%c🔗 Dados Finais do getTargetDimensions:`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cColunas Alvo: **${colunas}**`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cReferência de Pixels: **${nomeReferencia}** (${larguraReferencia}px)/(${alturaReferencia}px)`, 'color: #10B981; font-weight: bold;');
+    console.log(`%cFatores Originais: ${width} × ${height}px`, 'color: #10B981; font-weight: bold;');
 
     // 4. Retorna os valores
     return {
@@ -690,64 +689,6 @@ export default function PdfEditor() {
   };
 
 
-  /*  const handleFileChange = async (e) => {
-     const file = e.target.files[0]
-     if (!file) return
- 
-     setCarregando(true)
- 
-     const fileType = file.type
- 
-     if (fileType === "application/pdf") {
-       // 1. Gerar URL de Blob para PDF.js usar
-       const pdfBlobUrl = URL.createObjectURL(file)
-       setPdfUrl(pdfBlobUrl)
- 
-       // 2. Rasterizar a primeira página (pode levar tempo)
-       try {
-         // ⚠️ PONTO CHAVE: Converte o PDF em uma string Base64 de IMAGEM
-         const base64Image = await rasterizarPdfParaBase64(pdfBlobUrl, 1, 150);
-         setImagemBase64(base64Image);
-         setAlteracoesPendentes(true);
-         setCarregando(false);
- 
-       } catch (error) {
-         setErroPdf(error.message);
-         setCarregando(false);
-         console.error(error);
-       } finally {
-         setCarregando(false);
-       }
- 
-       return;
-     }
- 
-     // Se não for PDF, processar como IMAGEM
-     const reader = new FileReader()
- 
-     reader.onload = async (e) => {
- 
-       const base64 = e.target.result
- 
-       //Limpeza o console para melhor visualização
-       console.clear()
- 
-       // Guarda o original
-       setImagemBase64Original(base64);
-       setCarregando(true); // Garante que o spinner está ligado
-       setErroPdf(null); // Limpa qualquer erro anterior
- 
-       const novoTratamentoImg = await tratamentoDimensoesBase64(base64, ampliacao.colunas);
-       setImagemBase64(novoTratamentoImg);
-       console.log(`🔄 Imagem carregada do handleFileChange e ajustada conforme ${ampliacao.colunas} colunas`);
-       setAlteracoesPendentes(true);
-       setCarregando(false)
- 
-     }
- 
-     reader.readAsDataURL(file)
-   } */
-
   const handleFileChange = async (e) => {
 
     console.clear();
@@ -756,11 +697,8 @@ export default function PdfEditor() {
       console.warn("⚠️ Nenhum arquivo recebido em handleFileChange");
       return;
     }
-
     console.log("📂 handleFileChange iniciado:", file.name, file.type);
-
     setCarregando(true);
-
     const fileType = file.type;
 
     if (fileType === "application/pdf") {
@@ -786,12 +724,11 @@ export default function PdfEditor() {
     // 🔹 Para imagens
     const reader = new FileReader();
 
-    reader.onloadstart = () => console.log("⏳ FileReader iniciou leitura...");
+    reader.onloadstart = () => console.groupCollapsed("⏳ FileReader iniciou leitura...");
     reader.onerror = (err) => console.error("❌ Erro FileReader:", err);
     reader.onload = async (e) => {
       const base64 = e.target.result;
       console.log("📸 FileReader terminou — Base64 gerado:", base64?.slice(0, 50), "...");
-
 
       setImagemBase64Original(base64);
       setCarregando(true);
@@ -811,7 +748,7 @@ export default function PdfEditor() {
     };
 
     reader.readAsDataURL(file);
-    console.log("📥 FileReader.readAsDataURL chamado.");
+    console.groupEnd("📥 FileReader.readAsDataURL chamado.");
   };
 
 
@@ -1041,7 +978,7 @@ export default function PdfEditor() {
 
     const ajustarImagem = async () => {
       try {
-        console.clear();
+
         const novoTratamentoImg = await tratamentoDimensoesBase64(imagemBase64Original, ampliacao.colunas);
         setImagemBase64(novoTratamentoImg);
 
@@ -1267,7 +1204,6 @@ export default function PdfEditor() {
       desenharLinhaPontilhada(pageWidth - margem, margem, pageWidth - margem, pageHeight - margem)
     }
 
-
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
@@ -1465,7 +1401,7 @@ export default function PdfEditor() {
                   </select>
                 </div>
               </div>
-              <br />
+
               {/* Aspecto */}
               <div className="w-full">
                 <div className='flex flex-col md:flex-row justify-center items-center'>
@@ -1636,13 +1572,12 @@ export default function PdfEditor() {
                 )}
               </div>
 
-              <br />
-
               <div className='w-full'>
                 <button onClick={resetarConfiguracoes} className="pro-btn-slate">
                   Resetar Configurações
                 </button>
               </div>
+
             </div>
           </div>
 
@@ -1650,7 +1585,7 @@ export default function PdfEditor() {
           <div className="w-full lg:w-2/3 flex flex-col justify-center items-center mb-4">
             <div className="flex flex-col items-center justify-center gap-4 w-full" id="preview">
 
-              <div className="mx-auto mb-4 p-2 rounded-2xl">
+              <div className="mx-auto mb-2 p-2 rounded-2xl">
                 <h1 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
                   Preview{" "}
                   <span>{pdfUrl ? " do Banner em PDF " : "da Imagem"}</span>
@@ -1664,7 +1599,7 @@ export default function PdfEditor() {
                       disabled={paginaAtual === 1}
                       className={`pro-btn-blue md:text-nowrap ${paginaAtual === 1 ? 'bg-gray-400 cursor-not-allowed' : ''}`}
                     >
-                      Página anterior
+                      Anterior
                     </button>
                     <span className="text-lg whitespace-nowrap">
                       {paginaAtual} / {totalPaginas}
@@ -1674,7 +1609,7 @@ export default function PdfEditor() {
                       disabled={paginaAtual === totalPaginas}
                       className={`pro-btn-blue md:text-nowrap ${paginaAtual === totalPaginas ? 'bg-gray-400 cursor-not-allowed' : ''}`}
                     >
-                      Próxima página
+                      Próxima
                     </button>
                   </div>
                 )}
@@ -1786,7 +1721,7 @@ export default function PdfEditor() {
                         onDrop={handleDrop}
                         onClick={handleAreaClick}
                       >
-                        <p className="text-gray-500 text-sm mb-2">
+                        <p className="text-gray-500 text-sm mb-2 text-center">
                           {isDragging ? "Solte o arquivo aqui!" : "Arraste e solte o arquivo, ou clique para selecionar."}
                         </p>
 
