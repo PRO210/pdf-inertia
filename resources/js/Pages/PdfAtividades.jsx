@@ -131,7 +131,7 @@ const gerarPDF = async (
       }
 
       // CÁLCULO DA PÁGINA (ADICIONE ESTE BLOCO)
-      const pageIndex = slotIndexInPage + 1; // Índice da página: 0, 1, 2...
+      const pageIndex = slotIndexInPage; // Índice da página: 0, 1, 2...
       const isOddPage = (pageIndex % 2) === 0; // Se o índice é 0, 2, 4... (Página 1, 3, 5...)
       const isEvenPage = (pageIndex % 2) !== 0; // Se o índice é 1, 3, 5... (Página 2, 4, 6...)
 
@@ -916,11 +916,13 @@ export default function PdfEditor() {
                 </h1>
               </div>
 
+            {/*Preview da Imagem/Pdf  */}
               <PdfPreview
                 imagens={imagens}
                 setImagens={setImagens}
                 cabecalhoAtivo={cabecalhoAtivo}
                 cabecalhoTexto={cabecalhoTexto}
+                cabecalhoModo={cabecalhoModo}
                 repeatBorder={repeatBorder}
                 espessuraBorda={espessuraBorda}
                 tamanhoTile={tamanhoTile}
