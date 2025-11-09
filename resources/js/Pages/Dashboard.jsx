@@ -21,10 +21,10 @@ export default function Dashboard() {
 
             <div className="py-12">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
+                    <div className="overflow-hidden bg-white shadow-sm sm:rounded">
 
                         {/* Grid responsiva */}
-                        <div className="p-6 text-gray-900 grid grid-cols-1 md:grid-cols-2 gap-8 lg:grid-cols-3 items-center">
+                        <div className="p-6 text-gray-900 grid grid-cols-1 md:grid-cols-2 gap-8 lg:grid-cols-3 items-center justify-center">
 
                             {/* Primeiro bloco */}
                             <Link
@@ -33,9 +33,14 @@ export default function Dashboard() {
           focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 
           dark:focus-visible:ring-white flex justify-center"
                             >
-                                <div className="overflow-hidden rounded-xl shadow-md">
+                                <div className="overflow-hidden rounded shadow-md">
+                                    <div className="p-4 text-justify">
+                                        <p className="text-black">
+                                            Imagens  <strong>distribuídas de forma inteligente</strong> se tornam atividades eficientes !
+                                        </p>
+                                    </div>
                                     <img
-                                        className="px-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                        className="px-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl 
               transform transition-transform duration-300 hover:scale-105"
                                         src="/imagens/logo.png"
                                         alt="logo"
@@ -45,22 +50,24 @@ export default function Dashboard() {
 
                             {/* Segundo bloco */}
                             <Link
-                                href={route('pdf.atividades')}
-                                className="rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 
-          focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 
-          dark:focus-visible:ring-white flex justify-center"
-                            >
-                                <div className="overflow-hidden rounded-xl shadow-md">
+                                href={route('pdf.atividades')} className="" >
+                                <div className="overflow-hidden  shadow-md">
+                                    <div className="p-4 text-justify">
+                                        <p className="text-black">
+                                            Imagens  <strong>distribuídas de forma inteligente</strong> se tornam atividades inteligentes !
+                                        </p>
+                                    </div>
                                     <img
-                                        className="px-2 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
+                                        className=" px-2 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
               transform transition-transform duration-300 hover:scale-105"
                                         src="/imagens/atividades.png"
                                         alt="atividades"
                                     />
                                 </div>
+
                             </Link>
 
-                            {/* Terceiro bloco */}                      
+                            {/* Terceiro bloco */}
                             {(auth.user.id === 1) && (
                                 <Link href="/tratamento-imagens" className="block">
                                     <div className="overflow-hidden rounded-xl shadow-md bg-white cursor-pointer hover:shadow-lg transition">
@@ -73,13 +80,10 @@ export default function Dashboard() {
                                         <img
                                             className="px-4 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl object-contain 
         transform transition-transform duration-300 hover:scale-105"
-                                            src="/imagens/illustration-image.png"
+                                            src="imagens/ia.png"
                                             alt="ilustração de imagem"
                                         />
 
-                                        <div className="p-4 text-center text-purple-600 font-semibold hover:text-purple-800 transition">
-                                            Abrir ferramenta
-                                        </div>
                                     </div>
                                 </Link>
                             )}

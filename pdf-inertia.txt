@@ -40,36 +40,6 @@ https://pdfeditor.proandre.com.br/webhoo...
 10 * 10 em 4k em 13 com  Dpi = 40 maxDpi =  40
 //
 //
-//Com Lanczos no servidor Redução em foco
-//
-4 * 4   em 8k em 48s com dpiFinal: 90, dpiX: 127.69, dpiY: 90.33, maxDpi: 100, minDpi: 60
-6 * 6   em 8k em 33s dpiFinal: 88, dpiX: 123.82, dpiY: 87.6, maxDpi: 100, minDpi: 50
-8 * 8   em 8k em 51s dpiFinal: 82, dpiX: 116.08, dpiY: 82.12,maxDpi: 120, minDpi: 40
-10 * 10 em 8k em 56s com dpiFinal: 70, dpiX: 99.06, dpiY: 70.08, maxDpi: 150, minDpi: 40
-//
-//
-4 * 4   em 5k em 48s com dpiFinal: 85, dpiX: 85.1, dpiY: 90.33, maxDpi: 100, minDpi: 60
-6 * 6   em 5k em 12s dpiFinal: 68, dpiX: 67.61, dpiY: 71.76, maxDpi: 100, minDpi: 50
-8 * 8   em 5k em 89s dpiFinal: 80, dpiX: 79.81, dpiY: 84.7, maxDpi: 120, minDpi: 40
-10 * 10 em 5k em 56s com dpiFinal: 77, dpiX: 77.24, dpiY: 81.98, maxDpi: 150, minDpi: 40
-//
-4 * 4   em 5k em 48s com dpiFinal: 85, dpiX: 85.1, dpiY: 90.33, maxDpi: 100, minDpi: 60
-6 * 6   em 5k em 10s dpiFinal: 68, dpiX: 67.61, dpiY: 71.76, maxDpi: 100, minDpi: 50
-8 * 8   em 5k em 92s dpiFinal: 80, dpiX: 79.81, dpiY: 84.7, maxDpi: 120, minDpi: 40
-10 * 10 em 5k em 56s com dpiFinal: 77, dpiX: 77.24, dpiY: 81.98, maxDpi: 150, minDpi: 40
-
-//
-1 * 1 em FHD em 2s com dpiFinal: 109, dpiX: 109.5,dpiY: 116.08,maxDpi: 150,minDpi: 72
-2 * 2 em FH em 4s com dpiFinal: 83, dpiX: 83, dpiY: 88, maxDpi: 150, minDpi: 72
-3 * 3 em FH em 3s com dpiFinal: 60,dpiX: 55.38,dpiY: 58.8,maxDpi: 120,minDpi: 72 (Faltou px tem que aumentar)
-4 * 4 em 4k em 
-5 * 5 em 5k em 17s com dpiFinal: 86, dpiX: 85.54, dpiY: 90.69, maxDpi: 120, minDpi: 50
-6 * 6 em 5k em 17s com dpiFinal: 86, dpiX: 85.54, dpiY: 90.69, maxDpi: 120, minDpi: 50
-7 * 7 em 5k em 17s com dpiFinal: 86, dpiX: 85.54, dpiY: 90.69, maxDpi: 120, minDpi: 50
-8 * 8 em 10k em 13s com Dpi = 101,   Dpi =,maxDpi = 100
-9 * 9 em 10k em 13s com Dpi = 42,    Dpi =,maxDpi = 44
-10 * 10 em 10k em 49s com dpiFinal: 81, dpiX: 80.6, dpiY: 85.54, maxDpi: 150, minDpi: 40
-
 HD (High Definition) (720p):
 1280 x 720 pixels. É uma resolução mais antiga, encontrada em notebooks e TVs mais antigas. 
 

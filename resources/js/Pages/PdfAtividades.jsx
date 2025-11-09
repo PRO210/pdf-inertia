@@ -769,7 +769,7 @@ export default function PdfEditor() {
                     setAlteracoesPendentes(true);
                   }}
                 />
-                **Ativar Conteúdo do Cabeçalho:**
+                Mostrar Cabeçalho:
               </label>
 
               {cabecalhoAtivo && (
