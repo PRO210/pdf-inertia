@@ -31,7 +31,7 @@ export default function Dashboard() {
                                 <div className="overflow-hidden rounded shadow-md">
                                     <div className="p-4 text-justify">
                                         <p className="text-black">
-                                            Imagens  <strong>distribuídas de forma inteligente</strong> se tornam atividades eficientes !
+                                            Se uma imagem vale mais que 1000 palavras  <strong> imagine em um lindo cartaz:) </strong> !
                                         </p>
                                     </div>
                                     <img
@@ -79,7 +79,6 @@ export default function Dashboard() {
                                     </div>
                                 </Link>
                             )}
-
                             <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                 <div className='p-2 px-2 text-justify'>
                                     <p>Esse projeto é de cunho voluntario.
@@ -93,7 +92,6 @@ export default function Dashboard() {
                                 />
                                 <Pix />
                             </div>
-
 
                             {/* Quarto bloco */}
                             {(

@@ -13,9 +13,6 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
         document.getElementById('background')?.classList.add('!hidden');
     };
 
-    const linkCss = `rounded-md px-3 py-2 text-black ring-1 ring-transparent transition hover:text-black/70 
-          focus:outline-none focus-visible:ring-[#FF2D20] dark:text-white dark:hover:text-white/80 
-          dark:focus-visible:ring-white flex justify-center`;
 
     return (
         <>
@@ -68,7 +65,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     className="h-full flex flex-col gap-6 overflow-hidden rounded-lg bg-white p-6 shadow-[0px_14px_34px_0px_rgba(0,0,0,0.08)] ring-1 ring-white/[0.05] transition duration-300 hover:text-black/70 hover:ring-black/20 focus:outline-none focus-visible:ring-[#FF2D20] lg:p-10 lg:pb-10 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:text-white/70 dark:hover:ring-zinc-700 dark:focus-visible:ring-[#FF2D20]"
                                 >
                                     <div className="relative flex items-center gap-6 lg:items-end">
-                                        <div id="docs-card-content" className="flex items-start gap-6 lg:flex-col">
+                                        <div id="docs-card-content" className="flex items-start gap-6 flex-col">
 
                                             <div className="sm:pt-5 lg:pt-0">
 
@@ -98,6 +95,43 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                                     Também é possível fazer o inverso: usar suas imagens para montar um mosaico com a mesma facilidade! 🙂
                                                 </p>
 
+                                            </div>
+
+                                            <div>
+                                                {/* Primeiro bloco */}
+                                                <Link
+                                                    href={route('pdf.editor')} className="flex flex-col items-center justify-start h-full" >
+                                                    <div className="overflow-hidden rounded shadow-md">
+                                                        <div className="p-4 text-xl">
+                                                            <p className="font-semibold text-white dark:text-white">
+                                                               <strong> Vamos começar </strong> !
+                                                            </p>
+                                                        </div>
+                                                        <img
+                                                            className="px-2 transform transition-transform duration-300 hover:scale-105"
+                                                            src="/imagens/logo.png"
+                                                            alt="logo"
+                                                        />
+                                                    </div>
+                                                </Link>
+
+                                                {/* Segundo bloco */}
+                                                <Link
+                                                    href={route('pdf.atividades')} className="flex flex-col items-center justify-start h-full" >
+                                                    <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
+                                                        <div className="p-4 text-xl">
+                                                            <p className="font-semibold text-white dark:text-white">
+                                                                Imagens  <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes !
+                                                            </p>
+                                                        </div>
+                                                        <img
+                                                            className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
+                                                            src="/imagens/atividades.png"
+                                                            alt="atividades"
+                                                        />
+                                                    </div>
+
+                                                </Link>
                                             </div>
 
 
