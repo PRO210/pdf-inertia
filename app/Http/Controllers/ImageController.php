@@ -212,10 +212,9 @@ class ImageController extends Controller
                 return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
             }
 
-            // 2️⃣ Fator de escala (default = 2)
-            $scale = (int) $request->input('scale', 2);
+            // 2️⃣ Fator de escala (default = 2), limitado a 4×
+            $scale = min((int) $request->input('scale', 2), 4);
 
-            // 🛑 REMOÇÃO DO BLOCO GD: O downsize agora é feito no frontend pelo JavaScript (downsizeParaReplicate)
             // O Base64 recebido já está no formato ideal.
 
             // 3️⃣ Monta payload

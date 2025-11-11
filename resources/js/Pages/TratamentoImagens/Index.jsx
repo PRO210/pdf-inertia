@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
 import imageCompression from 'browser-image-compression';
+import pica from 'pica';
 
-// O Swal (SweetAlert2) é carregado via CDN no HTML, por isso removemos a importação ES para evitar o erro.
 
 // Modelos Replicate que serão executados no backend
 const MODELS = {
@@ -20,6 +20,37 @@ export default function TratamentoImagens() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [scaleFactor, setScaleFactor] = useState(2); // Novo estado para o fator de escala
+  const [picaInstance, setPicaInstance] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+
+  // Inicializa o Pica.js uma vez
+  useEffect(() => {
+    let isMounted = true;
+
+    async function inicializarPica() {
+      try {
+        const instance = pica({ features: ['js', 'wasm', 'ww'] });
+
+        if (isMounted) {
+          setPicaInstance(instance);
+          setCarregando(false);
+          console.log('%c✅ Pica.js inicializado com sucesso', 'color:#10B981; font-weight:bold;');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao inicializar Pica.js:', error);
+        if (isMounted) {
+          setErroPdf('Erro ao carregar módulo de redimensionamento');
+          setCarregando(false);
+        }
+      }
+    }
+
+    inicializarPica();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleUpload = (e) => {
     const file = e.target.files[0];
@@ -27,84 +58,12 @@ export default function TratamentoImagens() {
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
       setResult(null);
+      console.log(file);
+
     }
   };
 
-  // /**
-  //  * Processa a imagem enviando-a para o endpoint do backend.
-  //  * @param {string} type - O tipo de processamento (remover-fundo ou aumentar-qualidade)
-  //  */
-  // const processImage = async (type) => {
-  //   // Swal é acessível globalmente
-  //   if (!image) {
-  //     return Swal.fire({
-  //       icon: 'warning',
-  //       title: 'Atenção!',
-  //       text: 'Selecione uma imagem primeiro.',
-  //     });
-  //   }
-
-  //   setLoading(true);
-
-  //   const formData = new FormData();
-  //   formData.append('image', image);
-
-  //   // Adiciona o fator de escala se estivermos fazendo upscale
-  //   if (type === MODELS.UPSCALER_ESRGAN) {
-  //     // O Real-ESRGAN usa o parâmetro 'scale' (e não 'scale_factor')
-  //     formData.append('scale', scaleFactor);
-  //   }
-
-  //   // O endpoint deve ser dinâmico ou fixo, dependendo da sua arquitetura de backend
-  //   const endpoint = `/imagens/${type}`;
-
-  //   try {
-  //     // O backend PHP deve chamar o modelo nightmareai/real-esrgan no Replicate
-  //     const res = await axios.post(endpoint, formData, {
-  //       headers: {
-  //         'Content-Type': 'multipart/form-data',
-  //       },
-  //     });
-
-  //     // Assumindo que o backend retorna a URL na estrutura: { output: ["url_aqui"] }
-  //     const outputUrl = res.data?.output?.[0];
-
-  //     if (outputUrl) {
-  //       setResult(outputUrl);
-  //       Swal.fire({
-  //         icon: 'success',
-  //         title: 'Sucesso!',
-  //         text: 'Imagem processada com sucesso!',
-  //         timer: 2000,
-  //         showConfirmButton: false
-  //       });
-  //     } else {
-  //       // Isso pode ocorrer se o backend não retornar uma URL imediatamente (processamento assíncrono)
-  //       Swal.fire({
-  //         icon: 'info',
-  //         title: 'Processamento',
-  //         text: 'Aguardando processamento no Replicate... (Verifique o console para erros do backend)',
-  //       });
-  //     }
-  //   } catch (err) {
-  //     console.error("Erro ao processar imagem:", err);
-  //     Swal.fire({
-  //       icon: 'error',
-  //       title: 'Erro!',
-  //       text: `Falha na comunicação com o servidor: ${err.message}`,
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-
-  /**
-   * Processa a imagem enviando-a para o endpoint do backend.
-   * @param {string} type - O tipo de processamento (remover-fundo ou aumentar-qualidade)
-   */
   const processImage = async (type) => {
-    // Swal é acessível globalmente
     if (!image) {
       return Swal.fire({
         icon: 'warning',
@@ -114,85 +73,112 @@ export default function TratamentoImagens() {
     }
 
     setLoading(true);
+    let dataToSend = {};
 
-    // --- 🛑 MUDANÇAS PARA UPSCALER_ESRGAN AQUI 🛑 ---
-    let dataToSend = {}; // Usaremos um objeto JSON em vez de FormData
+    // 🔹 Calcula tamanho original (para comparação depois)
+    const originalBitmap = await createImageBitmap(image);
+    const originalWidth = originalBitmap.width;
+    const originalHeight = originalBitmap.height;
+    const originalMaxSide = Math.max(originalWidth, originalHeight);
 
+    // 🔹 Calcula o tamanho esperado com base no fator do front-end
+    const expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 10000); // 10k é o teto de segurança
+    console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
+
+    // --- Monta o payload ---
     if (type === MODELS.UPSCALER_ESRGAN) {
-      // 1. Downsize da imagem e conversão para Base64 (para cumprir o limite de 2.1MP do Replicate)
       try {
-        // Assume que 'image' é o objeto File do input
         const base64Image = await downsizeParaReplicate(image);
-
-        // O backend espera o Base64 na chave 'image'
         dataToSend.image = base64Image;
-
-        // O Real-ESRGAN usa o parâmetro 'scale' (e não 'scale_factor')
         dataToSend.scale = scaleFactor;
-
-        console.log("✅ Imagem redimensionada para Base64 e pronta para envio.");
-
       } catch (e) {
         setLoading(false);
-        console.error("Erro ao redimensionar a imagem no browser:", e);
+        console.error("Erro ao redimensionar imagem:", e);
         return Swal.fire({
           icon: 'error',
           title: 'Erro de Redimensionamento!',
-          text: 'Não foi possível preparar a imagem para envio. Verifique o console.',
+          text: 'Falha ao preparar imagem para envio.',
         });
       }
-
     } else {
-      // Se for outro modelo (ex: remover-fundo), mantenha o envio original com FormData
       const formData = new FormData();
       formData.append('image', image);
       dataToSend = formData;
     }
 
-    // O endpoint deve ser dinâmico ou fixo, dependendo da sua arquitetura de backend
     const endpoint = `/imagens/${type}`;
 
     try {
-      // 2. Envio da requisição: 
-      // Se for UPSCALER, enviamos JSON (com Base64). 
-      // Se não for, usamos o FormData (mantendo compatibilidade com outras APIs).
       const res = await axios.post(endpoint, dataToSend, {
         headers: {
-          // O Content-Type deve ser 'application/json' se estivermos enviando Base64
           'Content-Type': type === MODELS.UPSCALER_ESRGAN ? 'application/json' : 'multipart/form-data',
         },
       });
 
-      // Assumindo que o backend retorna a URL na estrutura: { output: ["url_aqui"] }
-      // ATENÇÃO: O backend do upscale deve retornar 'output_base64_or_url' (conforme alteramos)
-      const outputUrlOrBase64 = res.data?.output_base64_or_url;
+      console.log("🛰️ Retorno completo do backend:", res.data);
 
-      if (outputUrlOrBase64) {
-        // Se o backend retorna Base64, você deve usá-lo ou chamar a função pica
-        setResult(outputUrlOrBase64); // Se for Base64, você pode renderizar
+      const outputUrlOrBase64 =
+        res.data?.output_base64_or_url ||
+        res.data?.output ||
+        res.data?.url ||
+        null;
 
-        // --- CÓDIGO OPCIONAL (SE QUISER USAR A FUNÇÃO PICA AQUI): ---
-        /*
-        if (type === MODELS.UPSCALER_ESRGAN) {
-            // Aqui você chamaria a função finalizarUpscalePicaProgressivo(outputUrlOrBase64, larguraAlvo, alturaAlvo);
-            // O resultado final seria o seu novo Base64 para exibir ou usar
-        } 
-        */
-
+      if (!outputUrlOrBase64) {
         Swal.fire({
-          icon: 'success',
-          title: 'Sucesso!',
-          text: 'Imagem processada com sucesso!',
-          timer: 2000,
-          showConfirmButton: false
+          icon: 'warning',
+          title: 'Sem resultado!',
+          text: 'O backend não retornou a imagem processada.',
         });
-      } else {
-        Swal.fire({
-          icon: 'info',
-          title: 'Processamento',
-          text: 'Aguardando processamento no Replicate... (Verifique o console para erros do backend)',
-        });
+        return;
       }
+
+      // --- 🔥 PÓS-PROCESSAMENTO PICA ---
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = outputUrlOrBase64;
+
+      await new Promise((resolve) => (img.onload = resolve));
+      const imgBitmap = await createImageBitmap(img);
+
+      const resultMaxSide = Math.max(imgBitmap.width, imgBitmap.height);
+      console.log(`📈 IA: ${imgBitmap.width}x${imgBitmap.height} (max: ${resultMaxSide})`);
+
+      let finalBase64 = outputUrlOrBase64;
+
+      // ✅ Se a IA não atingiu o tamanho esperado, o Pica entra em ação
+      if (resultMaxSide < expectedMaxSide) {
+        const fatorRestante = expectedMaxSide / resultMaxSide;
+        const targetW = Math.round(imgBitmap.width * fatorRestante);
+        const targetH = Math.round(imgBitmap.height * fatorRestante);
+
+        console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH}`);
+
+        let { base64 } = await ajustarImagemPica(imgBitmap, targetW, targetH);
+
+        console.log("✅ Base64 pronto:", base64);
+
+        finalBase64 = base64;
+
+
+      } else {
+        console.log("✅ Aumento da IA já suficiente — Pica não aplicado.");
+      }
+
+      // --- Atualiza imagem final ---
+      const finalUrl = `${finalBase64}?cacheBust=${Date.now()}`;
+      setResult(finalUrl);
+
+      console.log(`finalUrl`, finalUrl);
+
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Imagem pronta!',
+        text: 'A imagem foi aprimorada com sucesso!',
+        timer: 2000,
+        showConfirmButton: false
+      });
+
     } catch (err) {
       console.error("Erro ao processar imagem:", err);
       Swal.fire({
@@ -204,6 +190,83 @@ export default function TratamentoImagens() {
       setLoading(false);
     }
   };
+
+
+  /**
+   * Função para iniciar o download da imagem Base64 (assumindo JPEG).
+   */
+  const handleDownload = async () => {
+    if (!result) return;
+
+    // Garante que urlToDownload seja declarada no escopo superior para ser acessível pelo setTimeout
+    let urlToDownload = null;
+
+    try {
+      const isBase64 = result.startsWith('data:image');
+
+
+      // ... (dentro de handleDownload)
+
+      if (isBase64) {
+        // O MIME type para JPEG (conforme sua simplificação)
+        const mimeType = 'image/jpeg';
+
+        const parts = result.split(',');
+
+        // Certifique-se de que estamos pegando a parte dos dados
+        let base64Data = parts[parts.length - 1];
+
+        // 🔑 CORREÇÃO CRÍTICA: Limpa a string Base64 antes de atob()
+        // Isso remove espaços, quebras de linha e quaisquer caracteres que causem o DOMException.
+        base64Data = base64Data.replace(/\s/g, '');
+
+        // O erro DOMException acontece aqui, na linha que deve ser Index.jsx:228
+        const byteString = atob(base64Data);
+
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+
+        // Cria o Blob e a URL
+        const blob = new Blob([ab], { type: mimeType });
+        urlToDownload = URL.createObjectURL(blob);
+
+        // Cria o link temporário para download
+        const link = document.createElement('a');
+        link.href = urlToDownload;
+        link.download = `imagem_processada_${Date.now()}.jpeg`;
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // Revoga a URL blob e exibe sucesso
+      if (urlToDownload) {
+        setTimeout(() => URL.revokeObjectURL(urlToDownload), 1000);
+      }
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Download iniciado',
+        text: 'Sua imagem está sendo baixada.',
+        timer: 2000,
+        showConfirmButton: false
+      });
+
+    } catch (err) {
+      console.error('Erro ao baixar imagem:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro no download',
+        text: 'Não foi possível baixar a imagem. Verifique o console.',
+      });
+    }
+  };
+
 
   /**
    * Ajusta o tamanho da imagem de entrada para garantir que ela não exceda o limite de pixels
@@ -251,14 +314,11 @@ export default function TratamentoImagens() {
 
     // 3. Opções de Compressão (BIC)
     const options = {
-      // Usa o lado máximo calculado (ou o lado original, se já for pequeno)
       maxWidthOrHeight: targetMaxWidthOrHeight,
       useWebWorker: true,
-      maxSizeMB: 30, // Mantido, mas o controle principal é por maxWidthOrHeight
+      maxSizeMB: 2,
       initialQuality: 1.0,
       fileType: 'image/jpeg',
-      // Manter a resolução 'true' garante que o BIC não reduza a resolução 
-      // abaixo do necessário para atingir o 'maxSizeMB'.
       alwaysKeepResolution: true,
     };
 
@@ -273,11 +333,130 @@ export default function TratamentoImagens() {
     return finalBase64;
   }
 
-  return (
+  /**
+   * Redimensiona uma imagem (ImageBitmap) progressivamente com Pica.js,
+   * aplicando múltiplos passos (máx. 2× por vez) e garantindo que
+   * o lado maior nunca ultrapasse 10 000 px.
+   *
+   * Ideal para pós-processamento após upscale de IA.
+   *
+   * @param {ImageBitmap} imgBitmap - Imagem original.
+   * @param {number} upscaleFactor - Fator de aumento aplicado pela IA (ex: 4).
+   * @param {number} maxSize - Tamanho máximo permitido (ex: 10000px).
+   * @returns {Promise<{base64: string, blob: Blob, width: number, height: number}>}
+   */
+  async function ajustarImagemPica(imgBitmap, upscaleFactor = 4, maxSize = 10000) {
 
+    const MAX_STEP = 2; // agora 2× por passo (mais rápido)   
+
+    // ✅ Instância única e segura do Pica
+    if (!window.__picaInstance) {
+      try {
+        window.__picaInstance = pica({ features: ['js', 'wasm', 'ww'] });
+        console.log('%c✅ Instância Pica inicializada', 'color:#10B981; font-weight:bold;');
+      } catch (err) {
+        console.error('❌ Erro ao inicializar Pica:', err);
+        window.__picaInstance = pica(); // fallback simples
+      }
+    }
+    const p = window.__picaInstance;
+
+    // Canvas inicial
+    let currentCanvas = document.createElement("canvas");
+    currentCanvas.width = imgBitmap.width;
+    currentCanvas.height = imgBitmap.height;
+    currentCanvas.getContext("2d").drawImage(imgBitmap, 0, 0);
+
+    const originalW = imgBitmap.width;
+    const originalH = imgBitmap.height;
+    const ratio = originalH / originalW;
+    const isHeightGreater = originalH > originalW;
+
+    // --- 1️⃣ Define o tamanho "ideal" que a IA teria após upscale ---
+    const iaTargetW = Math.round(originalW * upscaleFactor);
+    const iaTargetH = Math.round(originalH * upscaleFactor);
+    const iaMaxSide = Math.max(iaTargetW, iaTargetH);
+
+    // --- 2️⃣ Define o tamanho final permitido (máx. 10k) ---
+    const finalMaxSide = Math.min(iaMaxSide, maxSize);
+
+    // Se já está dentro do limite, não faz nada
+    if (iaMaxSide <= maxSize) {
+      console.log(`✅ Imagem já dentro do limite (${iaMaxSide}px). Nenhum ajuste necessário.`);
+    }
+
+    let currentMaxSide = Math.max(originalW, originalH);
+
+    // --- 3️⃣ Redimensiona progressivamente até atingir o destino ---
+    while (currentMaxSide !== finalMaxSide) {
+      const isUpscaling = currentMaxSide < finalMaxSide;
+
+      // fator progressivo (máx. 2× por passo)
+      let scale;
+      if (isUpscaling) {
+        scale = Math.min(MAX_STEP, finalMaxSide / currentMaxSide);
+      } else {
+        scale = Math.max(1 / MAX_STEP, finalMaxSide / currentMaxSide);
+      }
+
+      let nextMaxSide = Math.round(currentMaxSide * scale);
+      nextMaxSide = isUpscaling
+        ? Math.min(nextMaxSide, finalMaxSide)
+        : Math.max(nextMaxSide, finalMaxSide);
+
+      let nextW, nextH;
+      if (isHeightGreater) {
+        nextH = nextMaxSide;
+        nextW = Math.round(nextH / ratio);
+      } else {
+        nextW = nextMaxSide;
+        nextH = Math.round(nextW * ratio);
+      }
+
+      currentMaxSide = nextMaxSide;
+
+      const dst = document.createElement("canvas");
+      dst.width = nextW;
+      dst.height = nextH;
+
+      const resizeOptions = {
+        quality: 3,
+        alpha: true,
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await p.resize(currentCanvas, dst, resizeOptions);
+
+      currentCanvas = dst;
+    }
+
+    // --- 4️⃣ Gera resultado ---
+    const resultadoCanvas = currentCanvas;
+
+    // 5. Converte o Canvas para Blob (JPEG com qualidade 1.0)
+    const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
+
+    // 6. Converte o Blob para Base64 usando FileReader (Alternativa Nativa)
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result); // Retorna a string Base64
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    return {
+      base64,
+      blob,
+      width: resultadoCanvas.width,
+      height: resultadoCanvas.height,
+    };
+  }
+
+
+
+  return (
     <AuthenticatedLayout>
       <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <style>{`
         body { font-family: 'Inter', sans-serif; }
@@ -322,7 +501,7 @@ export default function TratamentoImagens() {
               type="number"
               min="1"
               max="10"
-              step="0.5"
+              step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
               className="w-full sm:w-1/3 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -370,13 +549,28 @@ export default function TratamentoImagens() {
 
               {/* Depois */}
               {result ? (
-                <div className="text-center bg-green-50 p-4 rounded-lg shadow-md">
+                <div className="relative text-center bg-green-50 p-4 rounded-lg shadow-md">
+                  {console.log("🔄 Tentando renderizar imagem:", result)}
                   <p className="font-semibold mb-3 text-green-700">Resultado ({scaleFactor}x)</p>
+
+                  {/* Botão de Download Adicionado */}
+                  <button
+                    onClick={handleDownload}
+                    className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
+                    title="Baixar Imagem Processada"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                  </button>
+
                   <img
                     src={result}
                     alt="Depois"
                     className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
                     style={{ maxHeight: '500px', objectFit: 'contain' }}
+                    onError={(e) => console.error("🚨 Erro ao carregar imagem:", e)}
+
                   />
                 </div>
               ) : (
