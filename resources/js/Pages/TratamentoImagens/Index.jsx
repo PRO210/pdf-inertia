@@ -8,11 +8,6 @@ import imageCompression from 'browser-image-compression';
 import pica from 'pica';
 
 
-// Modelos Replicate que serão executados no backend
-const MODELS = {
-  REMOVE_BG: 'remover-fundo', // Mapeia para '/imagens/remover-fundo'
-  UPSCALER_ESRGAN: 'aumentar-qualidade', // Reverte para o Real-ESRGAN, usando o endpoint original
-};
 
 export default function TratamentoImagens() {
   const [image, setImage] = useState(null);
@@ -21,9 +16,16 @@ export default function TratamentoImagens() {
   const [loading, setLoading] = useState(false);
   const [scaleFactor, setScaleFactor] = useState(2); // Novo estado para o fator de escala
   const [picaInstance, setPicaInstance] = useState(null);
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState(null);
 
   // Inicializa o Pica.js uma vez
+  const MODELS = {
+    REMOVE_BG: 'remover-fundo', // Mapeia para '/imagens/remover-fundo'
+    UPSCALER_ESRGAN: 'aumentar-qualidade', // Reverte para o Real-ESRGAN, usando o endpoint original
+  };
+
+
+
   useEffect(() => {
     let isMounted = true;
 
@@ -58,7 +60,7 @@ export default function TratamentoImagens() {
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
       setResult(null);
-      console.log(file);
+      console.log(`Tudo começa aqui: handleUpload`, file);
 
     }
   };
@@ -119,8 +121,7 @@ export default function TratamentoImagens() {
 
       const outputUrlOrBase64 =
         res.data?.output_base64_or_url ||
-        res.data?.output ||
-        res.data?.url ||
+        res.data?.replicate_id ||
         null;
 
       if (!outputUrlOrBase64) {
@@ -131,6 +132,8 @@ export default function TratamentoImagens() {
         });
         return;
       }
+
+      setResult(res.data.output_base64_or_url)
 
       // --- 🔥 PÓS-PROCESSAMENTO PICA ---
       const img = new Image();
@@ -153,23 +156,9 @@ export default function TratamentoImagens() {
 
         console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH}`);
 
-        let { base64 } = await ajustarImagemPica(imgBitmap, targetW, targetH);
-
-        console.log("✅ Base64 pronto:", base64);
-
-        finalBase64 = base64;
-
-
       } else {
         console.log("✅ Aumento da IA já suficiente — Pica não aplicado.");
       }
-
-      // --- Atualiza imagem final ---
-      const finalUrl = `${finalBase64}?cacheBust=${Date.now()}`;
-      setResult(finalUrl);
-
-      console.log(`finalUrl`, finalUrl);
-
 
       Swal.fire({
         icon: 'success',
@@ -198,64 +187,26 @@ export default function TratamentoImagens() {
   const handleDownload = async () => {
     if (!result) return;
 
-    // Garante que urlToDownload seja declarada no escopo superior para ser acessível pelo setTimeout
-    let urlToDownload = null;
+
+    const url = result
+    const ext = url.split('.').pop().split('?')[0];
 
     try {
-      const isBase64 = result.startsWith('data:image');
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `resultado.${ext}`;
+      link.click();
+      URL.revokeObjectURL(link.href);
 
-
-      // ... (dentro de handleDownload)
-
-      if (isBase64) {
-        // O MIME type para JPEG (conforme sua simplificação)
-        const mimeType = 'image/jpeg';
-
-        const parts = result.split(',');
-
-        // Certifique-se de que estamos pegando a parte dos dados
-        let base64Data = parts[parts.length - 1];
-
-        // 🔑 CORREÇÃO CRÍTICA: Limpa a string Base64 antes de atob()
-        // Isso remove espaços, quebras de linha e quaisquer caracteres que causem o DOMException.
-        base64Data = base64Data.replace(/\s/g, '');
-
-        // O erro DOMException acontece aqui, na linha que deve ser Index.jsx:228
-        const byteString = atob(base64Data);
-
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-
-        for (let i = 0; i < byteString.length; i++) {
-          ia[i] = byteString.charCodeAt(i);
-        }
-
-        // Cria o Blob e a URL
-        const blob = new Blob([ab], { type: mimeType });
-        urlToDownload = URL.createObjectURL(blob);
-
-        // Cria o link temporário para download
-        const link = document.createElement('a');
-        link.href = urlToDownload;
-        link.download = `imagem_processada_${Date.now()}.jpeg`;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
-
-      // Revoga a URL blob e exibe sucesso
-      if (urlToDownload) {
-        setTimeout(() => URL.revokeObjectURL(urlToDownload), 1000);
-      }
-
-      Swal.fire({
-        icon: 'success',
-        title: 'Download iniciado',
-        text: 'Sua imagem está sendo baixada.',
-        timer: 2000,
-        showConfirmButton: false
-      });
+      // Swal.fire({
+      //   icon: 'success',
+      //   title: 'Download iniciado',
+      //   text: 'Sua imagem está sendo baixada.',
+      //   timer: 2000,
+      //   showConfirmButton: false
+      // });
 
     } catch (err) {
       console.error('Erro ao baixar imagem:', err);
@@ -333,142 +284,12 @@ export default function TratamentoImagens() {
     return finalBase64;
   }
 
-  /**
-   * Redimensiona uma imagem (ImageBitmap) progressivamente com Pica.js,
-   * aplicando múltiplos passos (máx. 2× por vez) e garantindo que
-   * o lado maior nunca ultrapasse 10 000 px.
-   *
-   * Ideal para pós-processamento após upscale de IA.
-   *
-   * @param {ImageBitmap} imgBitmap - Imagem original.
-   * @param {number} upscaleFactor - Fator de aumento aplicado pela IA (ex: 4).
-   * @param {number} maxSize - Tamanho máximo permitido (ex: 10000px).
-   * @returns {Promise<{base64: string, blob: Blob, width: number, height: number}>}
-   */
-  async function ajustarImagemPica(imgBitmap, upscaleFactor = 4, maxSize = 10000) {
-
-    const MAX_STEP = 2; // agora 2× por passo (mais rápido)   
-
-    // ✅ Instância única e segura do Pica
-    if (!window.__picaInstance) {
-      try {
-        window.__picaInstance = pica({ features: ['js', 'wasm', 'ww'] });
-        console.log('%c✅ Instância Pica inicializada', 'color:#10B981; font-weight:bold;');
-      } catch (err) {
-        console.error('❌ Erro ao inicializar Pica:', err);
-        window.__picaInstance = pica(); // fallback simples
-      }
-    }
-    const p = window.__picaInstance;
-
-    // Canvas inicial
-    let currentCanvas = document.createElement("canvas");
-    currentCanvas.width = imgBitmap.width;
-    currentCanvas.height = imgBitmap.height;
-    currentCanvas.getContext("2d").drawImage(imgBitmap, 0, 0);
-
-    const originalW = imgBitmap.width;
-    const originalH = imgBitmap.height;
-    const ratio = originalH / originalW;
-    const isHeightGreater = originalH > originalW;
-
-    // --- 1️⃣ Define o tamanho "ideal" que a IA teria após upscale ---
-    const iaTargetW = Math.round(originalW * upscaleFactor);
-    const iaTargetH = Math.round(originalH * upscaleFactor);
-    const iaMaxSide = Math.max(iaTargetW, iaTargetH);
-
-    // --- 2️⃣ Define o tamanho final permitido (máx. 10k) ---
-    const finalMaxSide = Math.min(iaMaxSide, maxSize);
-
-    // Se já está dentro do limite, não faz nada
-    if (iaMaxSide <= maxSize) {
-      console.log(`✅ Imagem já dentro do limite (${iaMaxSide}px). Nenhum ajuste necessário.`);
-    }
-
-    let currentMaxSide = Math.max(originalW, originalH);
-
-    // --- 3️⃣ Redimensiona progressivamente até atingir o destino ---
-    while (currentMaxSide !== finalMaxSide) {
-      const isUpscaling = currentMaxSide < finalMaxSide;
-
-      // fator progressivo (máx. 2× por passo)
-      let scale;
-      if (isUpscaling) {
-        scale = Math.min(MAX_STEP, finalMaxSide / currentMaxSide);
-      } else {
-        scale = Math.max(1 / MAX_STEP, finalMaxSide / currentMaxSide);
-      }
-
-      let nextMaxSide = Math.round(currentMaxSide * scale);
-      nextMaxSide = isUpscaling
-        ? Math.min(nextMaxSide, finalMaxSide)
-        : Math.max(nextMaxSide, finalMaxSide);
-
-      let nextW, nextH;
-      if (isHeightGreater) {
-        nextH = nextMaxSide;
-        nextW = Math.round(nextH / ratio);
-      } else {
-        nextW = nextMaxSide;
-        nextH = Math.round(nextW * ratio);
-      }
-
-      currentMaxSide = nextMaxSide;
-
-      const dst = document.createElement("canvas");
-      dst.width = nextW;
-      dst.height = nextH;
-
-      const resizeOptions = {
-        quality: 3,
-        alpha: true,
-      };
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await p.resize(currentCanvas, dst, resizeOptions);
-
-      currentCanvas = dst;
-    }
-
-    // --- 4️⃣ Gera resultado ---
-    const resultadoCanvas = currentCanvas;
-
-    // 5. Converte o Canvas para Blob (JPEG com qualidade 1.0)
-    const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
-
-    // 6. Converte o Blob para Base64 usando FileReader (Alternativa Nativa)
-    const base64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result); // Retorna a string Base64
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-
-    return {
-      base64,
-      blob,
-      width: resultadoCanvas.width,
-      height: resultadoCanvas.height,
-    };
-  }
 
 
 
   return (
     <AuthenticatedLayout>
       <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
-
-        <style>{`
-        body { font-family: 'Inter', sans-serif; }
-        .btn-base {
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .btn-base:hover { transform: translateY(-1px); box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15); }
-      `}</style>
 
         <h2 className="text-3xl font-extrabold text-gray-800 mb-6">
           🪄 Tratamento de Imagens com IA
@@ -514,7 +335,7 @@ export default function TratamentoImagens() {
         <div className="flex flex-col sm:flex-row gap-4 mt-6">
           <button
             onClick={() => processImage(MODELS.REMOVE_BG)}
-            className="btn-base bg-purple-600 text-white hover:bg-purple-700 flex-1"
+            className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md btn-base bg-purple-600 text-white hover:bg-purple-700 flex-1"
             disabled={loading || !image}
           >
             {loading && MODELS.REMOVE_BG === 'remover-fundo' ? 'Removendo Fundo...' : '🗑️ Remover Fundo'}
@@ -522,7 +343,7 @@ export default function TratamentoImagens() {
 
           <button
             onClick={() => processImage(MODELS.UPSCALER_ESRGAN)}
-            className="btn-base bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
+            className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
             disabled={loading || !image}
           >
             {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade (ESRGAN)'}

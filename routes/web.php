@@ -73,7 +73,9 @@ Route::get('/pagamento/retorno', function () {
     ]);
 })->name('pagamento.retorno');
 
-Route::middleware(['auth'])->get('/pagamentos/sincronizar/{preferenceId?}',[CheckoutController::class, 'sincronizar']
+Route::middleware(['auth'])->get(
+    '/pagamentos/sincronizar/{preferenceId?}',
+    [CheckoutController::class, 'sincronizar']
 )->name('pagamentos.sincronizar');
 
 
@@ -99,9 +101,12 @@ Route::post('/publico-post', function (Request $request) {
 })->withoutMiddleware([MiddlewareVerifyCsrfToken::class]);
 
 
-Route::get('/tratamento-imagens', function () {
+Route::get('/dasboard/tratamento-imagens', function () {
     return Inertia::render('TratamentoImagens/Index');
-});
+})->middleware(['auth', 'verified'])->name('tratamento.imagens');
+
+
+
 
 Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);
 Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);

@@ -62,7 +62,7 @@ export default function Dashboard() {
 
                             {/* Terceiro bloco */}
                             {(auth.user.id === 1) && (
-                                <Link href="/tratamento-imagens" className="flex flex-col items-center justify-start h-full">
+                                <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
                                     <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                         <div className="p-4 text-justify">
                                             <p className="text-gray-700">
