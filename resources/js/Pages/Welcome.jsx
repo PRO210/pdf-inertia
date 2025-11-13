@@ -1,6 +1,7 @@
 import Footer from '@/Components/Footer';
 import { Head, Link } from '@inertiajs/react';
 
+
 export default function Welcome({ auth, laravelVersion, phpVersion }) {
     const handleImageError = () => {
         document
@@ -151,7 +152,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             </div>
                                         </Link>
 
-                                        <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
+                                        <Link href={'/dashboard/tratamento-imagens'} className="flex flex-col items-center justify-start h-full">
                                             <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                                 <div className="p-4 text-justify">
                                                     <p className="text-gray-700">
