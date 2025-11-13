@@ -39,6 +39,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/pdf-editor', [PdfEditorController::class, 'store'])->name('pdf.editor.store');
 
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
+
+    Route::get('/dashboard/tratamento-imagens', [ImageController::class, 'index'])->name('tratamento.imagens');
 });
 
 Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->middleware('guest')->name('password.request');
@@ -100,10 +102,6 @@ Route::post('/publico-post', function (Request $request) {
     ]);
 })->withoutMiddleware([MiddlewareVerifyCsrfToken::class]);
 
-
-Route::get('/dasboard/tratamento-imagens', function () {
-    return Inertia::render('TratamentoImagens/Index');
-})->middleware(['auth', 'verified'])->name('tratamento.imagens');
 
 
 

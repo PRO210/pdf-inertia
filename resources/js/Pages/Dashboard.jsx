@@ -48,7 +48,7 @@ export default function Dashboard() {
                                 <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                     <div className="p-4 text-justify">
                                         <p className="text-black">
-                                            Imagens  <strong>distribuídas de forma inteligente</strong> se tornam atividades inteligentes !
+                                            Imagens  <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes !
                                         </p>
                                     </div>
                                     <img

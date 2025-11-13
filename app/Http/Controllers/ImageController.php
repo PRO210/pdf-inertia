@@ -6,9 +6,19 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class ImageController extends Controller
 {
+
+
+    public function index()
+    {
+
+        return Inertia::render('TratamentoImagens/Index');
+    }
+
+
     // 🔹 1. Remover fundo da imagem
     public function removeBackground(Request $request)
     {

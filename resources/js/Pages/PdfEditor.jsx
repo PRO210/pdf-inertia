@@ -356,8 +356,7 @@ export default function PdfEditor() {
     // 7. Converte o Canvas para Blob (JPEG com qualidade 1.0)
     const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
 
-    // 8. Converte o Blob para Base64 (requer a biblioteca 'imageCompression' ou similar)
-    // ATENÇÃO: Estou assumindo que 'imageCompression' está disponível no escopo.
+    // 8. Converte o Blob para Base64 (requer a biblioteca 'imageCompression' ou similar)  
     const base64 = await imageCompression.getDataUrlFromFile(blob);
 
     setUpdateImg(false);

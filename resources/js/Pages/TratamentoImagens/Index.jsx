@@ -7,31 +7,34 @@ import Footer from '@/Components/Footer';
 import imageCompression from 'browser-image-compression';
 import pica from 'pica';
 
-
-
+// Definição do componente principal
 export default function TratamentoImagens() {
   const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null); // URL da imagem antes
-  const [result, setResult] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null); // 1. Original
+  const [imagePreviewUpascale, setImagePreviewUpascale] = useState(null); // 2. AI-Only Result (Raw)
+  // O estado 'resulyt' será usado para o 3. Final Pica Corrected Result
+  const [result, setResult] = useState(null); 
   const [loading, setLoading] = useState(false);
-  const [scaleFactor, setScaleFactor] = useState(2); // Novo estado para o fator de escala
+  const [scaleFactor, setScaleFactor] = useState(2);
   const [picaInstance, setPicaInstance] = useState(null);
-  const [carregando, setCarregando] = useState(null);
+  const [carregando, setCarregando] = useState(true); // Inicializa como true para esperar o Pica
+  const [erroPica, setErroPica] = useState(null);
 
-  // Inicializa o Pica.js uma vez
+  // Mapeamento dos modelos
   const MODELS = {
-    REMOVE_BG: 'remover-fundo', // Mapeia para '/imagens/remover-fundo'
-    UPSCALER_ESRGAN: 'aumentar-qualidade', // Reverte para o Real-ESRGAN, usando o endpoint original
+    REMOVE_BG: 'remover-fundo',
+    UPSCALER_ESRGAN: 'aumentar-qualidade',
   };
 
 
-
+  // Inicializa o Pica.js uma vez
   useEffect(() => {
     let isMounted = true;
 
     async function inicializarPica() {
       try {
-        const instance = pica({ features: ['js', 'wasm', 'ww'] });
+        // Inicializa o Pica com as funcionalidades necessárias
+        const instance = pica({ features: ['js', 'wasm', 'ww'] }); 
 
         if (isMounted) {
           setPicaInstance(instance);
@@ -41,7 +44,7 @@ export default function TratamentoImagens() {
       } catch (error) {
         console.error('❌ Erro ao inicializar Pica.js:', error);
         if (isMounted) {
-          setErroPdf('Erro ao carregar módulo de redimensionamento');
+          setErroPica('Erro ao carregar módulo de redimensionamento');
           setCarregando(false);
         }
       }
@@ -59,11 +62,104 @@ export default function TratamentoImagens() {
     if (file) {
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
+      // Limpa todos os resultados ao carregar uma nova imagem
+      setImagePreviewUpascale(null);
       setResult(null);
       console.log(`Tudo começa aqui: handleUpload`, file);
-
     }
   };
+
+
+  /**
+ * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
+ * ao tamanho ideal (larguraIdeal, alturaIdeal), escalonando em múltiplos passos,
+ * onde cada passo aumenta o tamanho em, no máximo, 2x (MAX_STEP).
+ *
+ * @param {ImageBitmap} imgBitmap O objeto ImageBitmap (a imagem real).
+ * @param {number} larguraIdeal A largura máxima desejada.
+ * @param {number} alturaIdeal A altura máxima desejada.
+ * @returns {Promise<{base64: string, blob: Blob, width: number, height: number}>} Objeto com os dados da imagem final.
+ */
+  async function ajustarImagemPica(imgBitmap, larguraIdeal, alturaIdeal) {
+    const MAX_STEP = 2; // Fator máximo de escala por passo
+
+    // Inicializa o canvas de origem com a imagem original
+    let currentCanvas = document.createElement('canvas');
+    currentCanvas.width = imgBitmap.width;
+    currentCanvas.height = imgBitmap.height;
+    currentCanvas.getContext('2d').drawImage(imgBitmap, 0, 0);
+
+    // 1. Determina a proporção e o lado maior alvo
+    const ratio = imgBitmap.height / imgBitmap.width;
+    let isHeightGreater = imgBitmap.height > imgBitmap.width;
+    let currentMaxSide = isHeightGreater ? imgBitmap.height : imgBitmap.width;
+    const finalMaxSide = Math.max(larguraIdeal, alturaIdeal);
+
+    // Cria a instância do Pica (usando a instância do estado)
+    const p = picaInstance || pica();
+
+    // Loop de redimensionamento progressivo (em múltiplos passos)
+    while (currentMaxSide < finalMaxSide) {
+      // 2. Calcula a escala para este passo, limitada a MAX_STEP (2x)
+      let scale = Math.min(MAX_STEP, finalMaxSide / currentMaxSide);
+
+      // Calcula o próximo lado maior que não ultrapasse o alvo final
+      let nextMaxSide = Math.min(Math.round(currentMaxSide * scale), finalMaxSide);
+
+      // Se não houver mudança, saímos do loop para evitar um ciclo infinito
+      if (nextMaxSide <= currentMaxSide) {
+        break;
+      }
+
+      // 3. Calcula as novas dimensões de Largura e Altura, respeitando o ratio
+      let nextW, nextH;
+
+      if (isHeightGreater) {
+        nextH = nextMaxSide;
+        nextW = Math.round(nextH / ratio);
+      } else {
+        nextW = nextMaxSide;
+        nextH = Math.round(nextW * ratio);
+      }
+
+      // 4. Atualiza o lado maior atual para o próximo passo
+      currentMaxSide = nextMaxSide;
+
+      // 5. Configura as opções de redimensionamento e filtros de nitidez
+      let resizeOptions = {
+        quality: 3,
+        alpha: true
+      };
+     
+      // Cria o canvas de destino para este passo
+      const dst = document.createElement('canvas');
+      dst.width = nextW; dst.height = nextH;
+
+      // ⚡ Adiciona esse "respiro" para evitar travar a UI
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // 6. Redimensiona usando o Pica
+      await p.resize(currentCanvas, dst, resizeOptions);
+
+      // O canvas de destino se torna o canvas de origem para o próximo passo
+      currentCanvas = dst;
+    }
+
+    // Obtém o canvas final que está em 'currentCanvas'
+    const resultadoCanvas = currentCanvas;
+    const newWidth = resultadoCanvas.width;
+    const newHeight = resultadoCanvas.height;
+
+    // 7. Converte o Canvas para Blob (JPEG com qualidade 1.0)
+    const blob = await new Promise(res => resultadoCanvas.toBlob(res, 'image/jpeg', 1.0));
+
+    // 8. Converte o Blob para Base64
+    const base64 = await imageCompression.getDataUrlFromFile(blob);
+
+    // 9. Retorna o objeto de destino completo
+    return { base64, blob, width: newWidth, height: newHeight };
+  }
+
 
   const processImage = async (type) => {
     if (!image) {
@@ -73,36 +169,52 @@ export default function TratamentoImagens() {
         text: 'Selecione uma imagem primeiro.',
       });
     }
+    
+    // Mostra o alerta se o Pica ainda não carregou para o modo de upscaling
+    if (type === MODELS.UPSCALER_ESRGAN && carregando) {
+      return Swal.fire({
+        icon: 'info',
+        title: 'Aguarde!',
+        text: 'Aguarde o carregamento do módulo Pica.js para o processamento de imagem.',
+      });
+    }
 
     setLoading(true);
+    // Limpa resultados anteriores antes de começar
+    setImagePreviewUpascale(null);
+    setResult(null);
+
     let dataToSend = {};
+    let originalWidth, originalHeight, originalMaxSide;
+    let expectedMaxSide;
 
-    // 🔹 Calcula tamanho original (para comparação depois)
-    const originalBitmap = await createImageBitmap(image);
-    const originalWidth = originalBitmap.width;
-    const originalHeight = originalBitmap.height;
-    const originalMaxSide = Math.max(originalWidth, originalHeight);
-
-    // 🔹 Calcula o tamanho esperado com base no fator do front-end
-    const expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 10000); // 10k é o teto de segurança
-    console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
-
-    // --- Monta o payload ---
+    // Lógica específica para o Upscaler
     if (type === MODELS.UPSCALER_ESRGAN) {
       try {
+        // 🔹 Calcula tamanho original para referência
+        const originalBitmap = await createImageBitmap(image);
+        originalWidth = originalBitmap.width;
+        originalHeight = originalBitmap.height;
+        originalMaxSide = Math.max(originalWidth, originalHeight);
+
+        // 🔹 Calcula o tamanho esperado
+        expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
+        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
+
         const base64Image = await downsizeParaReplicate(image);
         dataToSend.image = base64Image;
         dataToSend.scale = scaleFactor;
       } catch (e) {
         setLoading(false);
-        console.error("Erro ao redimensionar imagem:", e);
+        console.error("Erro ao preparar imagem:", e);
         return Swal.fire({
           icon: 'error',
-          title: 'Erro de Redimensionamento!',
+          title: 'Erro de Preparação!',
           text: 'Falha ao preparar imagem para envio.',
         });
       }
     } else {
+      // Lógica para Remover Fundo (multipart)
       const formData = new FormData();
       formData.append('image', image);
       dataToSend = formData;
@@ -132,41 +244,75 @@ export default function TratamentoImagens() {
         });
         return;
       }
+      
+      // Se for apenas remoção de fundo, salva o resultado direto em 'result'
+      if (type === MODELS.REMOVE_BG) {
+          setResult(outputUrlOrBase64);
+      }
+      
+      // --- Lógica de Pós-Processamento para UPSCALER ---
+      if (type === MODELS.UPSCALER_ESRGAN) {
+          
+          // 1. Salva o resultado RAW da IA para comparação
+          setImagePreviewUpascale(outputUrlOrBase64); 
 
-      setResult(res.data.output_base64_or_url)
+          // 2. Obtém o output da IA e o transforma em ImageBitmap
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = outputUrlOrBase64; 
 
-      // --- 🔥 PÓS-PROCESSAMENTO PICA ---
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = outputUrlOrBase64;
+          // Espera o carregamento da imagem da IA
+          await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+          });
+          const imgBitmap = await createImageBitmap(img);
 
-      await new Promise((resolve) => (img.onload = resolve));
-      const imgBitmap = await createImageBitmap(img);
+          const resultMaxSide = Math.max(imgBitmap.width, imgBitmap.height);
+          console.log(`📈 IA: ${imgBitmap.width}x${imgBitmap.height} (max: ${resultMaxSide})`);
 
-      const resultMaxSide = Math.max(imgBitmap.width, imgBitmap.height);
-      console.log(`📈 IA: ${imgBitmap.width}x${imgBitmap.height} (max: ${resultMaxSide})`);
+          let finalBase64 = outputUrlOrBase64;
+          let finalWidth = imgBitmap.width;
+          let finalHeight = imgBitmap.height;
 
-      let finalBase64 = outputUrlOrBase64;
+          // ✅ Se a IA não atingiu o tamanho esperado, o Pica entra em ação
+          if (resultMaxSide < expectedMaxSide && picaInstance) {
 
-      // ✅ Se a IA não atingiu o tamanho esperado, o Pica entra em ação
-      if (resultMaxSide < expectedMaxSide) {
-        const fatorRestante = expectedMaxSide / resultMaxSide;
-        const targetW = Math.round(imgBitmap.width * fatorRestante);
-        const targetH = Math.round(imgBitmap.height * fatorRestante);
+            // Calcula o fator de escala restante (ex: se IA deu 2x, mas queremos 4x, fator restante é 2)
+            const fatorRestante = expectedMaxSide / resultMaxSide;
 
-        console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH}`);
+            // Calcula a largura e altura alvo mantendo a proporção da imagem da IA
+            const targetW = Math.round(imgBitmap.width * fatorRestante);
+            const targetH = Math.round(imgBitmap.height * fatorRestante);
 
-      } else {
-        console.log("✅ Aumento da IA já suficiente — Pica não aplicado.");
+            console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH}`);
+
+            // Chama a função ajustada para aumentar o restante
+            const resultadoPica = await ajustarImagemPica(imgBitmap, targetW, targetH);
+
+            // Atualiza os resultados finais
+            finalBase64 = resultadoPica.base64;
+            finalWidth = resultadoPica.width;
+            finalHeight = resultadoPica.height;
+
+            console.log(`✅ Pica Concluído. Tamanho Final: ${finalWidth}x${finalHeight}`);
+
+          } else {
+            console.log("✅ Aumento da IA já suficiente ou Pica não disponível — Sem correção Pica.");
+          }
+
+          // 3. Salva o resultado FINAL (AI + Pica)
+          setResult(finalBase64);
+          
+          Swal.fire({
+            icon: 'success',
+            title: 'Imagem pronta!',
+            text: `A imagem foi aprimorada e corrigida! Tamanho: ${finalWidth}x${finalHeight}`,
+            timer: 2000,
+            showConfirmButton: false
+          });
       }
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Imagem pronta!',
-        text: 'A imagem foi aprimorada com sucesso!',
-        timer: 2000,
-        showConfirmButton: false
-      });
 
     } catch (err) {
       console.error("Erro ao processar imagem:", err);
@@ -185,28 +331,33 @@ export default function TratamentoImagens() {
    * Função para iniciar o download da imagem Base64 (assumindo JPEG).
    */
   const handleDownload = async () => {
-    if (!result) return;
+    // Sempre baixa o resultado final (AI + Pica)
+    if (!result) return; 
 
-
-    const url = result
-    const ext = url.split('.').pop().split('?')[0];
+    const url = result;
+    // Tenta determinar a extensão. Se for base64, assume jpeg para download.
+    const ext = url.startsWith('data:image/png') ? 'png' : 'jpg';
 
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `resultado.${ext}`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-
-      // Swal.fire({
-      //   icon: 'success',
-      //   title: 'Download iniciado',
-      //   text: 'Sua imagem está sendo baixada.',
-      //   timer: 2000,
-      //   showConfirmButton: false
-      // });
+      // Se for base64, converte
+      if (url.startsWith('data:image')) {
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `resultado_final_corrigido.${ext}`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+      } else {
+          // Se for URL, usa o método anterior
+          const response = await fetch(url);
+          const blob = await response.blob();
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.download = `resultado_final_corrigido.${url.split('.').pop().split('?')[0]}`;
+          link.click();
+          URL.revokeObjectURL(link.href);
+      }
 
     } catch (err) {
       console.error('Erro ao baixar imagem:', err);
@@ -222,15 +373,10 @@ export default function TratamentoImagens() {
   /**
    * Ajusta o tamanho da imagem de entrada para garantir que ela não exceda o limite de pixels
    * da GPU do Replicate (aprox. 2.1MP), mantendo a proporção original.
-   *
-   * @param {File} file O objeto File da imagem original.
-   * @returns {Promise<string>} A string Base64 Data URL da imagem redimensionada.
+   * (Mantido como estava, pois é para pré-processamento do backend)
    */
   async function downsizeParaReplicate(file) {
-    // Limite máximo de pixels aceito pela GPU do Replicate (2096704)
     const MAX_PIXELS = 2096704;
-
-    // 1. Calcular a proporção e as dimensões da imagem original
     const img = new Image();
     const tempUrl = URL.createObjectURL(file);
     img.src = tempUrl;
@@ -248,22 +394,15 @@ export default function TratamentoImagens() {
 
     let targetMaxWidthOrHeight = Math.max(originalWidth, originalHeight);
 
-    // 2. Se o total de pixels exceder o limite, recalcula o maior lado
     if (originalPixels > MAX_PIXELS) {
-      // Encontra o fator pelo qual o total de pixels deve ser reduzido (ex: 10.1MP / 2.1MP = 4.8x)
       const reductionFactor = Math.sqrt(originalPixels / MAX_PIXELS);
-
-      // Calcula o novo maior lado. Ex: Lado maior original / 4.8
       targetMaxWidthOrHeight = Math.floor(Math.max(originalWidth, originalHeight) / reductionFactor);
 
-      console.warn(`⚠️ Imagem original ${originalWidth}x${originalHeight} (${(originalPixels / 1000000).toFixed(1)}MP) será reduzida.`);
-      console.log(`Novo maior lado (max size): ${targetMaxWidthOrHeight}px`);
+      console.warn(`⚠️ Imagem original será reduzida. Novo max size: ${targetMaxWidthOrHeight}px`);
     } else {
-      // A imagem já está abaixo do limite
-      console.log(`✅ Imagem original ${(originalPixels / 1000000).toFixed(1)}MP está no limite. Não será redimensionada.`);
+      console.log(`✅ Imagem original está no limite. Não será redimensionada.`);
     }
 
-    // 3. Opções de Compressão (BIC)
     const options = {
       maxWidthOrHeight: targetMaxWidthOrHeight,
       useWebWorker: true,
@@ -274,8 +413,6 @@ export default function TratamentoImagens() {
     };
 
     const compressedBlob = await imageCompression(file, options);
-
-    // 4. Retorna o Base64 Data URL
     const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
 
     console.log(`--- AJUSTE CONCLUÍDO ---`);
@@ -286,20 +423,22 @@ export default function TratamentoImagens() {
 
 
 
-
   return (
     <AuthenticatedLayout>
-      <div className="max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen">
+      <Head title="Tratamento de Imagens" />
+      <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
 
-        <h2 className="text-3xl font-extrabold text-gray-800 mb-6">
-          🪄 Tratamento de Imagens com IA
+        <h2 className="text-4xl font-extrabold text-gray-800 mb-6 border-b pb-2">
+          🪄 Tratamento de Imagens com IA e Pica.js
         </h2>
-        <p className="text-gray-600 mb-6">Selecione uma imagem e escolha o tratamento. Para aumentar a qualidade, este serviço utiliza o **Real-ESRGAN**, um modelo robusto para aprimoramento geral de imagens.</p>
+        <p className="text-gray-600 mb-6">
+          Selecione uma imagem para aumentar a qualidade. O **Real-ESRGAN** faz o aprimoramento, e o **Pica.js** corrige o redimensionamento para garantir o fator de escala exato solicitado ({scaleFactor}x).
+        </p>
 
         {/* Upload e Configurações */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-5">
-          <label className="block text-sm font-medium text-gray-700">
-            1. Carregar Imagem
+          <label className="block text-lg font-bold text-gray-700">
+            1. Carregar Imagem e Configurar
           </label>
           <input
             type="file"
@@ -315,7 +454,7 @@ export default function TratamentoImagens() {
 
           <div className="pt-4 border-t border-gray-100">
             <label htmlFor="scale-factor" className="block text-sm font-medium text-gray-700 mb-2">
-              2. Fator de Escala (para Aumentar Qualidade)
+              Fator de Escala (para Aumentar Qualidade)
             </label>
             <input
               id="scale-factor"
@@ -325,9 +464,9 @@ export default function TratamentoImagens() {
               step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
-              className="w-full sm:w-1/3 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full sm:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="text-xs text-gray-500 mt-1">Defina o multiplicador de resolução (ex: 2 para dobrar, 4 para quadruplicar). O Real-ESRGAN suporta até 4x.</p>
+            <p className="text-xs text-gray-500 mt-1">Defina o multiplicador de resolução. O Real-ESRGAN suporta até 4x, mas o Pica.js fará a correção para o valor que você definir.</p>
           </div>
         </div>
 
@@ -346,35 +485,54 @@ export default function TratamentoImagens() {
             className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
             disabled={loading || !image}
           >
-            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade (ESRGAN)'}
+            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade (ESRGAN + Pica.js)'}
           </button>
         </div>
 
         {loading && <p className="mt-4 text-center text-indigo-600 font-medium">⏳ Processando imagem... Esta etapa pode levar alguns segundos.</p>}
+        {erroPica && <p className="mt-4 text-center text-red-600 font-medium">❌ {erroPica}</p>}
 
-        {/* Preview das Imagens */}
+        {/* Preview das Imagens - Layout de 3 Colunas */}
         {imagePreview && (
           <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Resultados</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Antes */}
-              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner">
-                <p className="font-semibold mb-3 text-gray-700">Original</p>
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Comparação de Resultados</h3>
+            <div className={`grid grid-cols-1 md:grid-cols-3 gap-6`}>
+              
+              {/* 1. Original */}
+              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
+                <p className="font-semibold mb-3 text-gray-700">1. Original</p>
                 <img
                   src={imagePreview}
                   alt="Original"
                   className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                  style={{ maxHeight: '500px', objectFit: 'contain' }}
+                  style={{ maxHeight: '400px', objectFit: 'contain' }}
                 />
               </div>
 
-              {/* Depois */}
-              {result ? (
-                <div className="relative text-center bg-green-50 p-4 rounded-lg shadow-md">
-                  {console.log("🔄 Tentando renderizar imagem:", result)}
-                  <p className="font-semibold mb-3 text-green-700">Resultado ({scaleFactor}x)</p>
+              {/* 2. Resultado da IA (Raw) */}
+              {imagePreviewUpascale ? (
+                <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-md flex flex-col items-center">
+                    <p className="font-semibold mb-3 text-yellow-800">2. Resultado da IA (Raw)</p>
+                    <img
+                        src={imagePreviewUpascale}
+                        alt="AI-Only"
+                        className="w-full h-auto rounded-lg shadow-md border border-yellow-400 mx-auto"
+                        style={{ maxHeight: '400px', objectFit: 'contain' }}
+                        onError={(e) => console.error("🚨 Erro ao carregar imagem AI:", e)}
+                    />
+                </div>
+              ) : (
+                <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center min-h-[250px]">
+                  <p className="text-gray-500">Aguardando resultado da IA...</p>
+                </div>
+              )}
 
-                  {/* Botão de Download Adicionado */}
+              {/* 3. Resultado Final Corrigido (AI + Pica) */}
+              {result ? (
+                <div className="relative text-center bg-green-50 p-4 rounded-lg shadow-xl border-4 border-green-500 flex flex-col items-center">
+                  <p className="font-semibold mb-3 text-green-700">3. Resultado Final Corrigido ({scaleFactor}x)</p>
+
+                  {/* Botão de Download Adicionado - Apenas no resultado final */}
                   <button
                     onClick={handleDownload}
                     className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
@@ -387,18 +545,18 @@ export default function TratamentoImagens() {
 
                   <img
                     src={result}
-                    alt="Depois"
+                    alt="Final Corrigido"
                     className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
-                    style={{ maxHeight: '500px', objectFit: 'contain' }}
-                    onError={(e) => console.error("🚨 Erro ao carregar imagem:", e)}
-
+                    style={{ maxHeight: '400px', objectFit: 'contain' }}
+                    onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
                   />
                 </div>
               ) : (
-                <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center">
-                  <p className="text-gray-500">Aguardando processamento...</p>
+                <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center min-h-[250px]">
+                  <p className="text-gray-500">Aguardando correção Pica.js...</p>
                 </div>
               )}
+
             </div>
           </div>
         )}
