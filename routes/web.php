@@ -53,8 +53,6 @@ Route::post('/cortar-imagem', [PdfEditorController::class, 'cortarImagem']);
 Route::post('/colar-imagem', [PdfEditorController::class, 'colarImagem']);
 
 Route::get('/pagamentos', [App\Http\Controllers\CheckoutController::class, 'index'])->name('pdf.pagamentos');
-
-
 Route::post('/create_preference', [App\Http\Controllers\CheckoutController::class, 'create'])->name('mp.create_preference');
 
 // routes/web.php
@@ -75,10 +73,8 @@ Route::get('/pagamento/retorno', function () {
     ]);
 })->name('pagamento.retorno');
 
-Route::middleware(['auth'])->get(
-    '/pagamentos/sincronizar/{preferenceId?}',
-    [CheckoutController::class, 'sincronizar']
-)->name('pagamentos.sincronizar');
+Route::middleware(['auth'])->get('/pagamentos/sincronizar/{preferenceId?}', [CheckoutController::class, 'sincronizar'])
+    ->name('pagamentos.sincronizar');
 
 
 Route::post('/webhooks/mercadopago', [CheckoutController::class, 'webhook'])
@@ -101,7 +97,6 @@ Route::post('/publico-post', function (Request $request) {
         'dados_recebidos' => $request->all()
     ]);
 })->withoutMiddleware([MiddlewareVerifyCsrfToken::class]);
-
 
 
 Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);

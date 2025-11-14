@@ -34,6 +34,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
                                     Criar Atividades
                                 </NavLink>
+
+                                <NavLink href={route('tratamento.imagens')} active={route().current('tratamento.imagens')} >
+                                    Melhoramento de Imagens
+                                </NavLink>
                              
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >
                                     Créditos

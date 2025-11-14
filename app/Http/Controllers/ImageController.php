@@ -207,6 +207,7 @@ class ImageController extends Controller
     //         return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
     //     }
     // }
+
     /**
      * Processa a imagem para upscale (aumento de qualidade) usando Base64.
      * O frontend (JavaScript) agora faz o downsize para o limite de 2.1MP.
@@ -285,4 +286,5 @@ class ImageController extends Controller
             return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
     }
+    
 }

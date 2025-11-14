@@ -60,7 +60,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                         <main className="mt-6">
 
                             <div className="w-full min-h-screen bg-gray-50 dark:bg-zinc-950 px-4 sm:px-6 lg:px-8 py-10">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
+                                <div className="grid grid-cols-1 flex-col-2 sm:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
 
                                     {/* Primeiro link */}
                                     <a
@@ -120,7 +120,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </a>
 
                                     {/* Terceiro bloco */}
-                                    <div className="flex flex-col gap-8">
+                                    <div className="flex flex-col grid-cols-1 md:grid-cols-2 lg:grid-cols-3 items-center justify-center gap-8">
 
                                         <Link href={route('pdf.editor')} className="flex flex-col items-center justify-start">
                                             <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
@@ -152,11 +152,11 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             </div>
                                         </Link>
 
-                                        <Link href={'/dashboard/tratamento-imagens'} className="flex flex-col items-center justify-start h-full">
-                                            <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
-                                                <div className="p-4 text-justify">
-                                                    <p className="text-gray-700">
-                                                        Envie suas imagens e escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
+                                        <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
+                                            <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                                <div className="p-4 text-xl text-center">
+                                                    <p className="font-semibold text-black dark:text-white">
+                                                        Escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
                                                     </p>
                                                 </div>
 
@@ -171,12 +171,9 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
 
                                     </div>
 
+
                                 </div>
                             </div>
-
-
-
-
                         </main>
                     </div>
                 </div>

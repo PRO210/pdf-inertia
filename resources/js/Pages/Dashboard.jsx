@@ -61,24 +61,24 @@ export default function Dashboard() {
                             </Link>
 
                             {/* Terceiro bloco */}
-                            {(auth.user.id === 1) && (
-                                <Link href={'/dashboard/tratamento-imagens'} className="flex flex-col items-center justify-start h-full">
-                                    <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
-                                        <div className="p-4 text-justify">
-                                            <p className="text-gray-700">
-                                                Envie suas imagens e escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
-                                            </p>
-                                        </div>
 
-                                        <img
-                                            className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
-                                            src="imagens/ia.png"
-                                            alt="ilustração de imagem"
-                                        />
-
+                            <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
+                                <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
+                                    <div className="p-4 text-justify">
+                                        <p className="text-gray-700">
+                                            Envie suas imagens e escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
+                                        </p>
                                     </div>
-                                </Link>
-                            )}
+
+                                    <img
+                                        className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
+                                        src="imagens/ia.png"
+                                        alt="ilustração de imagem"
+                                    />
+
+                                </div>
+                            </Link>
+
                             <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                 <div className='p-2 px-2 text-justify'>
                                     <p>Esse projeto é de cunho voluntario.
