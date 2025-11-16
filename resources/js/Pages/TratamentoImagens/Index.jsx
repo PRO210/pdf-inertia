@@ -6,6 +6,8 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
 import imageCompression from 'browser-image-compression';
 import pica from 'pica';
+import { upscaleCount } from './Partials/contatemUpscale';
+import { wallet } from './Partials/usarCarteira';
 
 // Definição do componente principal
 export default function TratamentoImagens() {
@@ -24,6 +26,7 @@ export default function TratamentoImagens() {
   const MODELS = {
     REMOVE_BG: 'remover-fundo',
     UPSCALER_ESRGAN: 'aumentar-qualidade',
+    UPSCALER_ESRGAN_PRICE: 0.1,
   };
 
 
@@ -128,7 +131,7 @@ export default function TratamentoImagens() {
       // 5. Configura as opções de redimensionamento e filtros de nitidez
       let resizeOptions = {
         quality: 3,
-        alpha: true
+        alpha: true,
       };
 
       // Cria o canvas de destino para este passo
@@ -204,6 +207,7 @@ export default function TratamentoImagens() {
         const base64Image = await downsizeParaReplicate(image);
         dataToSend.image = base64Image;
         dataToSend.scale = scaleFactor;
+
       } catch (e) {
         setLoading(false);
         console.error("Erro ao preparar imagem:", e);
@@ -222,7 +226,20 @@ export default function TratamentoImagens() {
 
     const endpoint = `/imagens/${type}`;
 
+    const contagemDoAumento = await upscaleCount('upscaler_esrgan_usage');
+
+    const usarCarteira = await wallet({
+      preco: MODELS.UPSCALER_ESRGAN_PRICE,
+      fileName: "upscaler_esrgan_usage",
+    });
+
+    if (!usarCarteira.success) return;
+
+    console.log("Novo saldo:", usarCarteira.new_balance);
+    
+
     try {
+
       const res = await axios.post(endpoint, dataToSend, {
         headers: {
           'Content-Type': type === MODELS.UPSCALER_ESRGAN ? 'application/json' : 'multipart/form-data',
@@ -252,6 +269,7 @@ export default function TratamentoImagens() {
 
       // --- Lógica de Pós-Processamento para UPSCALER ---
       if (type === MODELS.UPSCALER_ESRGAN) {
+
 
         // 1. Salva o resultado RAW da IA para comparação
         setImagePreviewUpascale(outputUrlOrBase64);
@@ -303,6 +321,19 @@ export default function TratamentoImagens() {
 
         // 3. Salva o resultado FINAL (AI + Pica)
         setResult(finalBase64);
+
+        // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
+        try {
+          // 'upscaler' é um bom nome para o 'file_name' no contexto do seu backend
+          await axios.post(route('user.downloads.store'), {
+            file_name: 'upscaler_esrgan_usage', // Nome da ação/download que você quer contar
+          });
+          console.log("✅ Uso do Upscaler contabilizado com sucesso!");
+        } catch (error) {
+          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
+          console.error("⚠️ Erro ao contabilizar uso do Upscaler:", error);
+        }
+
 
         Swal.fire({
           icon: 'success',
@@ -376,6 +407,7 @@ export default function TratamentoImagens() {
    * (Mantido como estava, pois é para pré-processamento do backend)
    */
   async function downsizeParaReplicate(file) {
+
     const MAX_PIXELS = 2096704;
     const img = new Image();
     const tempUrl = URL.createObjectURL(file);
@@ -461,7 +493,7 @@ export default function TratamentoImagens() {
               id="scale-factor"
               type="number"
               min="1"
-              max="8"
+              max="10"
               step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
@@ -475,7 +507,7 @@ export default function TratamentoImagens() {
               id="scale-factor-slider"
               type="range"
               min="1"
-              max="8"
+              max="10"
               step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(parseFloat(e.target.value))}

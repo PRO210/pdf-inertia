@@ -59,7 +59,7 @@ export default function Index({
       auth={auth}
       header={
         <h2 className="text-xl font-semibold leading-tight text-gray-800">
-          Painel de Pagamentos/Doações
+          Painel de Pagamentos/Créditos
         </h2>
       }
     >

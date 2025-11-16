@@ -107,5 +107,17 @@ Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
     ->middleware('auth')
     ->name('user.downloads.store');
 
+Route::post('/user-downloads-carteira', [UserDownloadsController::class, 'carteira'])
+    ->middleware('auth')
+    ->name('user.downloads.carteira');
+
+Route::get('user-download-obterSaldo', [UserDownloadsController::class, 'obterSaldo'])
+    ->middleware('auth')
+    ->name('user.downloads.obterSaldo');
+
+Route::post('user-download-debitarCredito', [UserDownloadsController::class, 'debitarCredito'])
+    ->middleware('auth')
+    ->name('user.downloads.debitarCredito');
+
 
 require __DIR__ . '/auth.php';

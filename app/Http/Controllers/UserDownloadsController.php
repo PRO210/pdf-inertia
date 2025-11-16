@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CreditUsage;
+use App\Models\Payment;
+use App\Models\User;
 use App\Models\UserDownload;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UserDownloadsController extends Controller
 {
@@ -51,35 +55,60 @@ class UserDownloadsController extends Controller
         ]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(UserDownload $UserDownload)
+   
+    private function calcularSaldo($userId)
     {
-        //
+        $totalPayments = Payment::where('user_id', $userId)
+            ->where('status', 'approved')
+            ->get()
+            ->sum(fn($p) => $p->quantity * $p->unit_price);
+
+        $totalUsed = CreditUsage::where('user_id', $userId)->sum('cost');
+
+        return round($totalPayments - $totalUsed, 2);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(UserDownload $UserDownload)
+    public function obterSaldo()
     {
-        //
+        $saldo = $this->calcularSaldo(Auth::id());
+
+        return response()->json([
+            'saldo' => $saldo
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, UserDownload $UserDownload)
+    public function debitarCredito(Request $request)
     {
-        //
-    }
+        $userId = Auth::id();
+        $cost = floatval($request->cost);
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(UserDownload $UserDownload)
-    {
-        //
+        $saldoAtual = $this->calcularSaldo($userId); // AGORA É NÚMERO!
+
+        if ($saldoAtual < $cost) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Créditos insuficientes.',
+                'current_balance' => $saldoAtual,
+            ], 403);
+        }
+
+        CreditUsage::create([
+            'user_id' => $userId,
+            'type' => $request->fileName,
+            'cost' => $cost,
+            'description' => 'Aumento de imagem via: ' . $request->fileName,
+        ]);
+
+        $novoSaldo = round($saldoAtual - $cost, 2);
+
+        if (abs($novoSaldo) < 0.01) {
+            $novoSaldo = 0; // Limpa lixo decimal
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Créditos descontados com sucesso.',
+            'new_balance' => $novoSaldo,
+        ]);
     }
 }

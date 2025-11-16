@@ -33,6 +33,7 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+
     /**
      * Get the attributes that should be cast.
      *
@@ -44,5 +45,31 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function creditUsages()
+    {
+        return $this->hasMany(CreditUsage::class);
+    }
+
+    /**
+     * Calcula o saldo total de créditos do usuário.
+     * Use $user->credit_balance
+     * @return float
+     */
+    public function getCreditBalanceAttribute(): float
+    {
+        // Certifique-se de que a soma dos payments (entradas) está correta
+        $totalCredits = $this->payments()->where('status', 'approved')->sum('quantity');
+
+        // Soma de todos os usos (débitos)
+        $totalDebits = $this->creditUsages()->sum('cost');
+
+        return $totalCredits - $totalDebits;
     }
 }
