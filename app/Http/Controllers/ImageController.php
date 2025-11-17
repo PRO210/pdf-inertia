@@ -21,41 +21,71 @@ class ImageController extends Controller
     // 🔹 1. Remover fundo da imagem
     public function removeBackground(Request $request)
     {
+        // 1.1 OBTÉM E VALIDA O ARQUIVO DE IMAGEM
+        if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Nenhuma imagem válida foi enviada.',
+            ], 400);
+        }
 
-        // Recebe a URL da imagem do usuário
-        $imageUrl = $request->input('image');
+        $imageFile = $request->file('image');
+
+        // 2. CONVERTE O ARQUIVO PARA BASE64
+        // Pega o conteúdo binário do arquivo
+        $imageData = file_get_contents($imageFile->getRealPath());
+
+        // Converte para Base64 e adiciona o prefixo de formato de dados (Data URI Scheme)
+        // O Replicate geralmente aceita Base64 puro, mas o Data URI é mais seguro.
+        $base64Image = 'data:image/' . $imageFile->getClientOriginalExtension() . ';base64,' . base64_encode($imageData);
 
         $token = env('REPLICATE_API_TOKEN');
 
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$token}",
-            'Content-Type' => 'application/json',
-            'Prefer' => 'wait', // espera o processamento terminar
-        ])->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
-            'input' => [
-                'image' => $imageUrl,
-            ],
-        ]);
-
-
-
-        $data = $response->json();
-
-        // Pega a primeira saída do modelo
-        $outputUrl = $data['output'][0] ?? null;
-
-        if ($outputUrl) {
-            return response()->json([
-                'success' => true,
-                'output' => $outputUrl,
+        // 3. ENVIA A REQUISIÇÃO PARA O REPLICATE COM BASE64
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                'Prefer' => 'wait',
+            ])->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
+                'input' => [
+                    'image' => $base64Image, // AGORA ESTAMOS ENVIANDO A STRING BASE64
+                ],
             ]);
-        }
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Erro ao processar a imagem.',
-            'data' => $data,
-        ], 500);
+            $data = $response->json();
+
+            // Verifica erros de requisição da API (status code)
+            if ($response->failed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro na API do Replicate: ' . ($data['detail'] ?? 'Falha desconhecida.'),
+                    'data' => $data,
+                ], $response->status());
+            }
+
+            // Pega a primeira saída do modelo
+            $outputUrl = $data['output'] ?? null;
+
+            if ($outputUrl) {
+                return response()->json([
+                    'success' => true,
+                    'output_base64_or_url' => $outputUrl,
+                    'replicate_id' => $data['id'] ?? null,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'O Replicate não retornou uma URL de imagem.',
+                'data' => $data,
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Exceção ao processar a requisição: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     // // 🔹 2. Aumentar qualidade (Upscale com IA)
@@ -237,7 +267,8 @@ class ImageController extends Controller
             ];
 
             // 4️⃣ Chama a API Replicate com "Prefer: wait"
-            $endpoint = 'https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions';
+            // $endpoint = 'https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions';
+            $endpoint = 'https://api.replicate.com/v1/models/recraft-ai/recraft-crisp-upscale/predictions';
 
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
@@ -286,5 +317,4 @@ class ImageController extends Controller
             return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
     }
-    
 }

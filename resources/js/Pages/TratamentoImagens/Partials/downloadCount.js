@@ -9,9 +9,9 @@ import axios from 'axios';
  * @param {string} fileName O nome da funcionalidade usada (ex: 'upscaler_esrgan_usage').
  * @returns {Promise<boolean>} Retorna true em caso de sucesso, false em caso de erro.
  */
-export const upscaleCount = async (fileName = 'upscaler_esrgan_usage') => {
+export const downloadCount = async (fileName) => {
   if (!fileName) {
-    console.error("⚠️ upscaleCount: Nome do arquivo (fileName) é obrigatório.");
+    console.error("⚠️ downloadCount: Nome do arquivo (fileName) é obrigatório.");
     return false;
   }
 

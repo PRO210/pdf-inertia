@@ -45,7 +45,7 @@ export async function wallet({ preco, fileName }) {
 
     // 3. Debitar créditos no backend
     const debito = await axios.post(route("user.downloads.debitarCredito"), {
-      fileName,
+      fileName: fileName,
       cost: preco,
     });
 

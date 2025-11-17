@@ -6,8 +6,8 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
 import imageCompression from 'browser-image-compression';
 import pica from 'pica';
-import { upscaleCount } from './Partials/contatemUpscale';
 import { wallet } from './Partials/usarCarteira';
+import { downloadCount } from './Partials/downloadCount';
 
 // Definição do componente principal
 export default function TratamentoImagens() {
@@ -17,14 +17,16 @@ export default function TratamentoImagens() {
   // O estado 'resulyt' será usado para o 3. Final Pica Corrected Result
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [scaleFactor, setScaleFactor] = useState(2);
+  const [scaleFactor, setScaleFactor] = useState(4);
   const [picaInstance, setPicaInstance] = useState(null);
   const [carregando, setCarregando] = useState(true); // Inicializa como true para esperar o Pica
   const [erroPica, setErroPica] = useState(null);
+  const [lastOperationType, setLastOperationType] = useState(null);
 
   // Mapeamento dos modelos
   const MODELS = {
     REMOVE_BG: 'remover-fundo',
+    REMOVE_BG_PRICE: 0.1,
     UPSCALER_ESRGAN: 'aumentar-qualidade',
     UPSCALER_ESRGAN_PRICE: 0.1,
   };
@@ -173,6 +175,7 @@ export default function TratamentoImagens() {
       });
     }
 
+
     // Mostra o alerta se o Pica ainda não carregou para o modo de upscaling
     if (type === MODELS.UPSCALER_ESRGAN && carregando) {
       return Swal.fire({
@@ -226,25 +229,54 @@ export default function TratamentoImagens() {
 
     const endpoint = `/imagens/${type}`;
 
-    const contagemDoAumento = await upscaleCount('upscaler_esrgan_usage');
-
-    const usarCarteira = await wallet({
-      preco: MODELS.UPSCALER_ESRGAN_PRICE,
-      fileName: "upscaler_esrgan_usage",
-    });
-
-    if (!usarCarteira.success) return;
-
-    console.log("Novo saldo:", usarCarteira.new_balance);
-    
+    let res = null;
+    let usarCarteira = null;
 
     try {
 
-      const res = await axios.post(endpoint, dataToSend, {
-        headers: {
-          'Content-Type': type === MODELS.UPSCALER_ESRGAN ? 'application/json' : 'multipart/form-data',
-        },
-      });
+      if (type === MODELS.UPSCALER_ESRGAN) {
+
+        setLastOperationType('aumentar-qualidade');
+
+        usarCarteira = await wallet({
+          preco: MODELS.UPSCALER_ESRGAN_PRICE,
+          // fileName: "upscaler_esrgan_usage",
+          fileName: "recraft-crisp-upscale",
+        });
+
+        if (usarCarteira.success) {
+          res = await axios.post(endpoint, dataToSend, {
+            headers: {
+              'Content-Type': type === MODELS.UPSCALER_ESRGAN ? 'application/json' : 'multipart/form-data',
+            },
+          });
+        } else {
+          console.log(usarCarteira.success);
+          return;
+        }
+
+      } else if (type === MODELS.REMOVE_BG) {
+
+        setLastOperationType('remover-fundo');
+
+        usarCarteira = await wallet({
+          preco: MODELS.REMOVE_BG_PRICE,
+          fileName: "recraft-remove-background",
+        });
+
+        if (usarCarteira.success) {
+          res = await axios.post(endpoint, dataToSend, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        } else {
+          console.log(usarCarteira.success);
+          return;
+        }
+      }
+
+      console.log("Novo saldo:", usarCarteira.new_balance);
 
       console.log("🛰️ Retorno completo do backend:", res.data);
 
@@ -259,8 +291,11 @@ export default function TratamentoImagens() {
           title: 'Sem resultado!',
           text: 'O backend não retornou a imagem processada.',
         });
+
+
         return;
       }
+
 
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
@@ -361,34 +396,45 @@ export default function TratamentoImagens() {
   /**
    * Função para iniciar o download da imagem Base64 (assumindo JPEG).
    */
-  const handleDownload = async () => {
-    // Sempre baixa o resultado final (AI + Pica)
+  /**
+ * Função para iniciar o download da imagem Base64 ou URL.
+ */
+  const handleDownload = async (type) => {
     if (!result) return;
 
     const url = result;
-    // Tenta determinar a extensão. Se for base64, assume jpeg para download.
-    const ext = url.startsWith('data:image/png') ? 'png' : 'jpg';
 
+    // ✅ CORREÇÃO 1: Garante que o formato seja PNG se for remoção de fundo (para manter transparência).
+    const ext = (type === MODELS.REMOVE_BG || url.startsWith('data:image/png'))
+      ? 'png'
+      : 'jpg';
+   
     try {
-      // Se for base64, converte
-      if (url.startsWith('data:image')) {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `resultado_final_corrigido.${ext}`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      } else {
-        // Se for URL, usa o método anterior
-        const response = await fetch(url);
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `resultado_final_corrigido.${url.split('.').pop().split('?')[0]}`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      }
+      let link;
+
+      // Lógica de download (funciona para Base64 e URL externa)
+      const response = await fetch(url);
+      const blob = await response.blob();
+
+      link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+
+      // Define o nome do arquivo com a extensão correta
+      link.download = `resultado_final_corrigido.${ext}`;
+
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+
+      // ✅ CORREÇÃO 2: Contagem de uso (Nome da função deve ser genérico)
+      let fileName = (lastOperationType === MODELS.REMOVE_BG)
+        ? 'recraft-remove-background'
+        : 'recraft-crisp-upscale';
+
+      // Supondo que você renomeou 'upscaleCount' no seu backend para refletir o uso genérico
+      await downloadCount(fileName);
+
+      console.log(`Download logado para: ${fileName}`);
 
     } catch (err) {
       console.error('Erro ao baixar imagem:', err);
@@ -399,8 +445,6 @@ export default function TratamentoImagens() {
       });
     }
   };
-
-
   /**
    * Ajusta o tamanho da imagem de entrada para garantir que ela não exceda o limite de pixels
    * da GPU do Replicate (aprox. 2.1MP), mantendo a proporção original.
@@ -492,7 +536,7 @@ export default function TratamentoImagens() {
             <input
               id="scale-factor"
               type="number"
-              min="1"
+              min="4"
               max="10"
               step="1"
               value={scaleFactor}
@@ -506,7 +550,7 @@ export default function TratamentoImagens() {
             <input
               id="scale-factor-slider"
               type="range"
-              min="1"
+              min="4"
               max="10"
               step="1"
               value={scaleFactor}
@@ -522,7 +566,7 @@ export default function TratamentoImagens() {
             </div>
 
             <p className="text-xs text-gray-500 mt-1">
-              Defina o multiplicador de resolução. O Real-ESRGAN suporta até 4x.
+              Defina o multiplicador de resolução. O nosso modelo suporta até 9000px.
             </p>
           </div>
 
@@ -592,7 +636,7 @@ export default function TratamentoImagens() {
 
                   {/* Botão de Download Adicionado - Apenas no resultado final */}
                   <button
-                    onClick={handleDownload}
+                    onClick={() => handleDownload(lastOperationType)}
                     className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
                     title="Baixar Imagem Processada"
                   >
