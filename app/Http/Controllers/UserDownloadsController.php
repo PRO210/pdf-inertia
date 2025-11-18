@@ -4,12 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\CreditUsage;
 use App\Models\Payment;
-use App\Models\User;
 use App\Models\UserDownload;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class UserDownloadsController extends Controller
 {
@@ -111,4 +109,8 @@ class UserDownloadsController extends Controller
             'new_balance' => $novoSaldo,
         ]);
     }
+
+    /* 
+    
+    */
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CreditUsage;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
@@ -34,7 +35,6 @@ class CheckoutController extends Controller
      */
     public function create(Request $request)
     {
-
         // 1. VERIFICAÇÃO DE AUTENTICAÇÃO
         $userId = Auth::id();
 
@@ -230,6 +230,7 @@ class CheckoutController extends Controller
             return response()->json(['error' => 'Erro interno do servidor'], 500);
         }
     }
+
     /**
      * Mapeia os status do Mercado Pago para os status internos.
      */
@@ -255,7 +256,7 @@ class CheckoutController extends Controller
         $updated = false;
         $updatedPaymentId = null;
         $messages = [];
-        $user = $request->user(); 
+        $user = $request->user();
 
         if ($preferenceId) {
             // Tenta encontrar o pagamento local
@@ -291,12 +292,56 @@ class CheckoutController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        // Saídas (Gastos de créditos)
+        $creditUsages = CreditUsage::with('user')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $wallet = collect();
+
+        $wallet = $wallet->merge(
+            $payments->map(fn($p) => [
+                'id' => $p->id,
+                'type' => 'entrada',
+                'updated' => $updated,
+                'updated_payment_id' => $updatedPaymentId,
+                'messages' => $messages,
+                'amount' => $p->quantity * $p->unit_price,
+                'description' => $p->description,
+                'created_at' => $p->created_at,
+            ])
+        );
+
+        $wallet = $wallet->merge(
+            $creditUsages->map(fn($u) => [
+                'id' => $u->id,
+                'type' => 'saida',
+                'amount' => $u->cost,
+                'description' => $u->description,
+                'created_at' => $u->created_at,
+            ])
+        );
+
+        $wallet = $wallet->sortByDesc('created_at')->values();
+
+        // transforma a collection em paginação
+        $page = (int) ($request->get('page') ?: 1);
+        $perPage = 5;
+
+        $paginator = new \Illuminate\Pagination\LengthAwarePaginator(
+            $wallet->slice(($page - 1) * $perPage, $perPage)->values(),
+            $wallet->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url()]
+        );
 
         return response()->json([
             'updated' => $updated,
-            'updated_payment_id' => $updatedPaymentId,
             'messages' => $messages,
-            'payments' => $payments,
+            // 'wallet' => $wallet
+            'wallet' => $paginator
         ]);
     }
 }
