@@ -18,7 +18,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
     <section className={shoppingCartClass}>
       <div className="" id="container">
         <div className="block-heading">
-          <h2 className="sm:text-2xl">Seu carrinho</h2>
+          <h2 className="sm:text-4xl font-bold">Seu carrinho</h2>
           <p></p>
         </div>
 
@@ -30,13 +30,13 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                   <div className="info">
                     <div className="product-details">
                       <div className="row justify-content-md-center">
-                        <div className="col-md-3">
+                        {/* <div className="col-md-3">
                           <img
                             className="img-fluid mx-auto d-block image w-36 fill-current transform transition-transform duration-300 hover:scale-105"
                             src="/imagens/logo.png"
                             alt="logo"
                           />
-                        </div>
+                        </div> */}
                         <div className="col-md-4 product-detail">
                           <h5>Produto</h5>
                           <div className="product-info">
@@ -45,7 +45,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                             <br />
                             <b>Author: </b>Pró
                             <br />
-                            <b>Doação:</b> R$ <span id="unit-price">3,00</span>
+                            <b>Créditos:</b> R$ <span id="unit-price">3,00</span>
                             <br />
                           </div>
                         </div>
@@ -59,7 +59,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                             id="quantity"
                             value={orderData.quantity}
                             min="1"
-                            max="12"
+                            max="120"
                             className="form-control pro-input"
                           />
                         </div>
@@ -78,13 +78,13 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                 </div>
 
                 <button
-                  className="text-bold py-2 px-4 mt-4 text-white w-full rounded-xl "
+                  className="pro-btn-blue"
                   onClick={onClick}
                   id="checkout-btn"
                   disabled={disabled}
                 >
                   Continuar
-                </button>
+                </button>               
               </div>
             </div>
           </div>

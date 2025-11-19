@@ -9,20 +9,20 @@ export default function MercadoPago() {
         <AuthenticatedLayout
             header={
                 <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Checkout de Pagamento/Doação com Mercado Pago
+                    Checkout de Pagamento/Créditos com Mercado Pago
                 </h2>
             }
         >
-            <Head title="Pagamento/Doação" />
+            <Head title="Pagamento/Créditos" />
 
-            <div className="py-12 min-h-svh">
+            <div className="py-8 min-h-svh">
                 <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
                     <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
-                        <Mp />                    
+                        <Mp />
                     </div>
                 </div>
             </div>
-            <Footer />
+            <Footer ano={2025} />
         </AuthenticatedLayout>
 
     );

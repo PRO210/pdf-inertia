@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import Footer from '@/Components/Footer';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -78,13 +78,13 @@ export default function Index({
   return (
     <AuthenticatedLayout
       auth={auth}
-    // header={
-    //   <h2 className="text-xl font-semibold leading-tight text-gray-800">
-    //     Sua Carteira
-    //   </h2>
-    // }
+      header={
+        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+          Sua Carteira
+        </h2>
+      }
     >
-      <div className="p-4 min-h-screen">
+      <div className="p-4">
 
         {/* MENSAGEM */}
         {mensagem && (
@@ -94,26 +94,19 @@ export default function Index({
         )}
 
         {/* BOTÃO ATUALIZAR */}
-        <div className="mb-3 flex items-center text-center gap-2">
-
-          <Link href={route('pdf.pagamentos')} className="flex-1 pro-btn-blue w-full">
-           ➕ Créditos
-          </Link>
-
+        <div className="mb-3 flex items-center gap-2">
           <button
             onClick={() => sincronizar(detalhes?.preference_id || null)}
-            className="pro-btn-purple flex-1 w-full"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
             disabled={loading}
           >
             {loading ? '🔄 Atualizando...' : '🔁 Atualizar agora'}
           </button>
 
-          <span className="text-sm text-gray-500 font-bold">
+          <span className="text-sm text-gray-500">
             Última atualização: {new Date().toLocaleTimeString()}
           </span>
-
         </div>
-
 
         {/* ==============================
               TABELA DA CARTEIRA

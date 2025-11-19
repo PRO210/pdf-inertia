@@ -4,19 +4,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
 
-
 export default function Dashboard() {
-
     const { auth } = usePage().props;
-
-    return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Bem-vindo ao PDF Digital Fácil!
-                </h2>
-            }
-        >
+    return (     
+        <>
             <Head title="Dashboard" />
 
             <div className="py-12">
@@ -110,8 +101,23 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
-
             <Footer ano={2025} />
-        </AuthenticatedLayout>
+        </>       
     );
 }
+/**
+ * Aqui definimos o layout para o Inertia — o layout NÃO será desmontado entre navegações.
+ * Repare que passamos o header (que era usado anteriormente) para o AuthenticatedLayout.
+ */
+Dashboard.layout = page => (
+    <AuthenticatedLayout
+        auth={page.props.auth}
+        header={
+            <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                Bem-vindo ao PDF Digital Fácil!
+            </h2>
+        }
+    >
+        {page}
+    </AuthenticatedLayout>
+);

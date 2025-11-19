@@ -1,7 +1,7 @@
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { PDFDocument, rgb } from 'pdf-lib'
 import { usePage } from '@inertiajs/react'
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
 import { Head } from '@inertiajs/react'
 import { router } from '@inertiajs/react'
 
@@ -583,7 +583,7 @@ export default function PdfEditor() {
   };
 
 
-  const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 300) => {
+  const rasterizarPdfParaBase64 = async (pdfUrl, paginaNum = 1, dpi = 150) => {
     try {
       console.log(`rasterizarPdfParaBase64 chamado com: pdfUrl=${pdfUrl}, paginaNum=${paginaNum}, dpi=${dpi}`);
 

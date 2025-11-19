@@ -126,7 +126,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
                                                 <div className="p-4 text-xl text-center">
                                                     <p className="font-semibold text-black dark:text-white">
-                                                        <strong>Vamos começar</strong>!
+                                                        <strong>Vamos começar: Escolha entre um dos nossos serviços e aproveite</strong>!
                                                     </p>
                                                 </div>
                                                 <img

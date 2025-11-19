@@ -287,14 +287,12 @@ class CheckoutController extends Controller
         }
 
         // Retorna apenas os pagamentos do usuário logado
-        $payments = Payment::with('user')
-            ->where('user_id', $user->id)
+        $payments = Payment::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
         // Saídas (Gastos de créditos)
-        $creditUsages = CreditUsage::with('user')
-            ->where('user_id', $user->id)
+        $creditUsages = CreditUsage::where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -340,8 +338,11 @@ class CheckoutController extends Controller
         return response()->json([
             'updated' => $updated,
             'messages' => $messages,
-            // 'wallet' => $wallet
-            'wallet' => $paginator
+            'wallet' => $paginator->toArray()
         ]);
     }
+
+    /* 
+    *
+     */
 }

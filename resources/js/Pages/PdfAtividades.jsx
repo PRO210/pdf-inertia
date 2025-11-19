@@ -147,7 +147,7 @@ const gerarPDF = async (
         }
         // cabecalhoModo="nenhuma" (e cabecalhoAtivo=true) já significa shouldDrawHeader=false
       }
-    
+
       const item = imagens[i];
       if (!item) continue;
 
@@ -315,10 +315,9 @@ const gerarPDF = async (
 };
 
 
-
 export default function PdfEditor() {
-  const { props } = usePage()
-  const user = props.auth.user
+  const { auth } = usePage().props;
+  const user = auth.user;
 
   const [pdfUrl, setPdfUrl] = useState(null)
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 1 })
@@ -458,7 +457,6 @@ export default function PdfEditor() {
   }
 
 
-
   useEffect(() => {
 
     if (!pdfUrl) return;
@@ -567,9 +565,8 @@ export default function PdfEditor() {
   }, [ampliacao, orientacao, repeatBorder, espessuraBorda, cabecalhoAtivo, cabecalhoTexto]);
 
 
-
   return (
-    <AuthenticatedLayout>
+    <>
       <Head title="Editor" />
       {/* <div class="xs:bg-blue-700  sm:bg-gray-900  md:bg-red-600  lg:bg-blue-600 h-6 mx-8"></div> */}
 
@@ -916,7 +913,7 @@ export default function PdfEditor() {
                 </h1>
               </div>
 
-            {/*Preview da Imagem/Pdf  */}
+              {/*Preview da Imagem/Pdf  */}
               <PdfPreview
                 imagens={imagens}
                 setImagens={setImagens}
@@ -954,6 +951,23 @@ export default function PdfEditor() {
       </div>
 
       <Footer ano={2025} />
-    </AuthenticatedLayout >
+    </>
   )
 }
+
+/**
+ * Aqui definimos o layout para o Inertia — o layout NÃO será desmontado entre navegações.
+ * Repare que passamos o header (que era usado anteriormente) para o AuthenticatedLayout.
+ */
+PdfEditor.layout = page => (
+  <AuthenticatedLayout
+    auth={page.props.auth}
+  // header={
+  //   <h2 className="text-xl font-semibold leading-tight text-gray-800">
+  //     Bem-vindo ao PDF Digital Fácil!
+  //   </h2>
+  // }
+  >
+    {page}
+  </AuthenticatedLayout>
+);

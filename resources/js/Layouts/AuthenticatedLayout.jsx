@@ -40,7 +40,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </NavLink>
                              
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >
-                                    Créditos
+                                    Carteira
                                 </NavLink>
                             </div>
                         </div>
@@ -160,9 +160,8 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
 
                         <div className="mt-3 space-y-1">
-                            <ResponsiveNavLink href={route('profile.edit')}>
-                                Perfil
-                            </ResponsiveNavLink>
+                            <ResponsiveNavLink href={route('profile.edit')}>Perfil</ResponsiveNavLink>
+                            <ResponsiveNavLink href={route('pagamento.retorno')}>Carteira</ResponsiveNavLink>
                             <ResponsiveNavLink
                                 method="post"
                                 href={route('logout')}
