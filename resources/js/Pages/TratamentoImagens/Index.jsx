@@ -29,6 +29,8 @@ export default function TratamentoImagens() {
     REMOVE_BG_PRICE: 0.1,
     UPSCALER_ESRGAN: 'aumentar-qualidade',
     UPSCALER_ESRGAN_PRICE: 0.1,
+    QWEN_LORA_PHOTO_TO_ANIME: 'imagem-to-anime',
+    QWEN_LORA_PHOTO_TO_ANIME_PRICE: 0.25,
   };
 
 
@@ -220,6 +222,33 @@ export default function TratamentoImagens() {
           text: 'Falha ao preparar imagem para envio.',
         });
       }
+    } else if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
+
+      try {
+        // 🔹 Calcula tamanho original para referência
+        const originalBitmap = await createImageBitmap(image);
+        originalWidth = originalBitmap.width;
+        originalHeight = originalBitmap.height;
+        originalMaxSide = Math.max(originalWidth, originalHeight);
+
+        // 🔹 Calcula o tamanho esperado
+        expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
+        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
+
+        const base64Image = await downsizeParaReplicate(image);
+        dataToSend.image = base64Image;
+        dataToSend.scale = scaleFactor;
+
+      } catch (e) {
+        setLoading(false);
+        console.error("Erro ao preparar imagem:", e);
+        return Swal.fire({
+          icon: 'error',
+          title: 'Erro de Preparação!',
+          text: 'Falha ao preparar imagem para envio.',
+        });
+      }
+
     } else {
       // Lógica para Remover Fundo (multipart)
       const formData = new FormData();
@@ -268,6 +297,25 @@ export default function TratamentoImagens() {
           res = await axios.post(endpoint, dataToSend, {
             headers: {
               'Content-Type': 'multipart/form-data',
+            },
+          });
+        } else {
+          console.log(usarCarteira.success);
+          return;
+        }
+      } else if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
+
+        setLastOperationType('qwen-lora-photo-to-anime');
+
+        usarCarteira = await wallet({
+          preco: MODELS.QWEN_LORA_PHOTO_TO_ANIME_PRICE,
+          fileName: "qwen-lora-photo-to-anime",
+        });
+
+        if (usarCarteira.success) {
+          res = await axios.post(endpoint, dataToSend, {
+            headers: {
+              'Content-Type': 'application/json',
             },
           });
         } else {
@@ -379,6 +427,34 @@ export default function TratamentoImagens() {
         });
       }
 
+      // --- Lógica de Pós-Processamento para UPSCALER ---
+      if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
+
+        // 1. Salva o resultado FINAL (AI + Pica)
+        setResult(outputUrlOrBase64);
+
+        // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
+        try {
+          // 'upscaler' é um bom nome para o 'file_name' no contexto do seu backend
+          await axios.post(route('user.downloads.store'), {
+            file_name: 'qwen-lora-photo-to-anime ', // Nome da ação/download que você quer contar
+          });
+          console.log("✅ Uso do qwen-lora-photo-to-anime contabilizado com sucesso!");
+        } catch (error) {
+          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
+          console.error("⚠️ Erro ao contabilizar uso do qwen-lora-photo-to-anime:", error);
+        }
+
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Imagem pronta!',
+          text: `A imagem foi aprimorada e corrigida!`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+
 
     } catch (err) {
       console.error("Erro ao processar imagem:", err);
@@ -404,11 +480,23 @@ export default function TratamentoImagens() {
 
     const url = result;
 
-    // ✅ CORREÇÃO 1: Garante que o formato seja PNG se for remoção de fundo (para manter transparência).
-    const ext = (type === MODELS.REMOVE_BG || url.startsWith('data:image/png'))
-      ? 'png'
-      : 'jpg';
-   
+
+    console.log(url);
+
+
+    let ext = null;
+
+    if (type === MODELS.REMOVE_BG) {
+      // ✅ CORREÇÃO 1: Garante que o formato seja PNG se for remoção de fundo (para manter transparência).
+      let ext = (type === MODELS.REMOVE_BG || url.startsWith('data:image/png'))
+        ? 'png'
+        : 'jpg';
+    } else {
+      ext = 'webp';
+    }
+
+
+
     try {
       let link;
 
@@ -587,8 +675,17 @@ export default function TratamentoImagens() {
             className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
             disabled={loading || !image}
           >
-            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade (ESRGAN)'}
+            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
           </button>
+
+          <button
+            onClick={() => processImage(MODELS.QWEN_LORA_PHOTO_TO_ANIME)}
+            className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700 flex-1"
+            disabled={loading || !image}
+          >
+            {loading && MODELS.QWEN_LORA_PHOTO_TO_ANIME === 'imagem-to-anime' ? 'Trabalhando na Imagem . . .' : '🎨 Foto para Anime'}
+          </button>
+
         </div>
 
         {loading && <p className="mt-4 text-center text-indigo-600 font-medium">⏳ Processando imagem... Esta etapa pode levar alguns segundos.</p>}
