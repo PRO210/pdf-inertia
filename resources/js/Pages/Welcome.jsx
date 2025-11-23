@@ -58,10 +58,8 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                         </header>
 
                         <main className="mt-6">
-
                             <div className="w-full min-h-screen bg-gray-50 dark:bg-zinc-950 px-4 sm:px-6 lg:px-8 py-10">
-                                <div className="grid grid-cols-1 flex-col-2 sm:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-
+                                <div className="grid grid-cols-1 flex-col-2 sm:grid-cols-2  gap-8 items-stretch">
                                     {/* Primeiro link */}
                                     <a
                                         href="#"
@@ -118,62 +116,76 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             <img className="w-full object-contain" src="/imagens/Pôster Digital Fácil.png" alt="Pôster" />
                                         </div>
                                     </a>
-
-                                    {/* Terceiro bloco */}
-                                    <div className="flex flex-col grid-cols-1 md:grid-cols-2 lg:grid-cols-3 items-center justify-center gap-8">
-
-                                        <Link href={route('pdf.editor')} className="flex flex-col items-center justify-start">
-                                            <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
-                                                <div className="p-4 text-xl text-center">
-                                                    <p className="font-semibold text-black dark:text-white">
-                                                        <strong>Vamos começar: Escolha entre um dos nossos serviços e aproveite</strong>!
-                                                    </p>
-                                                </div>
-                                                <img
-                                                    className="px-2 transform transition-transform duration-300 hover:scale-105"
-                                                    src="/imagens/logo.png"
-                                                    alt="logo"
-                                                />
-                                            </div>
-                                        </Link>
-
-                                        <Link href={route('pdf.atividades')} className="flex flex-col items-center justify-start">
-                                            <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition">
-                                                <div className="p-4 text-xl text-center">
-                                                    <p className="font-semibold text-black dark:text-white">
-                                                        Imagens <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes!
-                                                    </p>
-                                                </div>
-                                                <img
-                                                    className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
-                                                    src="/imagens/atividades.png"
-                                                    alt="atividades"
-                                                />
-                                            </div>
-                                        </Link>
-
-                                        <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
-                                            <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
-                                                <div className="p-4 text-xl text-center">
-                                                    <p className="font-semibold text-black dark:text-white">
-                                                        Escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
-                                                    </p>
-                                                </div>
-
-                                                <img
-                                                    className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
-                                                    src="imagens/ia.png"
-                                                    alt="ilustração de imagem"
-                                                />
-
-                                            </div>
-                                        </Link>
-
-                                    </div>
-
-
                                 </div>
                             </div>
+
+                            <div className="xs: bg-blue-700  sm:bg-gray-500  md:bg-red-600  lg:bg-yellow-500 xl:bg-green-500 h-6 mx-8"></div>
+
+                            {/* Terceiro bloco */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 items-stretch gap-8">
+
+                                <Link href={route('pdf.editor')} className="flex flex-col items-center justify-start">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                                <strong>Vamos começar: Escolha entre um dos nossos serviços e aproveite</strong>!
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 transform transition-transform duration-300 hover:scale-105"
+                                            src="/imagens/logo.png"
+                                            alt="logo"
+                                        />
+                                    </div>
+                                </Link>
+
+                                <Link href={route('pdf.atividades')} className="flex flex-col items-center justify-start">
+                                    <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                                Imagens <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes!
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="/imagens/atividades.png"
+                                            alt="atividades"
+                                        />
+                                    </div>
+                                </Link>
+
+                                <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full ">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                                Escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="imagens/ia.png"
+                                            alt="ilustração de imagem"
+                                        />
+                                    </div>
+                                </Link>
+
+                                <Link href={route('imagem-to-anime.create')} className="flex flex-col items-center justify-start h-full">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                              Crie avatares, perfis ou artes personalizadas no universo anime.
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="imagens/imagem-to-anime.png"
+                                            alt="ilustração de imagem"
+                                        />
+                                    </div>
+                                </Link>
+
+                            </div>
+
                         </main>
                     </div>
                 </div>

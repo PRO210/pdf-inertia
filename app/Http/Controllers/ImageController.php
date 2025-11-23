@@ -168,6 +168,11 @@ class ImageController extends Controller
         }
     }
 
+    public function createImageToAnime()
+    {
+        return Inertia::render('ImagemToAnime/index');
+    }
+
     public function imageToAnime(Request $request)
     {
         try {
