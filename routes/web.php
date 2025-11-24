@@ -102,8 +102,11 @@ Route::post('/publico-post', function (Request $request) {
 Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);
 Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);
 
-Route::get('/dashboard/imagem-to-anime/create', [ImageController::class, 'createImageToAnime'])->name('imagem-to-anime.create');
-Route::post('/imagens/imagem-to-anime', [ImageController::class, 'imageToAnime']);
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard/imagem-to-anime/create', [ImageController::class, 'createImageToAnime'])->name('imagem-to-anime.create');
+    Route::post('/imagens/imagem-to-anime', [ImageController::class, 'imageToAnime']);
+});
 
 
 Route::post('/user-downloads', [UserDownloadsController::class, 'store'])

@@ -19,10 +19,10 @@ export default function AuthenticatedLayout({ header, children }) {
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block h-12 w-auto fill-current text-gray-800" />                                   
+                                    <ApplicationLogo className="block fill-current text-gray-800" />                                   
                                 </Link>
                             </div>
-                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
+                            <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex ">
                                 <NavLink href={route('dashboard')} active={route().current('dashboard')} >
                                     Dashboard
                                 </NavLink>
@@ -37,6 +37,10 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                 <NavLink href={route('tratamento.imagens')} active={route().current('tratamento.imagens')} >
                                     Melhoramento de Imagens
+                                </NavLink>
+
+                                <NavLink href={route('imagem-to-anime.create')} active={route().current('imagem-to-anime.create')} >
+                                    Image para Anime
                                 </NavLink>
                              
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >

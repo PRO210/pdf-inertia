@@ -707,56 +707,7 @@ export default function PdfEditor() {
                 </select>
               </div>
 
-              {/* Cabeçalho */}
-
-              {/* <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cabecalhoAtivo}
-                  onChange={(e) => {
-                    setCabecalhoAtivo(e.target.checked);
-                    setAlteracoesPendentes(true);
-                  }}
-                />
-                Mostrar cabeçalho:
-              </label>
-
-              <div className="w-full">
-                {cabecalhoAtivo && (
-                  <>
-                    {cabecalhoTexto.map((linha, index) => (
-                      <input
-                        key={index}
-                        type="text"
-                        value={linha}
-                        onChange={(e) => {
-                          const valor = e.target.value;
-
-                          // máximo por linha de acordo com orientação
-                          const maxPorLinha = orientacao === "paisagem" ? 54 : 42;
-
-                          // corta o excesso (se quiser confiar no maxLength pode remover slice)
-                          const ajustado = valor.slice(0, maxPorLinha);
-
-                          // atualiza apenas a linha editada
-                          const novoTexto = [...cabecalhoTexto];
-                          novoTexto[index] = ajustado;
-                          setCabecalhoTexto(novoTexto);
-                          setAlteracoesPendentes(true);
-                        }}
-                        maxLength={orientacao === "paisagem" ? 54 : 42} // 🔑 limita direto no input
-                        className="w-full border rounded p-2 mt-2 pro-input"
-                        placeholder={`Linha ${index + 1}`}
-                      />
-                    ))}
-
-                    <p className="text-gray-500 mt-1">
-                      Máximo de {orientacao === "paisagem" ? 54 : 42} caracteres por linha.
-                    </p>
-                  </>
-                )}
-              </div> */}
-
+              {/* Cabeçalho */}           
               <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
                 <input
                   type="checkbox"
@@ -913,7 +864,7 @@ export default function PdfEditor() {
                 </h1>
               </div>
 
-              {/*Preview da Imagem/Pdf  */}
+              {/*Componente Preview da Imagem/Pdf  */}
               <PdfPreview
                 imagens={imagens}
                 setImagens={setImagens}

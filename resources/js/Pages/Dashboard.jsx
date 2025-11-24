@@ -6,7 +6,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 
 export default function Dashboard() {
     const { auth } = usePage().props;
-    return (     
+    return (
         <>
             <Head title="Dashboard" />
 
@@ -20,15 +20,15 @@ export default function Dashboard() {
                             <Link
                                 href={route('pdf.editor')} className="flex flex-col items-center justify-start h-full" >
                                 <div className="overflow-hidden rounded shadow-md">
-                                    <div className="p-4 text-justify">
+                                    <div className="p-4 text-xl text-justify">
                                         <p className="text-black">
                                             Se uma imagem vale mais que 1000 palavras  <strong> imagine em um lindo cartaz:) </strong> !
                                         </p>
                                     </div>
                                     <img
                                         className="px-2 transform transition-transform duration-300 hover:scale-105"
-                                        src="/imagens/logo.png"
-                                        alt="logo"
+                                        src="/imagens/poster.png"
+                                        alt="poster"
                                     />
                                 </div>
                             </Link>
@@ -37,7 +37,7 @@ export default function Dashboard() {
                             <Link
                                 href={route('pdf.atividades')} className="flex flex-col items-center justify-start h-full" >
                                 <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
-                                    <div className="p-4 text-justify">
+                                    <div className="p-4 text-xl text-justify">
                                         <p className="text-black">
                                             Imagens  <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes !
                                         </p>
@@ -55,7 +55,7 @@ export default function Dashboard() {
 
                             <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
                                 <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
-                                    <div className="p-4 text-justify">
+                                    <div className="p-4 text-xl text-justify">
                                         <p className="text-gray-700">
                                             Envie suas imagens e escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
                                         </p>
@@ -70,24 +70,47 @@ export default function Dashboard() {
                                 </div>
                             </Link>
 
-                            <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
-                                <div className='p-2 px-2 text-justify'>
-                                    <p>Esse projeto é de cunho voluntario.
-                                        Por isso não se acanhe e faça uma  doação para garantir a sua manuntenção.
-                                    </p>
+                            <Link href={route('imagem-to-anime.create')} className="flex flex-col items-center justify-start h-full">
+                                <div className="overflow-hidden roundedcursor-pointer hover:shadow-lg transition pb-6">
+                                    <div className="p-4 text-xl text-justify">
+                                        <p className="font-semibold ">
+                                            Crie avatares, perfis ou artes personalizadas no universo anime usando IA.
+                                        </p>
+                                    </div>
+                                    <img
+                                        className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
+                                        src="imagens/imagem-to-anime.png"
+                                        alt="ilustração de imagem"
+                                    />
                                 </div>
-                                <img
-                                    className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
-                                    src="/imagens/logoCafe.svg"
-                                    alt="doação"
-                                />
-                                <Pix />
+                            </Link>
+
+                            {/* Bloco de Doação */}
+                            <div className="flex flex-col items-center justify-start h-full">
+                                <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition ">
+                                    <div className='p-2 px-2 text-xl text-justify'>
+                                        <p>Esse projeto é de cunho voluntário.
+                                            Por isso não se acanhe e faça uma doação para garantir a sua manuntenção.
+                                        </p>
+                                    </div>
+                                    <img
+                                        className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
+                                        src="/imagens/logoCafe.svg"
+                                        alt="doação"
+                                    />
+                                    <Pix />
+                                </div>
                             </div>
 
                             {/* Quarto bloco */}
                             {(
-                                <Link href={route('pdf.pagamentos')} className="flex flex-col items-center justify-start">
+                                <Link href={route('pdf.pagamentos')} className="flex flex-col items-center justify-start h-full">
                                     <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
+                                        <div className="p-4 text-xl text-justify">
+                                            <p className="font-semibold ">
+                                                Fique tranquilo nosso sistema de créditos é integrado ao MP para sua segurança.
+                                            </p>
+                                        </div>
                                         <img
                                             className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
                                             src="/imagens/Logos Mercado Pago 2025--fb6f16c9/Logos Mercado Pago 2025/Uso digital - RGB/PNGs/MP_RGB_HANDSHAKE_color_horizontal.png"
@@ -102,7 +125,7 @@ export default function Dashboard() {
                 </div>
             </div>
             <Footer ano={2025} />
-        </>       
+        </>
     );
 }
 /**
@@ -113,7 +136,7 @@ Dashboard.layout = page => (
     <AuthenticatedLayout
         auth={page.props.auth}
         header={
-            <h2 className="text-xl font-semibold leading-tight text-gray-800">
+            <h2 className="text-xl font-semibold  leading-tight text-gray-800">
                 Bem-vindo ao PDF Digital Fácil!
             </h2>
         }

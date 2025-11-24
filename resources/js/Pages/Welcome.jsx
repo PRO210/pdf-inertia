@@ -27,7 +27,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 {auth.user ? (
                                     <Link href={route('dashboard')}>
                                         <div className="flex lg:col-start-2 lg:justify-center">
-                                            <img className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20] rounded" src="/imagens/logo.png" alt="Logo" />
+                                            <img className="text-white lg:h-16 lg:text-[#FF2D20] rounded" src="/imagens/logo.png" alt="Logo" />
                                         </div>
                                     </Link>
                                 ) : (
@@ -119,13 +119,13 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 </div>
                             </div>
 
-                            <div className="xs: bg-blue-700  sm:bg-gray-500  md:bg-red-600  lg:bg-yellow-500 xl:bg-green-500 h-6 mx-8"></div>
+                            {/* <div className="xs: bg-blue-700  sm:bg-gray-500  md:bg-red-600  lg:bg-yellow-500 xl:bg-green-500 h-6 mx-8"></div> */}
 
                             {/* Terceiro bloco */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 items-stretch gap-8">
 
                                 <Link href={route('pdf.editor')} className="flex flex-col items-center justify-start">
-                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
                                                 <strong>Vamos começar: Escolha entre um dos nossos serviços e aproveite</strong>!
@@ -133,36 +133,36 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                         </div>
                                         <img
                                             className="px-2 transform transition-transform duration-300 hover:scale-105"
-                                            src="/imagens/logo.png"
-                                            alt="logo"
+                                            src="/imagens/poster.png"
+                                            alt="poster"
                                         />
                                     </div>
                                 </Link>
 
                                 <Link href={route('pdf.atividades')} className="flex flex-col items-center justify-start">
-                                    <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition">
+                                    <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
                                                 Imagens <strong>distribuídas de forma eficiente</strong> se tornam atividades inteligentes!
                                             </p>
                                         </div>
                                         <img
-                                            className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
+                                            className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
                                             src="/imagens/atividades.png"
                                             alt="atividades"
                                         />
                                     </div>
                                 </Link>
 
-                                <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full ">
-                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
                                                 Escolha entre <strong>remover fundo</strong> ou <strong>aumentar qualidade</strong> usando IA.
                                             </p>
                                         </div>
                                         <img
-                                            className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
+                                            className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
                                             src="imagens/ia.png"
                                             alt="ilustração de imagem"
                                         />
@@ -170,7 +170,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                 </Link>
 
                                 <Link href={route('imagem-to-anime.create')} className="flex flex-col items-center justify-start h-full">
-                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
                                               Crie avatares, perfis ou artes personalizadas no universo anime.
