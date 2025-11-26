@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\CleanUserUpscaleFiles;
+use App\Actions\SaveImageFromSource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -92,14 +95,114 @@ class ImageController extends Controller
      * Processa a imagem para upscale (aumento de qualidade) usando Base64.
      * O frontend (JavaScript) agora faz o downsize para o limite de 2.1MP.
      */
-    public function upscale(Request $request)
+    // public function upscale(Request $request)
+    // {
+    //     try {
+    //         // 1️⃣ Verifica se a string Base64 da imagem está no corpo do JSON
+    //         $base64Image = $request->input('image');
+    //         if (empty($base64Image)) {
+    //             Log::error('❌ String Base64 da imagem não encontrada na requisição.');
+    //             return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
+    //         }
+
+    //         // 2️⃣ Fator de escala (default = 2), limitado a 4×
+    //         $scale = min((int) $request->input('scale', 2), 4);
+
+    //         // O Base64 recebido já está no formato ideal.
+
+    //         // 3️⃣ Monta payload
+    //         $payload = [
+    //             'input' => [
+    //                 // Envia a string Base64 recebida
+    //                 'image' => $base64Image,
+    //                 'scale' => $scale
+    //             ]
+    //         ];
+
+    //         // 4️⃣ Chama a API Replicate com "Prefer: wait"
+    //         // $endpoint = 'https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions';
+    //         $endpoint = 'https://api.replicate.com/v1/models/recraft-ai/recraft-crisp-upscale/predictions';
+
+    //         $response = Http::withHeaders([
+    //             'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
+    //             'Content-Type' => 'application/json',
+    //             'Prefer' => 'wait', // Espera pela resposta síncrona
+    //         ])->post($endpoint, $payload);
+
+    //         // 5️⃣ Verifica resposta
+    //         if (!$response->successful()) {
+    //             Log::error('❌ Erro ao chamar Replicate', [
+    //                 'status' => $response->status(),
+    //                 'body' => $response->body(),
+    //                 // Não logar Base64 inteiro
+    //                 'payload_sample' => array_merge($payload['input'], ['image' => '...base64_data_omitted...']),
+    //             ]);
+
+    //             return response()->json([
+    //                 'error' => 'Falha ao chamar Replicate',
+    //                 'replicate_response' => $response->json(),
+    //             ], $response->status());
+    //         }
+
+    //         $result = $response->json();
+
+    //         // O output será o Base64 Data URL da imagem upscalada
+    //         $outputValue = $result['output'] ?? null;
+
+    //         Log::info('✅ Upscale concluído (Base64).', [
+    //             'status' => $result['status'] ?? 'unknown',
+    //             'output_type' => is_string($outputValue) ? (substr($outputValue, 0, 5) == 'data:' ? 'Base64' : 'URL') : 'null',
+    //         ]);
+
+    //         // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
+    //         return response()->json([
+    //             'success' => true,
+    //             'output_base64_or_url' => $outputValue,
+    //             'replicate_id' => $result['id'] ?? null,
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         Log::error('💥 Erro inesperado no upscale()', [
+    //             'mensagem' => $e->getMessage(),
+    //             'linha' => $e->getLine(),
+    //             'arquivo' => $e->getFile(),
+    //         ]);
+
+    //         return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
+    //     }
+    // }
+
+    public function upscale(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
+        // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO
+        // Ajuste estas linhas para obter o ID da Requisição e o ID do Usuário da forma correta em seu sistema.
+        $userId = Auth::check() ? Auth::id() : 0; // Exemplo: 0 se não autenticado
+
         try {
             // 1️⃣ Verifica se a string Base64 da imagem está no corpo do JSON
             $base64Image = $request->input('image');
             if (empty($base64Image)) {
                 Log::error('❌ String Base64 da imagem não encontrada na requisição.');
                 return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
+            }
+
+            // --- 1. IMAGEM ORIGINAL (INPUT) ---
+            $originalSuffix = '_upscale_original';
+
+            // 🧹 LIMPEZA: Remove a versão antiga da imagem original deste usuário.
+            $cleanFiles(
+                $userId,
+                $originalSuffix
+            );
+
+            // ---------------------------------------------
+            // 1. 💾 SALVAR A IMAGEM ORIGINAL (Chamada à Action)
+            $originalFileName = $saveImage(
+                $base64Image,
+                $userId,
+                $originalSuffix
+            );
+            if ($originalFileName) {
+                Log::info('✅ Imagem original salva via Action.', ['filename' => $originalFileName]);
             }
 
             // 2️⃣ Fator de escala (default = 2), limitado a 4×
@@ -110,14 +213,12 @@ class ImageController extends Controller
             // 3️⃣ Monta payload
             $payload = [
                 'input' => [
-                    // Envia a string Base64 recebida
                     'image' => $base64Image,
                     'scale' => $scale
                 ]
             ];
 
             // 4️⃣ Chama a API Replicate com "Prefer: wait"
-            // $endpoint = 'https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions';
             $endpoint = 'https://api.replicate.com/v1/models/recraft-ai/recraft-crisp-upscale/predictions';
 
             $response = Http::withHeaders([
@@ -128,10 +229,11 @@ class ImageController extends Controller
 
             // 5️⃣ Verifica resposta
             if (!$response->successful()) {
+                // ... (Lógica de erro do Replicate) ...
+                // Se falhar aqui, a imagem de retorno NÃO será salva.
                 Log::error('❌ Erro ao chamar Replicate', [
                     'status' => $response->status(),
                     'body' => $response->body(),
-                    // Não logar Base64 inteiro
                     'payload_sample' => array_merge($payload['input'], ['image' => '...base64_data_omitted...']),
                 ]);
 
@@ -142,14 +244,36 @@ class ImageController extends Controller
             }
 
             $result = $response->json();
-
-            // O output será o Base64 Data URL da imagem upscalada
             $outputValue = $result['output'] ?? null;
 
-            Log::info('✅ Upscale concluído (Base64).', [
-                'status' => $result['status'] ?? 'unknown',
-                'output_type' => is_string($outputValue) ? (substr($outputValue, 0, 5) == 'data:' ? 'Base64' : 'URL') : 'null',
-            ]);
+            // --- 2. IMAGEM DE RETORNO (OUTPUT) ---
+            $returnSuffix = '_upscale_return';
+
+            if (!empty($outputValue)) {
+
+                // 🧹 LIMPEZA: Remove a versão antiga da imagem de retorno deste usuário.
+                $cleanFiles(
+                    $userId,
+                    $returnSuffix
+                );
+            }
+
+            // 2. SALVAR A IMAGEM DE RETORNO (Chamada à Action)
+            if (!empty($outputValue)) {
+                $savedFileName = $saveImage(
+                    $outputValue,
+                    $userId,
+                    $returnSuffix
+                );
+
+                if ($savedFileName) {
+                    Log::info('✅ Imagem upscalada salva via Action.', ['filename' => $savedFileName]);
+                } else {
+                    Log::warning('⚠️ Imagem upscalada não foi salva. Output não era Base64/URL ou falha no download.');
+                }
+            }
+
+
 
             // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
             return response()->json([
@@ -158,6 +282,7 @@ class ImageController extends Controller
                 'replicate_id' => $result['id'] ?? null,
             ]);
         } catch (\Exception $e) {
+            // ... (Lógica de tratamento de exceção) ...
             Log::error('💥 Erro inesperado no upscale()', [
                 'mensagem' => $e->getMessage(),
                 'linha' => $e->getLine(),
