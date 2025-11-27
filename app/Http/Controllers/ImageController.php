@@ -95,82 +95,6 @@ class ImageController extends Controller
      * Processa a imagem para upscale (aumento de qualidade) usando Base64.
      * O frontend (JavaScript) agora faz o downsize para o limite de 2.1MP.
      */
-    // public function upscale(Request $request)
-    // {
-    //     try {
-    //         // 1️⃣ Verifica se a string Base64 da imagem está no corpo do JSON
-    //         $base64Image = $request->input('image');
-    //         if (empty($base64Image)) {
-    //             Log::error('❌ String Base64 da imagem não encontrada na requisição.');
-    //             return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
-    //         }
-
-    //         // 2️⃣ Fator de escala (default = 2), limitado a 4×
-    //         $scale = min((int) $request->input('scale', 2), 4);
-
-    //         // O Base64 recebido já está no formato ideal.
-
-    //         // 3️⃣ Monta payload
-    //         $payload = [
-    //             'input' => [
-    //                 // Envia a string Base64 recebida
-    //                 'image' => $base64Image,
-    //                 'scale' => $scale
-    //             ]
-    //         ];
-
-    //         // 4️⃣ Chama a API Replicate com "Prefer: wait"
-    //         // $endpoint = 'https://api.replicate.com/v1/models/nightmareai/real-esrgan/predictions';
-    //         $endpoint = 'https://api.replicate.com/v1/models/recraft-ai/recraft-crisp-upscale/predictions';
-
-    //         $response = Http::withHeaders([
-    //             'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
-    //             'Content-Type' => 'application/json',
-    //             'Prefer' => 'wait', // Espera pela resposta síncrona
-    //         ])->post($endpoint, $payload);
-
-    //         // 5️⃣ Verifica resposta
-    //         if (!$response->successful()) {
-    //             Log::error('❌ Erro ao chamar Replicate', [
-    //                 'status' => $response->status(),
-    //                 'body' => $response->body(),
-    //                 // Não logar Base64 inteiro
-    //                 'payload_sample' => array_merge($payload['input'], ['image' => '...base64_data_omitted...']),
-    //             ]);
-
-    //             return response()->json([
-    //                 'error' => 'Falha ao chamar Replicate',
-    //                 'replicate_response' => $response->json(),
-    //             ], $response->status());
-    //         }
-
-    //         $result = $response->json();
-
-    //         // O output será o Base64 Data URL da imagem upscalada
-    //         $outputValue = $result['output'] ?? null;
-
-    //         Log::info('✅ Upscale concluído (Base64).', [
-    //             'status' => $result['status'] ?? 'unknown',
-    //             'output_type' => is_string($outputValue) ? (substr($outputValue, 0, 5) == 'data:' ? 'Base64' : 'URL') : 'null',
-    //         ]);
-
-    //         // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
-    //         return response()->json([
-    //             'success' => true,
-    //             'output_base64_or_url' => $outputValue,
-    //             'replicate_id' => $result['id'] ?? null,
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         Log::error('💥 Erro inesperado no upscale()', [
-    //             'mensagem' => $e->getMessage(),
-    //             'linha' => $e->getLine(),
-    //             'arquivo' => $e->getFile(),
-    //         ]);
-
-    //         return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
-    //     }
-    // }
-
     public function upscale(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
         // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO
@@ -201,6 +125,8 @@ class ImageController extends Controller
                 $userId,
                 $originalSuffix
             );
+
+
             if ($originalFileName) {
                 Log::info('✅ Imagem original salva via Action.', ['filename' => $originalFileName]);
             }
@@ -250,7 +176,6 @@ class ImageController extends Controller
             $returnSuffix = '_upscale_return';
 
             if (!empty($outputValue)) {
-
                 // 🧹 LIMPEZA: Remove a versão antiga da imagem de retorno deste usuário.
                 $cleanFiles(
                     $userId,
@@ -267,6 +192,7 @@ class ImageController extends Controller
                 );
 
                 if ($savedFileName) {
+
                     Log::info('✅ Imagem upscalada salva via Action.', ['filename' => $savedFileName]);
                 } else {
                     Log::warning('⚠️ Imagem upscalada não foi salva. Output não era Base64/URL ou falha no download.');
@@ -274,12 +200,11 @@ class ImageController extends Controller
             }
 
 
-
             // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
             return response()->json([
                 'success' => true,
                 'output_base64_or_url' => $outputValue,
-                'replicate_id' => $result['id'] ?? null,
+                'replicate_id' => $result['id'] ?? null
             ]);
         } catch (\Exception $e) {
             // ... (Lógica de tratamento de exceção) ...
@@ -291,6 +216,50 @@ class ImageController extends Controller
 
             return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Verifica a existência das imagens temporárias (original e retorno) para o usuário logado.
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getTemporaryUpscaleImages()
+    {
+        // Obtém o ID do usuário logado
+        $userId = Auth::check() ? Auth::id() : 0;
+
+        if ($userId === 0) {
+            return response()->json(['error' => 'Usuário não autenticado.'], 401);
+        }
+
+        $originalSuffix = '_upscale_original';
+        $returnSuffix = '_upscale_return';
+        $diskPath = 'temp/';
+
+        // 1. Busca por ARQUIVOS ORIGINAIS (Ex: 1_upscale_original.webp)
+        $originalPattern = storage_path('app/public/' . $diskPath) . $userId . $originalSuffix . '.*';
+        $originalFiles = glob($originalPattern);
+        $originalUrl = null;
+
+        if (!empty($originalFiles)) {
+            // Pega o primeiro (e único) arquivo encontrado e gera a URL pública
+            $originalUrl = Storage::url(str_replace(storage_path('app/public/'), '', $originalFiles[0]));
+        }
+
+        // 2. Busca por ARQUIVOS DE RETORNO (Ex: 1_upscale_return.webp)
+        $returnPattern = storage_path('app/public/' . $diskPath) . $userId . $returnSuffix . '.*';
+        $returnFiles = glob($returnPattern);
+        $returnUrl = null;
+
+        if (!empty($returnFiles)) {
+            // Pega o primeiro (e único) arquivo encontrado e gera a URL pública
+            $returnUrl = Storage::url(str_replace(storage_path('app/public/'), '', $returnFiles[0]));
+        }
+
+        return response()->json([
+            'success' => true,
+            'original_image_url' => $originalUrl,
+            'upscaled_image_url' => $returnUrl,
+        ]);
     }
 
     public function createImageToAnime()

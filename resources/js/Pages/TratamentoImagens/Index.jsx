@@ -8,13 +8,12 @@ import imageCompression from 'browser-image-compression';
 import pica from 'pica';
 import { wallet } from './Partials/usarCarteira';
 import { downloadCount } from './Partials/downloadCount';
+import { downloadImageFromSource } from '@/Services/DownloadHelper';
 
 // Definição do componente principal
 export default function TratamentoImagens() {
   const [image, setImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null); // 1. Original
-  const [imagePreviewUpascale, setImagePreviewUpascale] = useState(null); // 2. AI-Only Result (Raw)
-  // O estado 'resulyt' será usado para o 3. Final Pica Corrected Result
+  const [imagePreview, setImagePreview] = useState(null); 
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [scaleFactor, setScaleFactor] = useState(4);
@@ -22,6 +21,8 @@ export default function TratamentoImagens() {
   const [carregando, setCarregando] = useState(true); // Inicializa como true para esperar o Pica
   const [erroPica, setErroPica] = useState(null);
   const [lastOperationType, setLastOperationType] = useState(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState(null);
+  const [upscaledImageUrl, setUpscaledImageUrl] = useState(null);
 
   // Mapeamento dos modelos
   const MODELS = {
@@ -32,6 +33,35 @@ export default function TratamentoImagens() {
     QWEN_LORA_PHOTO_TO_ANIME: 'imagem-to-anime',
     QWEN_LORA_PHOTO_TO_ANIME_PRICE: 0.25,
   };
+
+  // 💡 useEffect para verificar imagens salvas na montagem
+  useEffect(() => {
+    const fetchSavedImages = async () => {
+      try {
+        setCarregando(true);
+
+        // 💡 MUDANÇA PRINCIPAL: Usar a função route() com o nome da rota
+        const url = route('upscale.temp.images');
+
+        // Chama o novo endpoint do Laravel usando a URL gerada
+        const response = await axios.get(url);
+
+        console.log(response.data);
+
+
+        if (response.data.success) {
+          setOriginalImageUrl(response.data.original_image_url);
+          setUpscaledImageUrl(response.data.upscaled_image_url);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar imagens salvas:", error);
+        // Tratar erro (ex: 401 não autenticado)
+      } finally {
+        setCarregando(false);
+      }
+    };
+    fetchSavedImages();
+  }, []); // O array vazio garante que rode apenas na montagem
 
 
   // Inicializa o Pica.js uma vez
@@ -75,7 +105,6 @@ export default function TratamentoImagens() {
       console.log(`Tudo começa aqui: handleUpload`, file);
     }
   };
-
 
   /**
  * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
@@ -262,7 +291,6 @@ export default function TratamentoImagens() {
     let usarCarteira = null;
 
     try {
-
       if (type === MODELS.UPSCALER_ESRGAN) {
 
         setLastOperationType('aumentar-qualidade');
@@ -325,7 +353,6 @@ export default function TratamentoImagens() {
       }
 
       console.log("Novo saldo:", usarCarteira.new_balance);
-
       console.log("🛰️ Retorno completo do backend:", res.data);
 
       const outputUrlOrBase64 =
@@ -340,10 +367,8 @@ export default function TratamentoImagens() {
           text: 'O backend não retornou a imagem processada.',
         });
 
-
         return;
       }
-
 
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
@@ -455,6 +480,8 @@ export default function TratamentoImagens() {
         });
       }
 
+      fetchSavedImages();
+
 
     } catch (err) {
       console.error("Erro ao processar imagem:", err);
@@ -470,69 +497,39 @@ export default function TratamentoImagens() {
 
 
   /**
-   * Função para iniciar o download da imagem Base64 (assumindo JPEG).
+   * Função para iniciar o download da imagem salva (upscaledImageUrl).
+   * Esta função também fará a contagem de uso da API.
    */
-  /**
- * Função para iniciar o download da imagem Base64 ou URL.
- */
   const handleDownload = async (type) => {
-    if (!result) return;
+    // ⚠️ Assumindo que 'upscaledImageUrl' é a URL pública do Laravel (http://.../storage/...)
+    // ou a URL/Base64 original do Replicate que você deseja baixar.
+    if (!upscaledImageUrl) return;
 
-    const url = result;
-
-
-    console.log(url);
-
-
-    let ext = null;
+    const urlToDownload = upscaledImageUrl;
+    let defaultExt = 'webp'; // Padrão para upscale
 
     if (type === MODELS.REMOVE_BG) {
-      // ✅ CORREÇÃO 1: Garante que o formato seja PNG se for remoção de fundo (para manter transparência).
-      let ext = (type === MODELS.REMOVE_BG || url.startsWith('data:image/png'))
-        ? 'png'
-        : 'jpg';
-    } else {
-      ext = 'webp';
+      // Se for remoção de fundo, o PNG é preferível para manter a transparência.
+      defaultExt = 'png';
     }
 
+    // 1. CHAMA A FUNÇÃO REUTILIZÁVEL DE DOWNLOAD
+    downloadImageFromSource(urlToDownload, 'resultado_final_corrigido', defaultExt);
 
-
+    // 2. Lógica de Contagem de Uso (API Call)
     try {
-      let link;
-
-      // Lógica de download (funciona para Base64 e URL externa)
-      const response = await fetch(url);
-      const blob = await response.blob();
-
-      link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-
-      // Define o nome do arquivo com a extensão correta
-      link.download = `resultado_final_corrigido.${ext}`;
-
-      link.click();
-      URL.revokeObjectURL(link.href);
-
-
-      // ✅ CORREÇÃO 2: Contagem de uso (Nome da função deve ser genérico)
-      let fileName = (lastOperationType === MODELS.REMOVE_BG)
+      let fileName = (type === MODELS.REMOVE_BG)
         ? 'recraft-remove-background'
         : 'recraft-crisp-upscale';
 
-      // Supondo que você renomeou 'upscaleCount' no seu backend para refletir o uso genérico
       await downloadCount(fileName);
-
       console.log(`Download logado para: ${fileName}`);
 
     } catch (err) {
-      console.error('Erro ao baixar imagem:', err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro no download',
-        text: 'Não foi possível baixar a imagem. Verifique o console.',
-      });
+      console.error('Erro ao logar download:', err);
     }
   };
+
   /**
    * Ajusta o tamanho da imagem de entrada para garantir que ela não exceda o limite de pixels
    * da GPU do Replicate (aprox. 2.1MP), mantendo a proporção original.
@@ -753,6 +750,53 @@ export default function TratamentoImagens() {
               ) : (
                 <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center min-h-[250px]">
                   <p className="text-gray-500">Aguardando correção . . .</p>
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* Preview das Imagens - Layout de 3 Colunas */}
+        {originalImageUrl && (
+          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+            <h3 className="text-xl font-bold mb-4 text-gray-800">Resultados Anteriores</h3>
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+
+              {/* 3. Original */}
+              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
+                <p className="font-semibold mb-3 text-gray-700">3. Original</p>
+                <img
+                  src={originalImageUrl}
+                  alt="Original"
+                  className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
+                  style={{ maxHeight: '600px', objectFit: 'contain' }}
+                />
+              </div>
+
+              {/* 4. Resultado Final Corrigido (AI + Pica) */}
+              {upscaledImageUrl && (
+                <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-xl border-4 border-yellow-500 flex flex-col items-center">
+                  <p className="font-semibold mb-3 text-yellow-700">4. Resultado Final</p>
+
+                  {/* Botão de Download Adicionado - Apenas no resultado final */}
+                  <button
+                    onClick={() => handleDownload()}
+                    className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
+                    title="Baixar Imagem Processada"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                    </svg>
+                  </button>
+
+                  <img
+                    src={upscaledImageUrl}
+                    alt="Final Corrigido"
+                    className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
+                    style={{ maxHeight: '600px', objectFit: 'contain' }}
+                    onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+                  />
                 </div>
               )}
 
