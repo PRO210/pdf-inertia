@@ -46,6 +46,10 @@ export const downloadImageFromSource = (source, fileName, defaultExt) => {
     } catch (err) {
         console.error('Erro ao iniciar o download:', err);
         // Opcional: Mostrar notificação de erro aqui
-        // Swal.fire({ ... });
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro ao baixar o arquivo',
+            text: 'Ocorreu um erro ao tentar baixar. Por favor, tente novamente ou contate o administrador.',
+        });
     }
 };

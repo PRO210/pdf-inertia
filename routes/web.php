@@ -41,7 +41,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
 
     Route::get('/dashboard/tratamento-imagens', [ImageController::class, 'index'])->name('tratamento.imagens');
-    Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryUpscaleImages'])->name('upscale.temp.images');
+    // Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryUpscaleImages'])->name('upscale.temp.images');
+
+    // Rota 1: Upscale
+    Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryImages'])->name('upscale.temp.images');
+    Route::post('/dashboard/save-final-image', [ImageController::class, 'saveFinalImage'])->name('save.final.image');
+
+    // Rota 2: Remove Background (RMBG)
+    Route::get('/dashboard/removebg/temp-images', [ImageController::class, 'getTemporaryImages'])->name('removebg.temp.images');
+
+    // Rota 3: Image To Anime (ITAT)
+    Route::get('/dashboard/imagetoanime/temp-images', [ImageController::class, 'getTemporaryImages'])->name('imagetoanime.temp.images');
 });
 
 Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->middleware('guest')->name('password.request');

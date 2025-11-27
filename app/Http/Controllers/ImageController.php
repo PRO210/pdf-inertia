@@ -21,8 +21,89 @@ class ImageController extends Controller
 
 
     // 🔹 1. Remover fundo da imagem
-    public function removeBackground(Request $request)
+    // public function removeBackground(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
+    // {
+    //     // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO      
+    //     $userId = Auth::check() ? Auth::id() : 0;
+
+    //        // 1.1 OBTÉM E VALIDA O ARQUIVO DE IMAGEM
+    //     if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Nenhuma imagem válida foi enviada.',
+    //         ], 400);
+    //     }
+
+    //     $imageFile = $request->file('image');
+
+    //     // 2. CONVERTE O ARQUIVO PARA BASE64
+    //     // Pega o conteúdo binário do arquivo
+    //     $imageData = file_get_contents($imageFile->getRealPath());
+
+    //     // Converte para Base64 e adiciona o prefixo de formato de dados (Data URI Scheme)
+    //     // O Replicate geralmente aceita Base64 puro, mas o Data URI é mais seguro.
+    //     $base64Image = 'data:image/' . $imageFile->getClientOriginalExtension() . ';base64,' . base64_encode($imageData);
+
+    //     $token = env('REPLICATE_API_TOKEN');
+
+    //     // 3. ENVIA A REQUISIÇÃO PARA O REPLICATE COM BASE64
+    //     try {
+    //         $response = Http::withHeaders([
+    //             'Authorization' => "Bearer {$token}",
+    //             'Content-Type' => 'application/json',
+    //             'Prefer' => 'wait',
+    //         ])->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
+    //             'input' => [
+    //                 'image' => $base64Image, // AGORA ESTAMOS ENVIANDO A STRING BASE64
+    //             ],
+    //         ]);
+
+    //         $data = $response->json();
+    //         // Verifica erros de requisição da API (status code)
+    //         if ($response->failed()) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Erro na API do Replicate: ' . ($data['detail'] ?? 'Falha desconhecida.'),
+    //                 'data' => $data,
+    //             ], $response->status());
+    //         }
+
+    //         // Pega a primeira saída do modelo
+    //         $outputUrl = $data['output'] ?? null;
+
+    //         if ($outputUrl) {
+    //             return response()->json([
+    //                 'success' => true,
+    //                 'output_base64_or_url' => $outputUrl,
+    //                 'replicate_id' => $data['id'] ?? null,
+    //             ]);
+    //         }
+
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'O Replicate não retornou uma URL de imagem.',
+    //             'data' => $data,
+    //         ], 500);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Exceção ao processar a requisição: ' . $e->getMessage(),
+    //         ], 500);
+    //     }
+    // }
+
+
+    // ...
+    // 🔹 1. Remover fundo da imagem
+    public function removeBackground(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
+        // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO      
+        $userId = Auth::check() ? Auth::id() : 0;
+
+        // Define os sufixos específicos para esta operação
+        $originalSuffix = '_removebg_original';
+        $returnSuffix = '_removebg_return';
+
         // 1.1 OBTÉM E VALIDA O ARQUIVO DE IMAGEM
         if (!$request->hasFile('image') || !$request->file('image')->isValid()) {
             return response()->json([
@@ -34,31 +115,48 @@ class ImageController extends Controller
         $imageFile = $request->file('image');
 
         // 2. CONVERTE O ARQUIVO PARA BASE64
-        // Pega o conteúdo binário do arquivo
         $imageData = file_get_contents($imageFile->getRealPath());
-
-        // Converte para Base64 e adiciona o prefixo de formato de dados (Data URI Scheme)
-        // O Replicate geralmente aceita Base64 puro, mas o Data URI é mais seguro.
         $base64Image = 'data:image/' . $imageFile->getClientOriginalExtension() . ';base64,' . base64_encode($imageData);
 
         $token = env('REPLICATE_API_TOKEN');
 
-        // 3. ENVIA A REQUISIÇÃO PARA O REPLICATE COM BASE64
         try {
+            // --- NOVO PASSO 1: LIMPAR e SALVAR IMAGEM ORIGINAL ---
+
+            // 🧹 LIMPA a versão antiga antes de salvar a nova
+            $cleanFiles($userId, $originalSuffix);
+
+            // 💾 SALVA a nova versão, usando o Base64 obtido do upload
+            $originalFileName = $saveImage(
+                $base64Image,
+                $userId,
+                $originalSuffix
+            );
+            if ($originalFileName) {
+                Log::info('✅ Imagem original salva (RemoveBG).', ['filename' => $originalFileName]);
+            }
+            // ----------------------------------------------------
+
+            // 3. ENVIA A REQUISIÇÃO PARA O REPLICATE COM BASE64
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$token}",
                 'Content-Type' => 'application/json',
                 'Prefer' => 'wait',
             ])->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
                 'input' => [
-                    'image' => $base64Image, // AGORA ESTAMOS ENVIANDO A STRING BASE64
+                    'image' => $base64Image,
                 ],
             ]);
 
             $data = $response->json();
 
-            // Verifica erros de requisição da API (status code)
+            // 5. Verifica erros de requisição da API (status code)
             if ($response->failed()) {
+                Log::error('❌ Erro ao chamar Replicate (RemoveBG)', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Erro na API do Replicate: ' . ($data['detail'] ?? 'Falha desconhecida.'),
@@ -66,14 +164,35 @@ class ImageController extends Controller
                 ], $response->status());
             }
 
-            // Pega a primeira saída do modelo
-            $outputUrl = $data['output'] ?? null;
+            // Pega a saída (URL ou Base64 Data URL)
+            $outputValue = $data['output'] ?? null;
+            $imageUrl = null;
 
-            if ($outputUrl) {
+            if ($outputValue) {
+                // --- NOVO PASSO 2: LIMPAR e SALVAR IMAGEM DE RETORNO ---
+
+                // 🧹 LIMPA a versão antiga antes de salvar a nova
+                $cleanFiles($userId, $returnSuffix);
+
+                // 💾 SALVA a nova versão (Base64 ou URL do Replicate)
+                $savedFileName = $saveImage(
+                    $outputValue,
+                    $userId,
+                    $returnSuffix
+                );
+
+                if ($savedFileName) {
+                    Log::info('✅ Imagem de fundo removida salva.', ['filename' => $savedFileName]);
+                    // Gerando a URL pública para o frontend
+                    $imageUrl = Storage::url('temp/' . $savedFileName);
+                }
+                // ------------------------------------------------------
+
                 return response()->json([
                     'success' => true,
-                    'output_base64_or_url' => $outputUrl,
+                    'output_base64_or_url' => $outputValue,
                     'replicate_id' => $data['id'] ?? null,
+                    'saved_image_url' => $imageUrl, // Adiciona a URL pública para o frontend
                 ]);
             }
 
@@ -83,6 +202,7 @@ class ImageController extends Controller
                 'data' => $data,
             ], 500);
         } catch (\Exception $e) {
+            Log::error('💥 Erro inesperado no removeBackground()', ['mensagem' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Exceção ao processar a requisição: ' . $e->getMessage(),
@@ -90,16 +210,14 @@ class ImageController extends Controller
         }
     }
 
-
     /**
      * Processa a imagem para upscale (aumento de qualidade) usando Base64.
      * O frontend (JavaScript) agora faz o downsize para o limite de 2.1MP.
      */
     public function upscale(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
-        // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO
-        // Ajuste estas linhas para obter o ID da Requisição e o ID do Usuário da forma correta em seu sistema.
-        $userId = Auth::check() ? Auth::id() : 0; // Exemplo: 0 se não autenticado
+        // ⚠️ 1. OBTENÇÃO DOS DADOS NECESSÁRIOS PARA O NOME DO ARQUIVO      
+        $userId = Auth::check() ? Auth::id() : 0;
 
         try {
             // 1️⃣ Verifica se a string Base64 da imagem está no corpo do JSON
@@ -218,11 +336,64 @@ class ImageController extends Controller
         }
     }
 
+    public function saveFinalImage(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
+    {
+        $userId = Auth::check() ? Auth::id() : 0;
+        $base64Image = $request->input('image');
+        $type = $request->input('type'); // Deve ser 'upscale_final_corrected' ou similar
+
+        if (empty($base64Image) || $userId === 0) {
+            return response()->json(['success' => false, 'message' => 'Dados ou autenticação ausentes.'], 400);
+        }
+
+        try {
+            // Define o sufixo baseado no tipo
+            $suffix = '_upscale_return_final';
+
+            // 🧹 Opcional: Limpar a versão anterior (RAW IA) antes de salvar a corrigida
+            // Depende se você quer manter o RAW ou não. Se não, limpe aqui.
+            // $cleanFiles($userId, $suffix); // Pode ser necessário um sufixo diferente se for limpar o RAW IA.
+
+            // 💾 SALVA A IMAGEM FINAL CORRIGIDA
+            $savedFileName = $saveImage(
+                $base64Image,
+                $userId,
+                $suffix
+            );
+
+            if ($savedFileName) {
+                $imageUrl = Storage::url('temp/' . $savedFileName);
+
+                // 2. 🔍 BUSCA A URL DA IMAGEM ORIGINAL (INPUT)
+                // Assumimos que a imagem original foi salva com o sufixo '_upscale_original'.
+                $originalPattern = storage_path('app/public/temp/') . $userId . '_upscale_original.*';
+                $originalFiles = glob($originalPattern);
+
+                if (!empty($originalFiles)) {
+                    $originalInputUrl = Storage::url($originalFiles[0]);
+                }
+
+                Log::info('✅ Imagem final corrigida (Pica.js) salva.', ['filename' => $savedFileName]);
+
+                return response()->json([
+                    'success' => true,
+                    'saved_image_url' => $imageUrl, // Retorna a URL pública
+                    'original_image_url' => $originalInputUrl, // URL da imagem original (input)
+                ]);
+            }
+
+            return response()->json(['success' => false, 'message' => 'Falha ao salvar a imagem no disco.'], 500);
+        } catch (\Exception $e) {
+            Log::error('💥 Erro ao salvar imagem final corrigida: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Erro interno ao salvar.'], 500);
+        }
+    }
+
     /**
      * Verifica a existência das imagens temporárias (original e retorno) para o usuário logado.
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getTemporaryUpscaleImages()
+    public function getTemporaryImages(Request $request)
     {
         // Obtém o ID do usuário logado
         $userId = Auth::check() ? Auth::id() : 0;
@@ -231,8 +402,28 @@ class ImageController extends Controller
             return response()->json(['error' => 'Usuário não autenticado.'], 401);
         }
 
-        $originalSuffix = '_upscale_original';
-        $returnSuffix = '_upscale_return';
+        // 💡 A operação (upscale, removebg, imagetoanime) vem do query parameter '?operation=...'
+        $operation = $request->query('operation');
+
+        $diskPath = 'temp/';
+
+        // Define os sufixos com base na operação
+        switch ($operation) {
+            case 'upscale':
+                $originalSuffix = '_upscale_original';
+                $returnSuffix = '_upscale_return'; // Ou _upscale_result
+                break;
+            case 'removebg':
+                $originalSuffix = '_removebg_original';
+                $returnSuffix = '_removebg_return';
+                break;
+            case 'imagetoanime':
+                $originalSuffix = '_anime_original';
+                $returnSuffix = '_anime_return';
+                break;
+            default:
+                return response()->json(['error' => 'Operação inválida.'], 400);
+        }
         $diskPath = 'temp/';
 
         // 1. Busca por ARQUIVOS ORIGINAIS (Ex: 1_upscale_original.webp)
@@ -258,9 +449,48 @@ class ImageController extends Controller
         return response()->json([
             'success' => true,
             'original_image_url' => $originalUrl,
-            'upscaled_image_url' => $returnUrl,
+            'result_image_url' => $returnUrl,
         ]);
     }
+    // public function getTemporaryUpscaleImages()
+    // {
+    //     // Obtém o ID do usuário logado
+    //     $userId = Auth::check() ? Auth::id() : 0;
+
+    //     if ($userId === 0) {
+    //         return response()->json(['error' => 'Usuário não autenticado.'], 401);
+    //     }
+
+    //     $originalSuffix = '_upscale_original';
+    //     $returnSuffix = '_upscale_return';
+    //     $diskPath = 'temp/';
+
+    //     // 1. Busca por ARQUIVOS ORIGINAIS (Ex: 1_upscale_original.webp)
+    //     $originalPattern = storage_path('app/public/' . $diskPath) . $userId . $originalSuffix . '.*';
+    //     $originalFiles = glob($originalPattern);
+    //     $originalUrl = null;
+
+    //     if (!empty($originalFiles)) {
+    //         // Pega o primeiro (e único) arquivo encontrado e gera a URL pública
+    //         $originalUrl = Storage::url(str_replace(storage_path('app/public/'), '', $originalFiles[0]));
+    //     }
+
+    //     // 2. Busca por ARQUIVOS DE RETORNO (Ex: 1_upscale_return.webp)
+    //     $returnPattern = storage_path('app/public/' . $diskPath) . $userId . $returnSuffix . '.*';
+    //     $returnFiles = glob($returnPattern);
+    //     $returnUrl = null;
+
+    //     if (!empty($returnFiles)) {
+    //         // Pega o primeiro (e único) arquivo encontrado e gera a URL pública
+    //         $returnUrl = Storage::url(str_replace(storage_path('app/public/'), '', $returnFiles[0]));
+    //     }
+
+    //     return response()->json([
+    //         'success' => true,
+    //         'original_image_url' => $originalUrl,
+    //         'upscaled_image_url' => $returnUrl,
+    //     ]);
+    // }
 
     public function createImageToAnime()
     {
