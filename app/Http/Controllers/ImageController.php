@@ -92,7 +92,6 @@ class ImageController extends Controller
     //     }
     // }
 
-
     // ...
     // 🔹 1. Remover fundo da imagem
     public function removeBackground(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
@@ -124,17 +123,17 @@ class ImageController extends Controller
             // --- NOVO PASSO 1: LIMPAR e SALVAR IMAGEM ORIGINAL ---
 
             // 🧹 LIMPA a versão antiga antes de salvar a nova
-            $cleanFiles($userId, $originalSuffix);
+            //$cleanFiles($userId, $originalSuffix);
 
             // 💾 SALVA a nova versão, usando o Base64 obtido do upload
-            $originalFileName = $saveImage(
-                $base64Image,
-                $userId,
-                $originalSuffix
-            );
-            if ($originalFileName) {
-                Log::info('✅ Imagem original salva (RemoveBG).', ['filename' => $originalFileName]);
-            }
+            // $originalFileName = $saveImage(
+            //     $base64Image,
+            //     $userId,
+            //     $originalSuffix
+            // );
+            // if ($originalFileName) {
+            //     Log::info('✅ Imagem original salva (RemoveBG).', ['filename' => $originalFileName]);
+            // }
             // ----------------------------------------------------
 
             // 3. ENVIA A REQUISIÇÃO PARA O REPLICATE COM BASE64
@@ -172,27 +171,27 @@ class ImageController extends Controller
                 // --- NOVO PASSO 2: LIMPAR e SALVAR IMAGEM DE RETORNO ---
 
                 // 🧹 LIMPA a versão antiga antes de salvar a nova
-                $cleanFiles($userId, $returnSuffix);
+                // $cleanFiles($userId, $returnSuffix);
 
-                // 💾 SALVA a nova versão (Base64 ou URL do Replicate)
-                $savedFileName = $saveImage(
-                    $outputValue,
-                    $userId,
-                    $returnSuffix
-                );
+                // // 💾 SALVA a nova versão (Base64 ou URL do Replicate)
+                // $savedFileName = $saveImage(
+                //     $outputValue,
+                //     $userId,
+                //     $returnSuffix
+                // );
 
-                if ($savedFileName) {
-                    Log::info('✅ Imagem de fundo removida salva.', ['filename' => $savedFileName]);
-                    // Gerando a URL pública para o frontend
-                    $imageUrl = Storage::url('temp/' . $savedFileName);
-                }
+                // if ($savedFileName) {
+                //     Log::info('✅ Imagem de fundo removida salva.', ['filename' => $savedFileName]);
+                //     // Gerando a URL pública para o frontend
+                //     $imageUrl = Storage::url('temp/' . $savedFileName);
+                // }
                 // ------------------------------------------------------
 
                 return response()->json([
                     'success' => true,
                     'output_base64_or_url' => $outputValue,
                     'replicate_id' => $data['id'] ?? null,
-                    'saved_image_url' => $imageUrl, // Adiciona a URL pública para o frontend
+                    // 'saved_image_url' => $imageUrl, // Adiciona a URL pública para o frontend
                 ]);
             }
 
@@ -227,27 +226,27 @@ class ImageController extends Controller
                 return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
             }
 
-            // --- 1. IMAGEM ORIGINAL (INPUT) ---
-            $originalSuffix = '_upscale_original';
+            // // --- 1. IMAGEM ORIGINAL (INPUT) ---
+            // $originalSuffix = '_upscale_original';
 
-            // 🧹 LIMPEZA: Remove a versão antiga da imagem original deste usuário.
-            $cleanFiles(
-                $userId,
-                $originalSuffix
-            );
+            // // 🧹 LIMPEZA: Remove a versão antiga da imagem original deste usuário.
+            // $cleanFiles(
+            //     $userId,
+            //     $originalSuffix
+            // );
 
-            // ---------------------------------------------
-            // 1. 💾 SALVAR A IMAGEM ORIGINAL (Chamada à Action)
-            $originalFileName = $saveImage(
-                $base64Image,
-                $userId,
-                $originalSuffix
-            );
+            // // ---------------------------------------------
+            // // 1. 💾 SALVAR A IMAGEM ORIGINAL (Chamada à Action)
+            // $originalFileName = $saveImage(
+            //     $base64Image,
+            //     $userId,
+            //     $originalSuffix
+            // );
 
 
-            if ($originalFileName) {
-                Log::info('✅ Imagem original salva via Action.', ['filename' => $originalFileName]);
-            }
+            // if ($originalFileName) {
+            //     Log::info('✅ Imagem original salva via Action.', ['filename' => $originalFileName]);
+            // }
 
             // 2️⃣ Fator de escala (default = 2), limitado a 4×
             $scale = min((int) $request->input('scale', 2), 4);
@@ -290,32 +289,32 @@ class ImageController extends Controller
             $result = $response->json();
             $outputValue = $result['output'] ?? null;
 
-            // --- 2. IMAGEM DE RETORNO (OUTPUT) ---
-            $returnSuffix = '_upscale_return';
+            // // --- 2. IMAGEM DE RETORNO (OUTPUT) ---
+            // $returnSuffix = '_upscale_return';
 
-            if (!empty($outputValue)) {
-                // 🧹 LIMPEZA: Remove a versão antiga da imagem de retorno deste usuário.
-                $cleanFiles(
-                    $userId,
-                    $returnSuffix
-                );
-            }
+            // if (!empty($outputValue)) {
+            //     // 🧹 LIMPEZA: Remove a versão antiga da imagem de retorno deste usuário.
+            //     $cleanFiles(
+            //         $userId,
+            //         $returnSuffix
+            //     );
+            // }
 
-            // 2. SALVAR A IMAGEM DE RETORNO (Chamada à Action)
-            if (!empty($outputValue)) {
-                $savedFileName = $saveImage(
-                    $outputValue,
-                    $userId,
-                    $returnSuffix
-                );
+            // // 2. SALVAR A IMAGEM DE RETORNO (Chamada à Action)
+            // if (!empty($outputValue)) {
+            //     $savedFileName = $saveImage(
+            //         $outputValue,
+            //         $userId,
+            //         $returnSuffix
+            //     );
 
-                if ($savedFileName) {
+            //     if ($savedFileName) {
 
-                    Log::info('✅ Imagem upscalada salva via Action.', ['filename' => $savedFileName]);
-                } else {
-                    Log::warning('⚠️ Imagem upscalada não foi salva. Output não era Base64/URL ou falha no download.');
-                }
-            }
+            //         Log::info('✅ Imagem upscalada salva via Action.', ['filename' => $savedFileName]);
+            //     } else {
+            //         Log::warning('⚠️ Imagem upscalada não foi salva. Output não era Base64/URL ou falha no download.');
+            //     }
+            // }
 
 
             // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
@@ -512,10 +511,16 @@ class ImageController extends Controller
             // O Base64 recebido já está no formato ideal.
 
             // 3️⃣ Monta payload
+            // Use termos em inglês para melhor controle do modelo.
+
+            $promptComOlhos = '**brown eyes, ignore reflections on glasses, maintain original eye color**';
+
+            // 3️⃣ Monta payload
             $payload = [
-                'input' => [
-                    // Envia a string Base64 recebida
-                    'image' => $base64Image,
+                'input' => [                   
+                    'image' => $base64Image,                
+                    'prompt' => 'transform into anime, face fidelity, accurate likeness, clean line art,
+                     soft colors, natural skin tone, subtle shading, no red color on face',
                 ]
             ];
 

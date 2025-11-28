@@ -9,6 +9,7 @@ import pica from 'pica';
 import { wallet } from './Partials/usarCarteira';
 import { downloadCount } from './Partials/downloadCount';
 import { downloadImageFromSource } from '@/Services/DownloadHelper';
+import { downloadImageFromReplicate } from '@/Services/DownloadReplicate';
 
 // Definição do componente principal
 export default function TratamentoImagens() {
@@ -36,79 +37,52 @@ export default function TratamentoImagens() {
     QWEN_LORA_PHOTO_TO_ANIME_PRICE: 0.25,
   };
 
-  // Exemplo: Função Reutilizável de Fetch
+  // // Exemplo: Função Reutilizável de Fetch
+  // const fetchSavedImages = async (operationName) => {
+  //   try {
+  //     setCarregando(true);
 
-  const fetchSavedImages = async (operationName) => {
-    try {
-      setCarregando(true);
+  //     // 💡 1. Rota Única (sem parâmetros de URL) + Query Parameter na URL
+  //     const url = route('upscale.temp.images') + `?operation=${operationName}`;
+  //     // Exemplo de URL gerada: /dashboard/upscale/temp-images?operation=upscale
 
-      // 💡 1. Rota Única (sem parâmetros de URL) + Query Parameter na URL
-      const url = route('upscale.temp.images') + `?operation=${operationName}`;
-      // Exemplo de URL gerada: /dashboard/upscale/temp-images?operation=upscale
+  //     const response = await axios.get(url);
 
-      const response = await axios.get(url);
+  //     if (response.data.success) {
 
-      if (response.data.success) {
+  //       const { original_image_url, result_image_url } = response.data;
 
-        const { original_image_url, result_image_url } = response.data;
+  //       // 2. 💡 Atualiza os estados específicos com base no nome da operação
+  //       if (operationName === 'upscale') {
+  //         setOriginalImageUrl(original_image_url);
+  //         setUpscaledImageUrl(result_image_url);
 
-        // 2. 💡 Atualiza os estados específicos com base no nome da operação
-        if (operationName === 'upscale') {
-          setOriginalImageUrl(original_image_url);
-          setUpscaledImageUrl(result_image_url);
+  //       } else if (operationName === 'removebg') {
+  //         setOriginalImageUrlToBgRemov(original_image_url);
+  //         setBgRemovedImageUrl(result_image_url);
 
-        } else if (operationName === 'removebg') {
-          setOriginalImageUrlToBgRemov(original_image_url);
-          setBgRemovedImageUrl(result_image_url);
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error(`Erro ao buscar imagens salvas (${operationName}):`, error);
+  //   } finally {
+  //     setCarregando(false);
+  //   }
+  // };
 
-        }
-      }
-    } catch (error) {
-      console.error(`Erro ao buscar imagens salvas (${operationName}):`, error);
-    } finally {
-      setCarregando(false);
-    }
-  };
+  // // 💡 Uso no componente UpscalePage
+  // useEffect(() => {
+  //   // Basta passar o nome da operação desejada
+  //   fetchSavedImages('upscale');
+  // }, []);
 
-  // 💡 Uso no componente UpscalePage
-  useEffect(() => {
-    // Basta passar o nome da operação desejada
-    fetchSavedImages('upscale');
-  }, []);
+  // // 💡 Uso no componente RemoveBgPage
+  // useEffect(() => {
+  //   // Basta passar o nome da operação desejada
+  //   fetchSavedImages('removebg');
+  // }, []);
 
-  // 💡 Uso no componente RemoveBgPage
-  useEffect(() => {
-    // Basta passar o nome da operação desejada
-    fetchSavedImages('removebg');
-  }, []);
-
-  /*   // 💡 useEffect para verificar imagens salvas na montagem
-    useEffect(() => {
-      const fetchSavedImages = async () => {
-        try {
-          setCarregando(true);
-  
-          // 💡 MUDANÇA PRINCIPAL: Usar a função route() com o nome da rota
-          const url = route('upscale.temp.images');
-  
-          // Chama o novo endpoint do Laravel usando a URL gerada
-          const response = await axios.get(url);
-  
-          if (response.data.success) {
-            setOriginalImageUrl(response.data.original_image_url);
-            setUpscaledImageUrl(response.data.upscaled_image_url);
-          }
-        } catch (error) {
-          console.error("Erro ao buscar imagens salvas:", error);
-          // Tratar erro (ex: 401 não autenticado)
-        } finally {
-          setCarregando(false);
-        }
-      };
-      fetchSavedImages();
-    }, []); // O array vazio garante que rode apenas na montagem. */
-
-
+ 
   // 💡 useEffect para Inicializar o Pica.js somente uma vez.
   useEffect(() => {
     let isMounted = true;
@@ -153,7 +127,6 @@ export default function TratamentoImagens() {
   /**
  * Redimensiona o ImagemBitmap (imgBitmap) para se ajustar proporcionalmente
  * ao tamanho ideal (larguraIdeal, alturaIdeal), escalonando em múltiplos passos,
- * onde cada passo aumenta o tamanho em, no máximo, 2x (MAX_STEP).
  *
  * @param {ImageBitmap} imgBitmap O objeto ImageBitmap (a imagem real).
  * @param {number} larguraIdeal A largura máxima desejada.
@@ -338,8 +311,7 @@ export default function TratamentoImagens() {
         setLastOperationType('aumentar-qualidade');
 
         usarCarteira = await wallet({
-          preco: MODELS.UPSCALER_ESRGAN_PRICE,
-          // fileName: "upscaler_esrgan_usage",
+          preco: MODELS.UPSCALER_ESRGAN_PRICE,       
           fileName: "recraft-crisp-upscale",
         });
 
@@ -400,12 +372,13 @@ export default function TratamentoImagens() {
       const outputUrlOrBase64 =
         res.data?.output_base64_or_url ||
         res.data?.replicate_id ||
-        res.data?.saved_image_url ||
+        // res.data?.saved_image_url ||
         null;
 
-      const savedImageUrl = res.data?.saved_image_url;
+      // const savedImageUrl = res.data?.saved_image_url;
 
-      if (!outputUrlOrBase64 && !savedImageUrl) {
+      // if (!outputUrlOrBase64 && !savedImageUrl) {
+      if (!outputUrlOrBase64) {
         Swal.fire({
           icon: 'warning',
           title: 'Sem resultado!',
@@ -418,11 +391,9 @@ export default function TratamentoImagens() {
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
         setResult(outputUrlOrBase64);
-
-        if (savedImageUrl) {
-          setBgRemovedImageUrl(savedImageUrl);
-        }
-
+        // if (savedImageUrl) {
+        //   setBgRemovedImageUrl(savedImageUrl);
+        // }
       }
 
       // --- Lógica de Pós-Processamento para UPSCALER ---
@@ -479,19 +450,19 @@ export default function TratamentoImagens() {
         // 3. Salva o resultado FINAL (AI + Pica)
         setResult(finalBase64);
 
-        // De volta ao Laravel para ser salvo e obter uma URL pública para download.
-        if (finalBase64) {
-          // Exemplo: Nova chamada para o backend para salvar o Base64 final e retornar a URL pública
-          const saveFinalRes = await axios.post(route('save.final.image'), { 
-            image: finalBase64,
-            type: 'upscale_final_corrected'
-          });
+        // // De volta ao Laravel para ser salvo e obter uma URL pública para download.
+        // if (finalBase64) {
+        //   // Exemplo: Nova chamada para o backend para salvar o Base64 final e retornar a URL pública
+        //   const saveFinalRes = await axios.post(route('save.final.image'), { 
+        //     image: finalBase64,
+        //     type: 'upscale_final_corrected'
+        //   });
 
-          if (saveFinalRes.data.success && saveFinalRes.data.saved_image_url) {
-            // 💡 CORREÇÃO: Atualiza o estado de download (upscaledImageUrl)
-            setUpscaledImageUrl(saveFinalRes.data.saved_image_url);
-          }
-        }
+        //   if (saveFinalRes.data.success && saveFinalRes.data.saved_image_url) {
+        //     // 💡 CORREÇÃO: Atualiza o estado de download (upscaledImageUrl)
+        //     setUpscaledImageUrl(saveFinalRes.data.saved_image_url);
+        //   }
+        // }
 
         // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
         try {
@@ -504,7 +475,6 @@ export default function TratamentoImagens() {
           // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
           console.error("⚠️ Erro ao contabilizar uso do Upscaler:", error);
         }
-
 
         Swal.fire({
           icon: 'success',
@@ -581,7 +551,8 @@ export default function TratamentoImagens() {
     // Você pode adicionar a lógica para MODELS.IMAGE_TO_ANIME aqui, se necessário.
 
     // 2. CHAMA A FUNÇÃO REUTILIZÁVEL DE DOWNLOAD
-    downloadImageFromSource(urlToDownload, 'resultado_final_corrigido', defaultExt);
+    //  downloadImageFromSource(urlToDownload, 'resultado_final_corrigido', defaultExt);
+    await downloadImageFromReplicate(urlToDownload, 'resultado_final_corrigido', defaultExt);
 
     // 3. Lógica de Contagem de Uso (API Call)
     try {
@@ -597,7 +568,6 @@ export default function TratamentoImagens() {
       console.error('Erro ao logar download:', err);
     }
   };
-
 
 
   /**
@@ -743,13 +713,13 @@ export default function TratamentoImagens() {
             {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
           </button>
 
-          <button
+          {/* <button
             onClick={() => processImage(MODELS.QWEN_LORA_PHOTO_TO_ANIME)}
             className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700 flex-1"
             disabled={loading || !image}
           >
             {loading && MODELS.QWEN_LORA_PHOTO_TO_ANIME === 'imagem-to-anime' ? 'Trabalhando na Imagem . . .' : '🎨 Foto para Anime'}
-          </button>
+          </button> */}
 
         </div>
 

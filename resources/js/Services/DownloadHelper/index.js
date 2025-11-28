@@ -5,7 +5,7 @@
  * @param {string} fileName - O nome base do arquivo (ex: 'resultado_final').
  * @param {string} defaultExt - A extensão padrão ou detectada (ex: 'webp', 'png').
  */
-export const downloadImageFromSource = (source, fileName, defaultExt) => {
+export const downloadImageFromSource = async (source, fileName, defaultExt) => {
     if (!source) {
         console.error("Fonte da imagem não fornecida.");
         return;
