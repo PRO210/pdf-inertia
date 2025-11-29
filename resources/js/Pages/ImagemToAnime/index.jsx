@@ -190,8 +190,8 @@ export default function TratamentoImagens() {
               <img
                 src="/imagens/modelo-imagem-to-anime.png"
                 alt="Modelo"
-                className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                style={{ maxHeight: '600px', objectFit: 'contain' }}
+                className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto py-4"
+                style={{ maxHeight: '500px', objectFit: 'contain' }}
               />
             </div>
 
@@ -200,8 +200,8 @@ export default function TratamentoImagens() {
               <img
                 src="/imagens/resultado-imagem-to-anime.png"
                 alt="Resultado"
-                className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                style={{ maxHeight: '600px', objectFit: 'contain' }}
+                className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto py-4"
+                style={{ maxHeight: '500px', objectFit: 'contain' }}
               />
             </div>
 

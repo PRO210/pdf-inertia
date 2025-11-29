@@ -10,6 +10,7 @@ import { wallet } from './Partials/usarCarteira';
 import { downloadCount } from './Partials/downloadCount';
 import { downloadImageFromSource } from '@/Services/DownloadHelper';
 import { downloadImageFromReplicate } from '@/Services/DownloadReplicate';
+import ImageStorage from '@/Services/ImageStorage/ImageStorage';
 
 // Definição do componente principal
 export default function TratamentoImagens() {
@@ -24,8 +25,10 @@ export default function TratamentoImagens() {
   const [lastOperationType, setLastOperationType] = useState(null);
   const [originalImageUrl, setOriginalImageUrl] = useState(null);
   const [upscaledImageUrl, setUpscaledImageUrl] = useState(null);
+
   const [originalImageUrlToBgRemov, setOriginalImageUrlToBgRemov] = useState(null);
   const [bgRemovedImageUrl, setBgRemovedImageUrl] = useState(null);
+  const [lastSavedImageId, setLastSavedImageId] = useState(null);
 
   // Mapeamento dos modelos
   const MODELS = {
@@ -33,8 +36,6 @@ export default function TratamentoImagens() {
     REMOVE_BG_PRICE: 0.1,
     UPSCALER_ESRGAN: 'aumentar-qualidade',
     UPSCALER_ESRGAN_PRICE: 0.1,
-    QWEN_LORA_PHOTO_TO_ANIME: 'imagem-to-anime',
-    QWEN_LORA_PHOTO_TO_ANIME_PRICE: 0.25,
   };
 
   // // Exemplo: Função Reutilizável de Fetch
@@ -81,9 +82,97 @@ export default function TratamentoImagens() {
   //   // Basta passar o nome da operação desejada
   //   fetchSavedImages('removebg');
   // }, []);
+  // Adicione esta função dentro do seu componente TratamentoImagens, após os outros hooks de estado:
+
+
+  /**
+     * Carrega a imagem original e processada salvas na IndexedDB e atualiza os estados 
+     * corretos (para RemoveBG OU Upscaler) para exibição.
+     */
+  // const loadSavedImageFromDB = async () => {
+  //   const { id, type } = lastSavedImageId;
+
+  //   if (!id || !type) return;
+
+  //   console.log(`⏳ Tentando carregar imagens da IndexedDB para ID: ${id}, Tipo: ${type}`);
+
+  //   // --- 1. LIMPEZA DOS ESTADOS NÃO UTILIZADOS ---
+  //   // Isso garante que apenas o resultado da operação atual será exibido.
+  //   setOriginalImageUrlToBgRemov(null);
+  //   setBgRemovedImageUrl(null);
+  //   setOriginalImageUrl(null);
+  //   setUpscaledImageUrl(null);
+
+  //   try {
+  //     const originalID = `original_${id}_${type}`;
+  //     const processedID = `processed_${id}_${type}`;
+
+  //     // 2. Carregar Imagens
+  //     const originalBase64 = await ImageStorage._load(originalID);
+  //     const processedContent = await ImageStorage._load(processedID); // Renomeado para 'processedContent'
+
+  //     // Se não houver dados salvos, paramos aqui.
+  //     if (!originalBase64 && !processedContent) {
+  //       console.warn(`⚠️ Não foram encontrados dados salvos para a operação ${type}.`);
+  //       return;
+  //     }
+
+  //     // 3. Configuração de MIME Type e Data URL
+
+  //     // A Imagem Original (downsized) sempre é salva como Base64 (JPEG)
+  //     const originalDataUrl = originalBase64 ? `data:image/jpeg;base64,${originalBase64}` : null;
+
+  //     let processedDataUrl = null;
+  //     if (processedContent) {
+  //       // 💡 CORREÇÃO AQUI: Verifica se o conteúdo é uma URL externa (http/https) ou Data URL
+  //       if (processedContent.startsWith('http') || processedContent.startsWith('data:')) {
+
+  //         processedDataUrl = processedContent;
+  //         console.log("💡 Conteúdo Processado é uma URL Externa/Pronta. Não será prefixado.");
+
+  //       } else {
+  //         // Se não for URL, assumimos que é uma string Base64 pura e adicionamos o prefixo
+  //         const mimeType = (type === MODELS.REMOVE_BG) ? 'image/png' : 'image/jpeg';
+  //         processedDataUrl = `data:${mimeType};base64,${processedContent}`;
+  //         console.log("💡 Conteúdo Processado é Base64 pura. Foi prefixado com Data URL.");
+  //       }
+  //     }
+
+  //     // 4. ATUALIZAÇÃO CONDICIONAL DOS ESTADOS
+
+  //     if (type === MODELS.REMOVE_BG) {
+  //       setOriginalImageUrlToBgRemov(originalDataUrl);
+  //       setBgRemovedImageUrl(processedDataUrl);
+  //       console.log(`✅ Resultado de REMOVE_BG carregado para visualização.`);
+
+  //     } else if (type === MODELS.UPSCALER_ESRGAN) {
+  //       setOriginalImageUrl(originalDataUrl);
+  //       setUpscaledImageUrl(processedDataUrl);
+  //       console.log(`✅ Resultado de UPSCALER_ESRGAN carregado para visualização.`);
+  //     }
+
+  //   } catch (error) {
+  //     console.error("❌ Erro ao carregar imagens salvas do banco de dados:", error);
+  //     Swal.fire({
+  //       icon: 'error',
+  //       title: 'Erro de Carga',
+  //       text: 'Não foi possível carregar as imagens salvas do cache local.',
+  //     });
+  //   }
+  // };
+  // // Use este useEffect no seu componente, ele será disparado após o salvamento:
+  // useEffect(() => {
+  //   if (lastSavedImageId) {
+  //     // Definimos o lastOperationType para ser usado no handleDownload se necessário
+  //     setLastOperationType(lastSavedImageId.type);
+  //     loadSavedImageFromDB();
+  //   }
+  // }, [lastSavedImageId]); // Dependência: só roda quando o ID salvo muda
 
  
-  // 💡 useEffect para Inicializar o Pica.js somente uma vez.
+  
+  // Isso garante que o Pica seja carregado antes de qualquer processamento.
+  
   useEffect(() => {
     let isMounted = true;
 
@@ -215,6 +304,10 @@ export default function TratamentoImagens() {
 
 
   const processImage = async (type) => {
+
+    setLastOperationType(type);
+    setLoading(true);
+
     if (!image) {
       return Swal.fire({
         icon: 'warning',
@@ -222,19 +315,20 @@ export default function TratamentoImagens() {
         text: 'Selecione uma imagem primeiro.',
       });
     }
+    // Limpa resultados anteriores antes de começar
+    setResult(null);
+    setOriginalImageUrlToBgRemov(null);
+    setBgRemovedImageUrl(null);
 
     // Mostra o alerta se o Pica ainda não carregou para o modo de upscaling
     if (type === MODELS.UPSCALER_ESRGAN && carregando) {
       return Swal.fire({
         icon: 'info',
         title: 'Aguarde!',
-        text: 'Aguarde o carregamento do módulo Pica.js para o processamento de imagem.',
+        text: 'Aguarde o carregamento do módulo para o processamento e upscale de imagem.',
       });
     }
 
-    setLoading(true);
-    // Limpa resultados anteriores antes de começar
-    setResult(null);
 
     let dataToSend = {};
     let originalWidth, originalHeight, originalMaxSide;
@@ -251,7 +345,7 @@ export default function TratamentoImagens() {
 
         // 🔹 Calcula o tamanho esperado
         expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
-        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
+        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide} px`);
 
         const base64Image = await downsizeParaReplicate(image);
         dataToSend.image = base64Image;
@@ -266,34 +360,7 @@ export default function TratamentoImagens() {
           text: 'Falha ao preparar imagem para envio.',
         });
       }
-    } else if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
-
-      try {
-        // 🔹 Calcula tamanho original para referência
-        const originalBitmap = await createImageBitmap(image);
-        originalWidth = originalBitmap.width;
-        originalHeight = originalBitmap.height;
-        originalMaxSide = Math.max(originalWidth, originalHeight);
-
-        // 🔹 Calcula o tamanho esperado
-        expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
-        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide}px`);
-
-        const base64Image = await downsizeParaReplicate(image);
-        dataToSend.image = base64Image;
-        dataToSend.scale = scaleFactor;
-
-      } catch (e) {
-        setLoading(false);
-        console.error("Erro ao preparar imagem:", e);
-        return Swal.fire({
-          icon: 'error',
-          title: 'Erro de Preparação!',
-          text: 'Falha ao preparar imagem para envio.',
-        });
-      }
-
-    } else {
+    } else if (type === MODELS.REMOVE_BG) {
       // Lógica para Remover Fundo (multipart)
       const formData = new FormData();
       formData.append('image', image);
@@ -306,12 +373,11 @@ export default function TratamentoImagens() {
     let usarCarteira = null;
 
     try {
+      /* Acessando a carteira */
       if (type === MODELS.UPSCALER_ESRGAN) {
 
-        setLastOperationType('aumentar-qualidade');
-
         usarCarteira = await wallet({
-          preco: MODELS.UPSCALER_ESRGAN_PRICE,       
+          preco: MODELS.UPSCALER_ESRGAN_PRICE,
           fileName: "recraft-crisp-upscale",
         });
 
@@ -328,8 +394,6 @@ export default function TratamentoImagens() {
 
       } else if (type === MODELS.REMOVE_BG) {
 
-        setLastOperationType('remover-fundo');
-
         usarCarteira = await wallet({
           preco: MODELS.REMOVE_BG_PRICE,
           fileName: "recraft-remove-background",
@@ -345,25 +409,6 @@ export default function TratamentoImagens() {
           console.log(usarCarteira.success);
           return;
         }
-      } else if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
-
-        setLastOperationType('qwen-lora-photo-to-anime');
-
-        usarCarteira = await wallet({
-          preco: MODELS.QWEN_LORA_PHOTO_TO_ANIME_PRICE,
-          fileName: "qwen-lora-photo-to-anime",
-        });
-
-        if (usarCarteira.success) {
-          res = await axios.post(endpoint, dataToSend, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-        } else {
-          console.log(usarCarteira.success);
-          return;
-        }
       }
 
       console.log("Novo saldo:", usarCarteira.new_balance);
@@ -372,12 +417,8 @@ export default function TratamentoImagens() {
       const outputUrlOrBase64 =
         res.data?.output_base64_or_url ||
         res.data?.replicate_id ||
-        // res.data?.saved_image_url ||
         null;
 
-      // const savedImageUrl = res.data?.saved_image_url;
-
-      // if (!outputUrlOrBase64 && !savedImageUrl) {
       if (!outputUrlOrBase64) {
         Swal.fire({
           icon: 'warning',
@@ -391,9 +432,26 @@ export default function TratamentoImagens() {
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
         setResult(outputUrlOrBase64);
-        // if (savedImageUrl) {
-        //   setBgRemovedImageUrl(savedImageUrl);
-        // }
+
+        try {
+          // 'remover-fundo' é um bom nome para o 'file_name' no contexto do seu backend
+          await axios.post(route('user.downloads.store'), {
+            file_name: 'remover-fundo', // Nome da ação/download que você quer contar
+          });
+          console.log("✅ Uso do remover-fundo contabilizado com sucesso!");
+        } catch (error) {
+          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
+          console.error("⚠️ Erro ao contabilizar uso do remover-fundo:", error);
+        }
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Imagem pronta!',
+          text: `A imagem foi aprimorada e corrigida!`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+
       }
 
       // --- Lógica de Pós-Processamento para UPSCALER ---
@@ -431,7 +489,7 @@ export default function TratamentoImagens() {
           const targetW = Math.round(imgBitmap.width * fatorRestante);
           const targetH = Math.round(imgBitmap.height * fatorRestante);
 
-          console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH}`);
+          console.log(`⚙️ Aplicando Pica: aumento restante ${fatorRestante.toFixed(2)}x até ${targetW}x${targetH} `);
 
           // Chama a função ajustada para aumentar o restante
           const resultadoPica = await ajustarImagemPica(imgBitmap, targetW, targetH);
@@ -441,7 +499,7 @@ export default function TratamentoImagens() {
           finalWidth = resultadoPica.width;
           finalHeight = resultadoPica.height;
 
-          console.log(`✅ Pica Concluído. Tamanho Final: ${finalWidth}x${finalHeight}`);
+          console.log(`✅ Pica Concluído.Tamanho Final: ${finalWidth}x${finalHeight} `);
 
         } else {
           console.log("✅ Aumento da IA já suficiente ou Pica não disponível — Sem correção Pica.");
@@ -449,20 +507,6 @@ export default function TratamentoImagens() {
 
         // 3. Salva o resultado FINAL (AI + Pica)
         setResult(finalBase64);
-
-        // // De volta ao Laravel para ser salvo e obter uma URL pública para download.
-        // if (finalBase64) {
-        //   // Exemplo: Nova chamada para o backend para salvar o Base64 final e retornar a URL pública
-        //   const saveFinalRes = await axios.post(route('save.final.image'), { 
-        //     image: finalBase64,
-        //     type: 'upscale_final_corrected'
-        //   });
-
-        //   if (saveFinalRes.data.success && saveFinalRes.data.saved_image_url) {
-        //     // 💡 CORREÇÃO: Atualiza o estado de download (upscaledImageUrl)
-        //     setUpscaledImageUrl(saveFinalRes.data.saved_image_url);
-        //   }
-        // }
 
         // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
         try {
@@ -479,35 +523,7 @@ export default function TratamentoImagens() {
         Swal.fire({
           icon: 'success',
           title: 'Imagem pronta!',
-          text: `A imagem foi aprimorada e corrigida! Tamanho: ${finalWidth}x${finalHeight}`,
-          timer: 2000,
-          showConfirmButton: false
-        });
-      }
-
-      // --- Lógica de Pós-Processamento para UPSCALER ---
-      if (type === MODELS.QWEN_LORA_PHOTO_TO_ANIME) {
-
-        // 1. Salva o resultado FINAL (AI + Pica)
-        setResult(outputUrlOrBase64);
-
-        // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
-        try {
-          // 'upscaler' é um bom nome para o 'file_name' no contexto do seu backend
-          await axios.post(route('user.downloads.store'), {
-            file_name: 'qwen-lora-photo-to-anime ', // Nome da ação/download que você quer contar
-          });
-          console.log("✅ Uso do qwen-lora-photo-to-anime contabilizado com sucesso!");
-        } catch (error) {
-          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
-          console.error("⚠️ Erro ao contabilizar uso do qwen-lora-photo-to-anime:", error);
-        }
-
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Imagem pronta!',
-          text: `A imagem foi aprimorada e corrigida!`,
+          text: `A imagem foi aprimorada e corrigida! Tamanho: ${finalWidth}x${finalHeight} `,
           timer: 2000,
           showConfirmButton: false
         });
@@ -515,12 +531,15 @@ export default function TratamentoImagens() {
 
 
     } catch (err) {
+
       console.error("Erro ao processar imagem:", err);
+
       Swal.fire({
         icon: 'error',
         title: 'Erro!',
-        text: `Falha na comunicação com o servidor: ${err.message}`,
+        text: `Falha na comunicação com o servidor: ${err.message} `,
       });
+
     } finally {
       setLoading(false);
     }
@@ -536,7 +555,7 @@ export default function TratamentoImagens() {
   const handleDownload = async (type, resultUrl) => {
     // ⚠️ Verifica se a URL específica foi fornecida
     if (!resultUrl) {
-      console.warn(`URL de download não fornecida para o tipo: ${type}`);
+      console.warn(`URL de download não fornecida para o tipo: ${type} `);
       return;
     }
 
@@ -562,7 +581,7 @@ export default function TratamentoImagens() {
 
       // Assumindo que downloadCount() é uma função de chamada de API
       await downloadCount(fileName);
-      console.log(`Download logado para: ${fileName}`);
+      console.log(`Download logado para: ${fileName} `);
 
     } catch (err) {
       console.error('Erro ao logar download:', err);
@@ -598,9 +617,9 @@ export default function TratamentoImagens() {
       const reductionFactor = Math.sqrt(originalPixels / MAX_PIXELS);
       targetMaxWidthOrHeight = Math.floor(Math.max(originalWidth, originalHeight) / reductionFactor);
 
-      console.warn(`⚠️ Imagem original será reduzida. Novo max size: ${targetMaxWidthOrHeight}px`);
+      console.warn(`⚠️ Imagem original será reduzida.Novo max size: ${targetMaxWidthOrHeight} px`);
     } else {
-      console.log(`✅ Imagem original está no limite. Não será redimensionada.`);
+      console.log(`✅ Imagem original está no limite.Não será redimensionada.`);
     }
 
     const options = {
@@ -615,7 +634,7 @@ export default function TratamentoImagens() {
     const compressedBlob = await imageCompression(file, options);
     const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
 
-    console.log(`--- AJUSTE CONCLUÍDO ---`);
+    console.log(`-- - AJUSTE CONCLUÍDO-- - `);
     console.log(`Tamanho final do Base64: ${(finalBase64.length / (1024 * 1024)).toFixed(2)} MB`);
 
     return finalBase64;
@@ -626,12 +645,9 @@ export default function TratamentoImagens() {
       <Head title="Tratamento de Imagens" />
       <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
 
-        <h2 className="text-4xl font-extrabold text-gray-800 mb-6 border-b pb-2">
+        <h2 className="text-4xl font-extrabold text-gray-800 mb-6 border-b pb-2 text-center">
           🪄 Tratamento de Imagens com IA.
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Selecione uma imagem para aumentar a qualidade. O **Real-ESRGAN** faz o aprimoramento.
-        </p>
+        </h2>      
 
         {/* Upload e Configurações */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-5">
@@ -678,7 +694,7 @@ export default function TratamentoImagens() {
               value={scaleFactor}
               onChange={(e) => setScaleFactor(parseFloat(e.target.value))}
               // Ocupa a largura total.
-              // **A classe `sm:hidden` garante que a barra deslizante seja ocultada em telas grandes.**
+              // **A classe `sm: hidden` garante que a barra deslizante seja ocultada em telas grandes.**
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none **sm:hidden**"
             />
 
@@ -712,14 +728,6 @@ export default function TratamentoImagens() {
           >
             {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
           </button>
-
-          {/* <button
-            onClick={() => processImage(MODELS.QWEN_LORA_PHOTO_TO_ANIME)}
-            className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700 flex-1"
-            disabled={loading || !image}
-          >
-            {loading && MODELS.QWEN_LORA_PHOTO_TO_ANIME === 'imagem-to-anime' ? 'Trabalhando na Imagem . . .' : '🎨 Foto para Anime'}
-          </button> */}
 
         </div>
 
@@ -782,7 +790,7 @@ export default function TratamentoImagens() {
         {originalImageUrlToBgRemov && (
           <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores da Remoção de Fundo</h3>
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+            <div className={`grid grid-cols - 1 md:grid-cols-2 gap-6`}>
 
               {/* 3. Original */}
               <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
@@ -830,7 +838,7 @@ export default function TratamentoImagens() {
         {originalImageUrl && (
           <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores de Upscale</h3>
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+            <div className={`grid grid-cols - 1 md: grid-cols - 2 gap - 6`}>
 
               {/* 3. Original */}
               <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
