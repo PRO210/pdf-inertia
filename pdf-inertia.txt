@@ -6,7 +6,7 @@ php artisan inertia:middleware
 composer require laravel/breeze --dev
 https://github.com/lucascudo/laravel-pt-BR-localization/blob/main/README.md
 npm install --save pdf-lib
-php artisan make:controller PdfEditorController
+php artisan make:controller UserController
 //
 //
 // Importa imagens  
@@ -27,17 +27,6 @@ APRO
 https://9816f296679f.ngrok-free.app/pagamento.retorno?collection_id=128055432323&collection_status=approved&payment_id=128055432323&status=approved&external_reference=33&payment_type=account_money&merchant_order_id=34497500048&preference_id=1725174117-1ab2a20a-54f5-42d0-83a6-eebc6ae3dac0&site_id=MLB&processing_mode=aggregator&merchant_account_id=null
 https://pdfeditor.proandre.com.br/webhoo...
 //
-//
-1 * 1 em 4k em 31s com Dpi = 150, maxDpi = 400
-1 * 2 em 4k em 40s com Dpi = 150, maxDpi = 200
-1 * 3 em 4k em 11s com Dpi = 120, maxDpi = 130
-1 * 4 em 4k em 14s com Dpi = 95,  maxDpi = 100
-1 * 5 em 4k em 12s com Dpi = 76,  maxDpi = 80
-1 * 6 em 4k em 15s com Dpi = 63,  maxDpi = 67
-1 * 7 em 4k em 14s com Dpi = 54,  maxDpi = 57
-1 * 8 em 4k em 13s com Dpi = 47,  maxDpi = 50
-9 * 9 em 4k em 13s com Dpi = 42,  maxDpi = 44
-10 * 10 em 4k em 13 com  Dpi = 40 maxDpi =  40
 //
 //
 HD (High Definition) (720p):

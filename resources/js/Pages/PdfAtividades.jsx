@@ -617,21 +617,7 @@ export default function PdfEditor() {
                   <option value="false">Preencher toda a folha</option>
                 </select>
               </div>
-
-              {/* Modo de Dimensionamento: Grid vs CM */}
-              <label className="block pro-label text-xl text-center">Modo de Dimensionamento:</label>
-              <select
-                className="px-2 w-full rounded-full pro-input"
-                value={modoDimensionamento}
-                onChange={(e) => {
-                  setModoDimensionamento(e.target.value);
-                  setAlteracoesPendentes(true);
-                }}
-              >
-                <option value="grid">Linhas e Colunas (Grid)</option>
-                <option value="cm">Tamanho Fixo em Centímetros (CM)</option>
-              </select>
-
+             
                    
               {/* Ampliacao (colunas / linhas) - mantém igual */} 
               <label className="block  pro-label text-xl text-center">Redução:</label>

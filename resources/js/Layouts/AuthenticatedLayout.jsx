@@ -19,7 +19,7 @@ export default function AuthenticatedLayout({ header, children }) {
                         <div className="flex">
                             <div className="flex shrink-0 items-center">
                                 <Link href="/">
-                                    <ApplicationLogo className="block fill-current text-gray-800" />                                   
+                                    <ApplicationLogo className="block fill-current text-gray-800" />
                                 </Link>
                             </div>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex  ">
@@ -42,10 +42,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <NavLink href={route('imagem-to-anime.create')} active={route().current('imagem-to-anime.create')} >
                                     Image para Anime
                                 </NavLink>
-                             
+
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >
                                     Carteira
                                 </NavLink>
+
+                                {user.id === 1 && (
+                                    <NavLink href={route('users.index')} active={route().current('users.index')} >
+                                        Users
+                                    </NavLink>
+                                )}
                             </div>
                         </div>
 

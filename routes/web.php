@@ -6,6 +6,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PdfEditorController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\UserDownloadsController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -28,10 +29,15 @@ Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+Route::middleware('auth')->group(function () {
+   Route::get('/users', [UserController::class, 'index'])->name('users.index');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -135,6 +141,8 @@ Route::get('user-download-obterSaldo', [UserDownloadsController::class, 'obterSa
 Route::post('user-download-debitarCredito', [UserDownloadsController::class, 'debitarCredito'])
     ->middleware('auth')
     ->name('user.downloads.debitarCredito');
+
+    
 
 
 require __DIR__ . '/auth.php';

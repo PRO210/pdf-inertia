@@ -237,7 +237,6 @@ class ImageController extends Controller
         try {
             // Define o sufixo baseado no tipo
             $suffix = '_upscale_return_final';
-
             // 🧹 Opcional: Limpar a versão anterior (RAW IA) antes de salvar a corrigida
             // Depende se você quer manter o RAW ou não. Se não, limpe aqui.
             // $cleanFiles($userId, $suffix); // Pode ser necessário um sufixo diferente se for limpar o RAW IA.
