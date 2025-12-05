@@ -32,7 +32,6 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </Link>
                                 ) : (
                                     <img className="h-12 w-auto text-white lg:h-16 lg:text-[#FF2D20] rounded" src="/imagens/logo.png" alt="Logo" />
-
                                 )}
                             </div>
                             <nav className="-mx-3 flex flex-1 justify-end">

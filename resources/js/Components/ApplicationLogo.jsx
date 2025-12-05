@@ -11,7 +11,7 @@ export default function ApplicationLogo(props) {
             {...props}
             src="/imagens/logo.png"
             alt="Application Logo"
-            className="block h-14 w-auto fill-current rounded text-gray-800"
+            className="block h-16 w-auto fill-current rounded text-gray-800"
         />
     );
 }

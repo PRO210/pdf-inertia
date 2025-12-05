@@ -323,6 +323,18 @@ class CheckoutController extends Controller
 
         $wallet = $wallet->sortByDesc('created_at')->values();
 
+        // 1. Calcular o Total de Entradas (Pagamentos)
+        $totalEntradas = $payments->sum(function ($p) {
+            // Certifique-se de que a lógica de cálculo aqui corresponde à lógica no mapeamento da carteira
+            return $p->quantity * $p->unit_price;
+        });
+
+        // 2. Calcular o Total de Gastos (Saídas/Usos de Crédito)
+        $totalGastos = $creditUsages->sum('cost');
+
+        // 3. Calcular o Saldo Restante
+        $saldoRestante = $totalEntradas - $totalGastos;
+
         // transforma a collection em paginação
         $page = (int) ($request->get('page') ?: 1);
         $perPage = 5;
@@ -338,7 +350,12 @@ class CheckoutController extends Controller
         return response()->json([
             'updated' => $updated,
             'messages' => $messages,
-            'wallet' => $paginator->toArray()
+            'wallet' => $paginator->toArray(),
+            'resumo_carteira' => [
+                'total_entradas' => $totalEntradas,
+                'total_gastos' => $totalGastos,
+                'saldo_restante' => $saldoRestante,
+            ]
         ]);
     }
 

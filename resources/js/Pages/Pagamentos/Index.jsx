@@ -17,9 +17,11 @@ export default function Index({
   const [wallet, setWallet] = useState(initialPayments);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    current_page: 1,
-    last_page: 1,
+
+  const [resumo, setResumo] = useState({
+    total_entradas: 0,
+    total_gastos: 0,
+    saldo_restante: 0,
   });
 
   // ============================
@@ -41,7 +43,12 @@ export default function Index({
       setWallet(paginator);
       setItems(paginator.data ?? []);
 
-      console.log("📘 Wallet:", res.data.wallet);
+      // ✨ CAPTURA E ATUALIZAÇÃO DO RESUMO
+      if (res.data.resumo_carteira) {
+        setResumo(res.data.resumo_carteira);
+      }
+
+      // console.log("📘 Wallet:", res.data);
 
       return res.data;
     } catch (err) {
@@ -87,17 +94,17 @@ export default function Index({
       <div className="p-4 min-h-screen">
 
         {/* MENSAGEM */}
-        {mensagem && (
+        {/* {mensagem && (
           <div className="mb-4 p-2 bg-gray-100 rounded-md border border-gray-300">
             <strong>{mensagem}</strong>
           </div>
-        )}
+        )} */}
 
         {/* BOTÃO ATUALIZAR */}
-        <div className="mb-3 flex items-center text-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center text-center gap-2 text-nowrap">
 
           <Link href={route('pdf.pagamentos')} className="flex-1 pro-btn-blue w-full">
-           ➕ Créditos
+            ➕ Créditos
           </Link>
 
           <button
@@ -105,27 +112,55 @@ export default function Index({
             className="pro-btn-purple flex-1 w-full"
             disabled={loading}
           >
-            {loading ? '🔄 Atualizando...' : '🔁 Atualizar agora'}
+            {loading ? '🔄 Atualizando...' : '🔁 Atualizar '}
           </button>
 
-          <span className="text-sm text-gray-500 font-bold">
+          <span className="text-sm border-gray-300 border rounded-full p-3 text-gray-500 font-bold flex-1">
             Última atualização: {new Date().toLocaleTimeString()}
           </span>
 
         </div>
 
+        {/* ==============================
+              RESUMO DA CARTEIRA ✨ NOVO BLOCO
+           ============================== */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Card 1: Entradas */}
+          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-green-500">
+            <h3 className="text-sm font-medium text-gray-500">Total de Entradas (Receitas)</h3>
+            <p className="mt-1 text-2xl font-bold text-green-600">
+              R$ {Number(resumo.total_entradas).toFixed(2)}
+            </p>
+          </div>
+
+          {/* Card 2: Gastos */}
+          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500">
+            <h3 className="text-sm font-medium text-gray-500">Total de Gastos (Saídas)</h3>
+            <p className="mt-1 text-2xl font-bold text-red-600">
+              R$ {Number(resumo.total_gastos).toFixed(2)}
+            </p>
+          </div>
+
+          {/* Card 3: Saldo */}
+          <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-blue-500">
+            <h3 className="text-sm font-medium text-gray-500">Saldo Atual (Restante)</h3>
+            <p className="mt-1 text-2xl font-bold text-blue-600">
+              R$ {Number(resumo.saldo_restante).toFixed(2)}
+            </p>
+          </div>
+        </div>
 
         {/* ==============================
               TABELA DA CARTEIRA
            ============================== */}
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse ">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 border">#</th>
-              <th className="p-2 border">Tipo</th>
-              <th className="p-2 border">Descrição</th>
-              <th className="p-2 border">Valor</th>
-              <th className="p-2 border">Criado em</th>
+              <th className="p-3 border">#</th>
+              <th className="p-3 border">Tipo</th>
+              <th className="p-3 border">Descrição</th>
+              <th className="p-3 border">Valor</th>
+              <th className="p-3 border">Criado em</th>
             </tr>
           </thead>
 
@@ -172,21 +207,21 @@ export default function Index({
           <button
             disabled={!wallet?.prev_page_url}
             onClick={() => sincronizar(wallet.current_page - 1)}
-            className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-40"
+            className={`${wallet.current_page == 1 ? 'pro-btn-green px-4 rounded-md disabled:opacity-40' : 'pro-btn-green px-4 rounded-md'} `}
           >
             ◀ Anterior
           </button>
 
-          <span className="px-4 py-2">
+          <span className="px-4">
             Página {wallet?.current_page} / {wallet?.last_page}
           </span>
 
           <button
             disabled={!wallet?.next_page_url}
             onClick={() => sincronizar(wallet.current_page + 1)}
-            className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-40"
+            className={`${wallet?.last_page ? 'pro-btn-green px-4  rounded-md disabled:opacity-40': 'pro-btn-green px-4  rounded-md'}`}
           >
-            Próxima ▶
+            Próxima ▶ 
           </button>
         </div>
 

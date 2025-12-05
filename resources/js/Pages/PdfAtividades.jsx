@@ -345,6 +345,9 @@ export default function PdfEditor() {
   const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
 
+  const [modoDimensionamento, setModoDimensionamento] = useState('grid');
+  const [tamanhoCm, setTamanhoCm] = useState({ largura: 19.0, altura: 27.7 }); // Tamanho em cm
+
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     const makeItem = (img) =>
       typeof img === "string" ? { src: img, uid: Date.now() + Math.random() } : img;
@@ -414,8 +417,7 @@ export default function PdfEditor() {
   };
 
 
-  const resetarConfiguracoes = () => {
-    setPdfUrl(null)
+  const resetarConfiguracoes = () => {    setPdfUrl(null)
     setAmpliacao({ colunas: 2, linhas: 1 })
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
@@ -429,6 +431,7 @@ export default function PdfEditor() {
     setCabecalhoAtivo(false);
     setCabecalhoTexto(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
     setCabecalhoModo("ambas");
+   
   }
 
 
@@ -562,7 +565,7 @@ export default function PdfEditor() {
     } : null;
 
     setResumoTamanho({ imagem, imagemBorda, imagemCabecalho, imagemCompleta });
-  }, [ampliacao, orientacao, repeatBorder, espessuraBorda, cabecalhoAtivo, cabecalhoTexto]);
+  }, [ampliacao, orientacao, repeatBorder, espessuraBorda, cabecalhoAtivo, cabecalhoTexto, modoDimensionamento, tamanhoCm]);
 
 
   return (
@@ -615,7 +618,22 @@ export default function PdfEditor() {
                 </select>
               </div>
 
-              {/* Ampliacao (colunas / linhas) - mantém igual */}
+              {/* Modo de Dimensionamento: Grid vs CM */}
+              <label className="block pro-label text-xl text-center">Modo de Dimensionamento:</label>
+              <select
+                className="px-2 w-full rounded-full pro-input"
+                value={modoDimensionamento}
+                onChange={(e) => {
+                  setModoDimensionamento(e.target.value);
+                  setAlteracoesPendentes(true);
+                }}
+              >
+                <option value="grid">Linhas e Colunas (Grid)</option>
+                <option value="cm">Tamanho Fixo em Centímetros (CM)</option>
+              </select>
+
+                   
+              {/* Ampliacao (colunas / linhas) - mantém igual */} 
               <label className="block  pro-label text-xl text-center">Redução:</label>
               <div className="flex flex-col sm:flex-row gap-2 w-full">
                 <div className="flex gap-2 w-full">
@@ -707,7 +725,7 @@ export default function PdfEditor() {
                 </select>
               </div>
 
-              {/* Cabeçalho */}           
+              {/* Cabeçalho */}
               <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
                 <input
                   type="checkbox"
@@ -796,7 +814,9 @@ export default function PdfEditor() {
                             5,
                             cabecalhoTexto,
                             cabecalhoAtivo,
-                            cabecalhoModo
+                            cabecalhoModo,
+                            modoDimensionamento, 
+                            tamanhoCm
                           );
 
                           setCarregando(false);
