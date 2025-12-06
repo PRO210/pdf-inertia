@@ -49,7 +49,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
                                 {user.id === 1 && (
                                     <NavLink href={route('users.index')} active={route().current('users.index')} >
-                                        Users
+                                        Usuários
                                     </NavLink>
                                 )}
                             </div>
@@ -172,6 +172,9 @@ export default function AuthenticatedLayout({ header, children }) {
                         <div className="mt-3 space-y-1">
                             <ResponsiveNavLink href={route('profile.edit')}>Perfil</ResponsiveNavLink>
                             <ResponsiveNavLink href={route('pagamento.retorno')}>Carteira</ResponsiveNavLink>
+                            {user.id === 1 && (
+                                <ResponsiveNavLink href={route('users.index')}>Usuários</ResponsiveNavLink>
+                            )}
                             <ResponsiveNavLink
                                 method="post"
                                 href={route('logout')}

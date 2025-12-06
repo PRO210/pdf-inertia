@@ -165,40 +165,48 @@ export default function Index() {
           <div className="overflow-hidden bg-white shadow sm:rounded">
             <div className="p-6 bg-white">
 
-              {/* Barra de busca */}
-              <div className="flex gap-3 mb-4 items-center">
+              {/* Barra de busca */}           
+
+              <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center sm:items-stretch">
+                {/* Campo de Busca */}
                 <input
                   type="text"
-                  className="border px-3 py-2 rounded w-64"
+                  className="border px-3 py-2 rounded w-full sm:w-64"
                   placeholder="Buscar usuário..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && atualizar()}
                 />
 
-                <button
-                  onClick={() => atualizar()}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded"
-                >
-                  Buscar
-                </button>
+                {/* Container para os Botões - Ajuda a empilhá-los ou alinhá-los */}
+                <div className="flex gap-3 w-full sm:w-auto">
+                  {/* Botão Buscar */}
+                  <button
+                    onClick={() => atualizar()}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded w-1/2 sm:w-auto"
+                  >
+                    Buscar
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    setSortBy(null);
-                    setSortDir(null);
-                    setPerPage(5);
-                    router.get(
-                      route("users.index"),
-                      { perPage: 5 },
-                      { preserveState: false, replace: true }
-                    );
-                  }}
-                  className="ml-2 bg-gray-300 hover:bg-gray-400 text-black px-3 py-2 rounded"
-                >
-                  Limpar filtros
-                </button>
+                  {/* Botão Limpar Filtros */}
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      setSortBy(null);
+                      setSortDir(null);
+                      setPerPage(5);
+                      router.get(
+                        route("users.index"),
+                        { perPage: 5 },
+                        { preserveState: false, replace: true }
+                      );
+                    }}
+                    // Removida a classe ml-2 que atrapalharia no modo coluna
+                    className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-2 rounded w-1/2 sm:w-auto"
+                  >
+                    Limpar filtros
+                  </button>
+                </div>
               </div>
 
               {/* Tabela */}
