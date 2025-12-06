@@ -27,45 +27,95 @@ export default function Index() {
 
   // Tradução PT-BR
   const localizationPTBR = {
-    actions: "Ações",
-    and: "e",
-    cancel: "Cancelar",
-    changeFilterMode: "Alterar modo do filtro",
-    changeSearchMode: "Alterar modo de busca",
-    clearFilter: "Limpar filtro",
-    clearSearch: "Limpar busca",
-    clearSort: "Limpar ordenação",
-    contains: "Contém",
-    dateBetween: "Entre",
-    dateEquals: "Igual",
-    dateAfter: "Depois",
-    dateBefore: "Antes",
-    empty: "Vazio",
-    equals: "Igual a",
-    expand: "Expandir",
-    filter: "Filtro",
-    filterByColumn: "Filtrar por {column}",
-    grab: "Segurar",
-    groupedBy: "Agrupado por",
-    hideAll: "Ocultar tudo",
-    hideColumn: "Ocultar coluna",
-    invertSelection: "Inverter seleção",
-    noRecordsToDisplay: "Nenhum registro encontrado",
-    of: "de",
-    or: "ou",
-    page: "Página",
-    rowsPerPage: "Linhas por página",
-    save: "Salvar",
-    search: "Buscar",
-    selectedCountOfRowCountRowsSelected: "{selectedCount} de {rowCount} selecionados",
-    select: "Selecionar",
-    showAll: "Mostrar tudo",
-    showColumn: "Mostrar coluna",
-    toggleDensity: "Alternar densidade",
-    toggleFullScreen: "Tela cheia",
-    toggleFilters: "Mostrar filtros",
-    toggleSearch: "Mostrar busca",
-    toggleVisibility: "Visibilidade",
+    actions: 'Ações',
+    and: 'e',
+    cancel: 'Cancelar',
+    changeFilterMode: 'Alterar o modo de filtro',
+    changeSearchMode: 'Alterar o modo de pesquisa',
+    clearFilter: 'Limpar filtros',
+    clearSearch: 'Limpar pesquisa',
+    clearSort: 'Limpar classificações',
+    clickToCopy: 'Clique para copiar',
+    collapse: 'Recolher',
+    collapseAll: 'Recolher tudo',
+    columnActions: 'Ações das colunas',
+    copiedToClipboard: 'Copiado para área de transferência',
+    dropToGroupBy: 'Solte para agrupar por {column}',
+    edit: 'Editar',
+    expand: 'Expandir',
+    expandAll: 'Expandir tudo',
+    filterArrIncludes: 'Inclui',
+    filterArrIncludesAll: 'Incluir tudo',
+    filterArrIncludesSome: 'Inclui alguns',
+    filterBetween: 'Entre',
+    filterBetweenInclusive: 'Entre valores incluídos',
+    filterByColumn: 'Filtrar por {column}',
+    filterContains: 'Contém',
+    filterEmpty: 'vazio',
+    filterEndsWith: 'Termina com',
+    filterEquals: 'Igual',
+    filterEqualsString: 'Igual',
+    filterFuzzy: 'Impreciso',
+    filterGreaterThan: 'Maior que',
+    filterGreaterThanOrEqualTo: 'Maior ou igual que',
+    filterInNumberRange: 'Entre',
+    filterIncludesString: 'Contém',
+    filterIncludesStringSensitive: 'Contém',
+    filterLessThan: 'Menor que',
+    filterLessThanOrEqualTo: 'Menor ou igual que',
+    filterMode: 'Modo de filtro: {filterType}',
+    filterNotEmpty: 'Não é vazio',
+    filterNotEquals: 'Não é igual',
+    filterStartsWith: 'Começa com',
+    filterWeakEquals: 'Igual',
+    filteringByColumn: 'Filtrando por {column} - {filterType} {filterValue}',
+    goToFirstPage: 'Ir para a primeira página',
+    goToLastPage: 'Ir para a última página',
+    goToNextPage: 'Ir para a próxima página',
+    goToPreviousPage: 'Ir para a página anterior',
+    grab: 'Agarrar',
+    groupByColumn: 'Agrupar por {column}',
+    groupedBy: 'Agrupado por ',
+    hideAll: 'Ocultar tudo',
+    hideColumn: 'Ocultar coluna {column}',
+    max: 'Max',
+    min: 'Min',
+    move: 'Mover',
+    noRecordsToDisplay: 'Não há registros a serem exibidos',
+    noResultsFound: 'Nenhum resultado encontrado',
+    of: 'de',
+    or: 'ou',
+    pinToLeft: 'Fixar à esquerda',
+    pinToRight: 'Fixar à direita',
+    resetColumnSize: 'Restaurar tamanho da coluna',
+    resetOrder: 'Restaurar ordem',
+    rowActions: 'Ações da linha',
+    rowNumber: '#',
+    rowNumbers: 'Número da linha',
+    rowsPerPage: 'Linhas por página',
+    save: 'Salvar',
+    search: 'Pesquisar',
+    selectedCountOfRowCountRowsSelected:
+      '{selectedCount} de {rowCount} linha(s) selecionada(s)',
+    select: 'Selecionar',
+    showAll: 'Mostrar tudo',
+    showAllColumns: 'Mostrar todas as colunas',
+    showHideColumns: 'Mostrar/Ocultar colunas',
+    showHideFilters: 'Mostrar/Ocultar filtros',
+    showHideSearch: 'Mostrar/Ocultar barra de pesquisa',
+    sortByColumnAsc: 'Ordenar por {column} em ascendente',
+    sortByColumnDesc: 'Ordenar por {column} em descendente',
+    sortedByColumnAsc: 'Ordenado por {column} em ascendente',
+    sortedByColumnDesc: 'Ordenado por {column} em descendente',
+    thenBy: ', depois por ',
+    toggleDensity: 'Alternar densidade',
+    toggleFullScreen: 'Alternar tela cheia',
+    toggleSelectAll: 'Alternar selecionar tudo',
+    toggleSelectRow: 'Alternar seleção da linha',
+    toggleVisibility: 'Alternar visibilidade',
+    ungroupByColumn: 'Desagrupar por {column}',
+    unpin: 'Desfixar',
+    unpinAll: 'Desfixar tudo'
   };
 
   // -------- ⭐ FUNÇÃO CENTRAL DE ATUALIZAÇÃO ⭐ --------
@@ -100,15 +150,18 @@ export default function Index() {
     data: users.data,
     localization: localizationPTBR,
     enablePagination: false,
-    isMultiSortEvent: () => true, 
+    isMultiSortEvent: () => true,
   });
 
   return (
     <>
-      <Head title="Lista de Usuários" />
+      <Head title="Usuários" />
 
-      <div className="py-12 min-h-screen">
+      <div className="min-h-screen">
         <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+          <h2 className="text-xl py-4 text-center font-semibold leading-tight text-gray-800">
+            Lista de Usuários
+          </h2>
           <div className="overflow-hidden bg-white shadow sm:rounded">
             <div className="p-6 bg-white">
 
@@ -154,7 +207,7 @@ export default function Index() {
               {/* Paginação Laravel */}
               <div className="flex justify-between mt-4">
                 <select
-                  className="border px-3 py-1 rounded"
+                  className="border px-4 py-1 rounded min-w-40 "
                   value={perPage}
                   onChange={(e) => {
                     const v = Number(e.target.value);
@@ -162,7 +215,7 @@ export default function Index() {
                     atualizar({ perPage: v });
                   }}
                 >
-                  {[5, 10, 25, 50].map((n) => (
+                  {[5, 10, 25, 50, 100].map((n) => (
                     <option key={n} value={n}>
                       {n} por página
                     </option>
@@ -200,11 +253,11 @@ export default function Index() {
 Index.layout = (page) => (
   <AuthenticatedLayout
     auth={page.props.auth}
-    header={
-      <h2 className="text-xl font-semibold leading-tight text-gray-800">
-        Lista de Usuários
-      </h2>
-    }
+  // header={
+  //   <h2 className="text-xl font-semibold leading-tight text-gray-800">
+  //     Lista de Usuários
+  //   </h2>
+  // }
   >
     {page}
   </AuthenticatedLayout>

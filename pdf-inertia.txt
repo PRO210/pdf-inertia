@@ -46,3 +46,5 @@ QHD (Quad HD) / 2K (1440p):
 
 
  95608501
+
+ https://www.mantine-react-table.com/docs/examples/react-query
