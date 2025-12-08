@@ -578,6 +578,7 @@ export default function PdfEditor() {
         <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
           <div className="w-full lg:w-1/3 flex flex-col justify-start items-center" id="opcoes">
+            
             <div className="flex flex-col items-center justify-center gap-4 w-full" >
               <div className="w-full text-center text-2xl font-bold mt-4">
                 <h1>Opções</h1>

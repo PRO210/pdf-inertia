@@ -30,14 +30,13 @@ Route::get('/dashboard', function () {
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 
-
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 Route::middleware('auth')->group(function () {
-   Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -120,10 +119,18 @@ Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground
 Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);
 
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard/imagem-to-anime/create', [ImageController::class, 'createImageToAnime'])->name('imagem-to-anime.create');
     Route::post('/imagens/imagem-to-anime', [ImageController::class, 'imageToAnime']);
+   
 });
+
+Route::get('/dashboard/image-in-mask', function () {
+    return Inertia::render('ImageInMask/Index');
+})->middleware(['auth'])->name('image.in.mask');
+
+Route::post('/dashboard/image-in-mask', [ImageController::class, 'imageInMask'])
+    ->name('image.in.mask');
 
 
 Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
@@ -142,7 +149,7 @@ Route::post('user-download-debitarCredito', [UserDownloadsController::class, 'de
     ->middleware('auth')
     ->name('user.downloads.debitarCredito');
 
-    
+
 
 
 require __DIR__ . '/auth.php';

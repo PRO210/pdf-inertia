@@ -13,6 +13,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "mercadopago/dx-php": "^3.7",
+        "tecnickcom/tcpdf": "^6.10",
         "tightenco/ziggy": "^2.0"
     },
     "require-dev": {

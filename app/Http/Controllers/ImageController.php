@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Actions\CleanUserUpscaleFiles;
 use App\Actions\SaveImageFromSource;
+use App\Helpers\ImageToMask;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Imagick;
 use Inertia\Inertia;
 
 class ImageController extends Controller
@@ -426,6 +429,68 @@ class ImageController extends Controller
         }
     }
 
-    /* 
-     */
+    public function imageInMask(Request $request)
+    {
+        $request->validate([
+            'imagens.*' => 'required|image',
+            'colunas' => 'required|integer',
+            'linhas'  => 'required|integer',
+            'mascara' => 'required|string'
+        ]);
+
+        $pdfPath = ImageToMask::gerarPdf(
+            $request->file('imagens'),
+            [
+                'orientacao' => $request->orientacao ?? 'paisagem',
+                'colunas'    => $request->colunas ?? 2,
+                'linhas'     => $request->linhas ?? 2,
+                'margem_cm'  => $request->margem_cm ?? 0.5,
+            ]
+        );
+
+        $maskPath = public_path('imagens/mascaras/coracao.png');
+        $imagePath = public_path('imagens/mascaras/Gil.jpg');
+
+        $image = new Imagick($imagePath);
+        $imageW = $image->getImageWidth();
+        $imageH = $image->getImageHeight();
+
+        Log::info("Imagem original: {$imageW}x{$imageH}");
+
+        // ✅ MÉTODO CORRETO PARA ImageMagick 6.9.10
+        $mask = new Imagick($maskPath);
+        $mask->resizeImage($imageW, $imageH, Imagick::FILTER_LANCZOS, 1);
+
+        // 🔧 ImageMagick 6.x: Converte GRAY -> ALPHA manualmente
+        $mask->setImageColorspace(Imagick::COLORSPACE_GRAY);
+        $mask->setImageMatte(true);  // Ativa canal alpha
+        $mask->evaluateImage(Imagick::EVALUATE_MULTIPLY, 1, Imagick::CHANNEL_ALPHA); // Luminância -> Alpha
+
+        // Salva máscara DEBUG
+        $mask->writeImage(storage_path('app/temp_pdf/debug_mask.png'));
+
+        // 🔧 COMPOSITE CORRETO para IM 6.x (sua máscara branca=visível)
+        $image->compositeImage($mask, Imagick::COMPOSITE_DSTIN, 0, 0);
+        Log::info("Máscara aplicada com COMPOSITE_DSTIN (IM 6.9)");
+
+        // Salva resultado DEBUG
+        $image->writeImage(storage_path('app/temp_pdf/debug_result.png'));
+
+        // Fundo branco para visualizar
+        $background = new Imagick();
+        $background->newImage($imageW, $imageH, 'white');
+        $background->setImageFormat('png');
+        $background->compositeImage($image, Imagick::COMPOSITE_OVER, 0, 0);
+
+        $outputPath = storage_path('app/temp_pdf/masked_' . uniqid() . '.png');
+        $background->writeImage($outputPath);
+
+        $image->clear();
+        $mask->clear();
+        $background->clear();
+
+        Log::info("Resultado salvo em: {$outputPath}");
+
+        return response()->file($outputPath);
+    }
 }

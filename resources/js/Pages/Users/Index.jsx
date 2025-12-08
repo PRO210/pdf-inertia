@@ -25,7 +25,6 @@ export default function Index() {
     []
   );
 
-  // Tradução PT-BR
   const localizationPTBR = {
     actions: 'Ações',
     and: 'e',
