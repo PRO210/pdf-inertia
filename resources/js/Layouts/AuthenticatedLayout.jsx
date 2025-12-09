@@ -40,11 +40,11 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </NavLink>
 
                                 <NavLink href={route('imagem-to-anime.create')} active={route().current('imagem-to-anime.create')} >
-                                    Image para Anime
+                                    Imagem para Anime
                                 </NavLink>
 
                                 <NavLink href={route('image.in.mask')} active={route().current('image.in.mask')} >
-                                    Image em Máscara
+                                    Imagem em Formas
                                 </NavLink>
 
                                 <NavLink href={route('pagamento.retorno')} active={route().current('pagamento.retorno')} >

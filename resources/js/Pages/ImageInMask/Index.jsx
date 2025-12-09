@@ -12,6 +12,7 @@ import {
 
 import * as pdfjsLib from 'pdfjs-dist'
 import { aplicarMascaraCanvas } from './Partials/mask';
+import Spinner from '@/Components/Spinner';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -23,6 +24,10 @@ export default function Index() {
   const { user } = usePage().props;
 
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
+  const [modoReducao, setModoReducao] = useState("grid");
+  const [tamanhoQuadro, setTamanhoQuadro] = useState({ larguraCm: 4, alturaCm: 6 });
+  const [espacamentoCm, setEspacamentoCm] = useState(1);
+
   const [orientacao, setOrientacao] = useState('paisagem')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [imagens, setImagens] = useState([]);
@@ -35,11 +40,11 @@ export default function Index() {
   const [mostrarImagensCarregadas, setMostrarImagensCarregadas] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  //  src="/imagens/circulo.png"
   /* Criar o Pdf */
   const previewRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+
 
 
   // Função para converter File (usuário) ou URL (máscara) em ArrayBuffer
@@ -87,192 +92,20 @@ export default function Index() {
   //   }
   // };
 
-  // const gerarPdf = async () => {
-  //   setIsGenerating(true);
-
-  //   // 1. Limpa o PDF anterior
-  //   if (pdfUrl) {
-  //     URL.revokeObjectURL(pdfUrl);
-  //     setPdfUrl(null);
-  //   }
-
-  //   try {
-  //     // --- 1. Configurar Documento e Dimensões ---
-
-  //     // Dimensões em CM (do estado tamanhoCm)
-  //     const { largura, altura } = tamanhoCm;
-
-  //     // Conversão de CM para Pontos (PT) - Lógica de Paisagem/Retrato
-  //     const pageDimensions = orientacao === 'retrato'
-  //       ? [altura * 28.35, largura * 28.35]
-  //       : [largura * 28.35, altura * 28.35];
-
-  //     const pdfDoc = await PDFDocument.create();
-  //     const page = pdfDoc.addPage(pageDimensions);
-
-  //     // Dimensões finais da página em Pontos
-  //     const { width: pageW, height: pageH } = page.getSize();
-  //     const margem = 10; // 10 Pontos de margem
-
-  //     page.drawRectangle({
-  //       x: margem,
-  //       y: margem,
-  //       width: pageW - (margem * 2), // Largura total menos as duas margens (esquerda + direita)
-  //       height: pageH - (margem * 2), // Altura total menos as duas margens (topo + baixo)
-  //       borderWidth: 2,
-  //       borderColor: rgb(1, 0, 0), // Borda Vermelha (R:1, G:0, B:0)
-  //     });
-
-  //     // --- 2. Lógica da Grade (Colunas e Linhas) ---
-  //     // Define a área de desenho útil, descontando as margens
-  //     const drawW = pageW - (margem * 2);
-  //     const drawH = pageH - (margem * 2);
-
-  //     // Obter número de Colunas e Linhas do estado ampliacao
-  //     const numCols = ampliacao.colunas;
-  //     const numRows = ampliacao.linhas;
-
-  //     // Cálculo das Dimensões de cada Célula (em Pontos)
-  //     const cellW = drawW / numCols;
-  //     const cellH = drawH / numRows;
-
-  //     // O número total de células é Colunas * Linhas
-  //     const totalCells = numCols * numRows;
-
-  //     // --- 3. Iterar e Desenhar a Borda de Cada Célula ---
-
-  //     // Iteramos por todas as células para desenhar suas bordas e validar a divisão
-  //     for (let i = 0; i < totalCells; i++) {
-
-  //       // Se houver 3 imagens e 4 células, a 4ª célula pega a imagem [0].
-  //       const imagemIndex = i % imagens.length;
-  //       const imagemFile = imagens[imagemIndex];
-
-  //       // Posição na grade (0-indexado)
-  //       const col = i % numCols;
-  //       const row = Math.floor(i / numCols);
-
-  //       // --- A. Cálculo das Coordenadas da Célula ---
-  //       // A posição x e y já inclui o offset da margem.
-  //       const x = (col * cellW) + margem;
-  //       const y = margem + (drawH - (row * cellH) - cellH);
-
-  //       // --- B. Incorporar a Imagem ao PDF ---
-  //       let pdfImage;
-  //       try {
-  //         const imgBuffer = await carregarImagemParaBuffer(imagemFile);
-  //         // Tenta incorporar como JPG, se falhar, tenta como PNG
-  //         pdfImage = await pdfDoc.embedJpg(imgBuffer).catch(() => pdfDoc.embedPng(imgBuffer));
-  //       } catch (e) {
-  //         console.error(`Falha ao incorporar a imagem ${i + 1}:`, e);
-  //         // Se a imagem falhar, desenhamos apenas a borda e pulamos para a próxima célula
-  //         page.drawRectangle({
-  //           x: x, y: y, width: cellW, height: cellH, borderWidth: 1, borderColor: rgb(1, 0, 0),
-  //         });
-  //         continue;
-  //       }
-
-  //       const { width: imgW, height: imgH } = pdfImage;
-  //       const imgRatio = imgW / imgH;
-
-  //       // --- C. Cálculo para AJUSTAR à Célula (Contain Mode) ---
-  //       // Garante que a imagem caiba inteiramente DENTRO da célula.
-  //       let drawW_img = cellW; // Dimensão de desenho da imagem
-  //       let drawH_img = cellH;
-  //       let drawX_img = x;     // Posição de desenho da imagem
-  //       let drawY_img = y;
-
-  //       // Verifica se a proporção da CÉLULA é MAIS LARGA que a proporção da IMAGEM 
-  //       //Contain (Ajustar)
-  //       // if (cellW / cellH > imgRatio) {
-  //       //   // A célula é mais larga: Fixa a Altura e calcula a Largura proporcional.
-  //       //   // Isso deixará espaço em branco nas laterais (barras verticais).
-  //       //   drawW_img = cellH * imgRatio;
-  //       //   drawX_img = x + (cellW - drawW_img) / 2; // Centraliza horizontalmente
-
-  //       // } else {
-  //       //   // A célula é mais alta: Fixa a Largura e calcula a Altura proporcional.
-  //       //   // Isso deixará espaço em branco em cima/baixo (barras horizontais).
-  //       //   drawH_img = cellW / imgRatio;
-  //       //   drawY_img = y + (cellH - drawH_img) / 2; // Centraliza verticalmente
-  //       // }
-
-  //       // AQUI ESTÁ A INVERSÃO: Usamos '<' para forçar o estouro na direção necessária.
-  //       // Verifica se a proporção da CÉLULA é MAIS ALTA/QUADRADA (menor proporção) que a IMAGEM.
-  //       if (cellW / cellH < imgRatio) {
-
-  //         // Cenário: A célula é relativamente mais alta/estreita que a imagem (Ex: Célula 1:2, Imagem 2:1).
-  //         // Para cobrir a LARGURA da célula, a ALTURA da imagem terá que estourar.
-
-  //         drawH_img = cellW / imgRatio;
-  //         drawY_img = y + (cellH - drawH_img) / 2; // Centraliza, resultando em CORTE vertical
-  //         // drawW_img permanece cellW
-
-  //       } else {
-
-  //         // Cenário: A célula é relativamente mais larga que a imagem (Ex: Célula 2:1, Imagem 1:2).
-  //         // Para cobrir a ALTURA da célula, a LARGURA da imagem terá que estourar.
-
-  //         drawW_img = cellH * imgRatio;
-  //         drawX_img = x + (cellW - drawW_img) / 2; // Centraliza, resultando em CORTE horizontal
-  //         // drawH_img permanece cellH
-  //       }
-  //       // 1. Salva o estado gráfico atual ('q')
-  //       page.pushOperators(pushGraphicsState());
-
-  //       // 2. Desenha o Caminho Retangular (Define a Área de Recorte)
-  //       // O caminho é desenhado EXATAMENTE nos limites da célula (x, y, cellW, cellH).
-  //       page.drawRectangle({
-  //         x: x,
-  //         y: y,
-  //         width: cellW,
-  //         height: cellH,
-  //         opacity: 0 // Não preenche nem traça, apenas define o caminho
-  //       });
-
-  //       // 3. Aplica o Clipping (W n)
-  //       page.pushOperators(
-  //         clip(),
-  //         endPath()
-  //       );
-
-  //       // --- D. Desenhar a Imagem (Retângulo Simples) ---
-  //       // A imagem é desenhada ajustada e centralizada na célula.
-  //       page.drawImage(pdfImage, {
-  //         x: drawX_img,
-  //         y: drawY_img,
-  //         width: drawW_img,
-  //         height: drawH_img,
-  //       });
-
-  //       // 4. Desenhar Retângulo (Borda da Célula)
-  //       page.drawRectangle({
-  //         x: x,
-  //         y: y,
-  //         width: cellW,  // Largura da Célula
-  //         height: cellH, // Altura da Célula
-  //         borderWidth: 0.5,
-  //         borderColor: rgb(0.1, 0.1, 0.1), // Borda cinza/preta
-  //       });
-  //     }
-
-
-  //     // --- 4. Salvar e Visualizar ---
-  //     const pdfBytes = await pdfDoc.save();
-  //     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  //     const url = URL.createObjectURL(blob);
-
-  //     setPdfUrl(url);
-
-  //   } catch (error) {
-  //     console.error("Erro ao gerar PDF:", error);
-  //     alert("Ocorreu um erro ao gerar o PDF. Verifique o console.");
-  //   } finally {
-  //     setIsGenerating(false);
-  //   }
-  // };
-
   const gerarPdf = async () => {
+
+    if (modoReducao === "cm") {
+      // usa modo por centímetros
+      gerarPdfComQuadroCm();
+    } else {
+      // usa modo grid
+      gerarPdfComGrid();
+    }
+
+  }
+
+
+  const gerarPdfComGrid = async () => {
     console.log("========== 🟣 INICIANDO GERAR PDF ==========");
 
     setIsGenerating(true);
@@ -468,6 +301,126 @@ export default function Index() {
     }
   };
 
+  const gerarPdfComQuadroCm = async () => {
+    console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+
+    setIsGenerating(true);
+
+    if (pdfUrl) {
+      URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
+    }
+
+    try {
+      console.log("📏 Tamanho da página em cm:", tamanhoCm);
+      const { largura, altura } = tamanhoCm;
+
+      // conversão cm → pontos PDF
+      const pageW = largura * 28.35;
+      const pageH = altura * 28.35;
+
+      const pdfDoc = await PDFDocument.create();
+      const page = pdfDoc.addPage([pageW, pageH]);
+
+      const margem = 5;
+
+      // 🔥 tamanho do quadro fixo em cm
+      const quadroW = tamanhoQuadro.larguraCm * 28.35;
+      const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+      const espacamento = espacamentoCm * 28.35;
+
+      // posição inicial do primeiro quadro
+      let atualX = margem;
+      let atualY = pageH - margem - quadroH;
+
+      for (let i = 0; i < imagensMask.length; i++) {
+
+        const imagemObj = imagensMask[i];
+        const base64 = imagemObj.maskedBase64;
+
+        if (!base64) continue;
+
+        // conversão base64
+        const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+        const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+        const pdfImage = await pdfDoc
+          .embedPng(imgBuffer)
+          .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+        const imgW = pdfImage.width;
+        const imgH = pdfImage.height;
+        const ratio = imgW / imgH;
+
+        // 🔥 ajustar imagem para caber no quadro mantendo proporção
+        let drawW = quadroW;
+        let drawH = quadroH;
+
+        // if (quadroW / quadroH < ratio) {
+        //   drawH = quadroW / ratio;
+        // } else {
+        //   drawW = quadroH * ratio;
+        // }
+
+        // // centralizar dentro do quadro
+        // const offsetX = atualX + (quadroW - drawW) / 2;
+        // const offsetY = atualY + (quadroH - drawH) / 2;
+
+        // imagem começa exatamente dentro do quadro
+        const offsetX = atualX;
+        const offsetY = atualY;
+
+        // borda do quadro
+        page.drawRectangle({
+          x: atualX,
+          y: atualY,
+          width: quadroW,
+          height: quadroH,
+          borderWidth: 1,
+          borderColor: rgb(0, 0, 0),
+        });
+
+        // imagem
+        page.drawImage(pdfImage, {
+          x: offsetX,
+          y: offsetY,
+          width: drawW,
+          height: drawH,
+        });
+
+        // avançar posição X
+        atualX += quadroW + espacamento;
+
+        // 🔄 se passar da página → nova linha
+        if (atualX + quadroW + margem > pageW) {
+          atualX = margem;
+          atualY -= quadroH + espacamento;
+        }
+
+        // 🔄 se passar da página → nova página
+        if (atualY < margem) {
+          const newPage = pdfDoc.addPage([pageW, pageH]);
+          page = newPage;
+
+          atualX = margem;
+          atualY = pageH - margem - quadroH;
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      setPdfUrl(url);
+
+    } catch (error) {
+      console.error("❌ ERRO CRÍTICO:", error);
+      alert("Erro ao gerar PDF.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
 
   const removerImagem = (indexParaRemover) => {
@@ -495,7 +448,8 @@ export default function Index() {
     setAmpliacao({ colunas: 2, linhas: 1 })
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
-    setImagens([])
+    setImagens([]);
+    setImagensMask([]);
     setRepeatMode("all");
     uploadInputRef.current.value = null;
     pdfUrl && URL.revokeObjectURL(pdfUrl);
@@ -570,15 +524,17 @@ export default function Index() {
 
     // salvar em um array separado sem tocar nas originais
     setImagensMask(filtradas);
+    setAlteracoesPendentes(false);
+
   };
 
   return (
     <>
-      <Head title="Fotos em Máscara" />
+      <Head title="Fotos em Formas" />
 
       <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
-        <div className="w-full lg:w-1/3 flex flex-col justify-start items-center" id="opcoes">
+        <div className="w-full lg:w-1/3 flex flex-col justify-start items-center px-4" id="opcoes">
           <div className="flex flex-col items-center justify-center gap-4 w-full" >
             <div className="w-full text-center text-2xl font-bold mt-4">
               <h1>Opções</h1>
@@ -602,62 +558,127 @@ export default function Index() {
               </select>
             </div>
 
+            <label className="block pro-label text-xl text-center">Modo de Redução:</label>
+
+            <select
+              className="pro-input rounded-full w-full mb-4"
+              value={modoReducao}
+              onChange={(e) => {
+                // 1. Atualiza o valor do modo de redução (como já fazia)
+                setModoReducao(e.target.value);
+
+                // 2. SETA ALTERAÇÕES PENDENTES COMO TRUE
+                setAlteracoesPendentes(true);
+              }}
+            >
+              <option value="grid">Por Colunas x Linhas</option>
+              <option value="cm">Por Tamanho em CM</option>
+            </select>
+
+
             {/* Ampliacao (colunas / linhas) - mantém igual */}
-            <label className="block  pro-label text-xl text-center">Redução:</label>
-            <div className="flex flex-col sm:flex-row gap-2 w-full">
-              <div className="flex gap-2 w-full">
-                <div className="flex-1" id='colunas-input'>
-                  <label className="block mb-2 pro-label text-center">Colunas</label>
-                  <select
-                    className="pro-input rounded-full w-full"
-                    value={ampliacao.colunas}
-                    onChange={(e) => {
-                      setAmpliacao((prev) => ({
-                        ...prev,
-                        colunas: parseInt(e.target.value) || 1,
-                      }));
-                      setAlteracoesPendentes(true);
-                    }}
-                  >
-                    {[...Array(11)].map((_, i) => {
-                      return (
-                        <option key={i} value={i}>
-                          {i}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+            {modoReducao === "grid" && (
+              <>
+                <label className="block  pro-label text-xl text-center">Redução:</label>
+                <div className="flex flex-col sm:flex-row gap-2 w-full">
+                  <div className="flex gap-2 w-full">
+                    <div className="flex-1" id='colunas-input'>
+                      <label className="block mb-2 pro-label text-center">Colunas</label>
+                      <select
+                        className="pro-input rounded-full w-full"
+                        value={ampliacao.colunas}
+                        onChange={(e) => {
+                          setAmpliacao((prev) => ({
+                            ...prev,
+                            colunas: parseInt(e.target.value) || 1,
+                          }));
+                          setAlteracoesPendentes(true);
+                        }}
+                      >
+                        {[...Array(11)].map((_, i) => {
+                          return (
+                            <option key={i} value={i}>
+                              {i}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
 
-                <div className="flex items-end justify-center px-2">
-                  <span className="text-xl font-bold">×</span>
-                </div>
+                    <div className="flex items-end justify-center px-2">
+                      <span className="text-xl font-bold">×</span>
+                    </div>
 
-                <div className="flex-1" id='linhas-select'>
-                  <label className="block mb-2 pro-label text-center">Linhas</label>
-                  <select
-                    className="pro-input rounded-full w-full"
-                    value={ampliacao.linhas}
-                    onChange={(e) => {
-                      setAmpliacao((prev) => ({
-                        ...prev,
-                        linhas: parseInt(e.target.value) || 1,
-                      }));
-                      setAlteracoesPendentes(true);
-                    }}
-                  >
-                    {[...Array(11)].map((_, i) => {
-                      return (
-                        <option key={i} value={i}>
-                          {i}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                    <div className="flex-1" id='linhas-select'>
+                      <label className="block mb-2 pro-label text-center">Linhas</label>
+                      <select
+                        className="pro-input rounded-full w-full"
+                        value={ampliacao.linhas}
+                        onChange={(e) => {
+                          setAmpliacao((prev) => ({
+                            ...prev,
+                            linhas: parseInt(e.target.value) || 1,
+                          }));
+                          setAlteracoesPendentes(true);
+                        }}
+                      >
+                        {[...Array(11)].map((_, i) => {
+                          return (
+                            <option key={i} value={i}>
+                              {i}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
 
-              </div>
-            </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {modoReducao === "cm" && (
+              <>
+                <label className="block pro-label text-xl text-center">Redução (Tamanho Fixo em CM):</label>
+
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
+
+                  <div className="flex-1">
+                    <label className="block mb-2 pro-label text-center">Largura (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={tamanhoQuadro.larguraCm}
+                      className="pro-input rounded-full w-full"
+                      onChange={(e) =>
+                        setTamanhoQuadro(prev => ({
+                          ...prev,
+                          larguraCm: parseFloat(e.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="block mb-2 pro-label text-center">Altura (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={tamanhoQuadro.alturaCm}
+                      className="pro-input rounded-full w-full"
+                      onChange={(e) =>
+                        setTamanhoQuadro(prev => ({
+                          ...prev,
+                          alturaCm: parseFloat(e.target.value) || 1,
+                        }))
+                      }
+                    />
+                  </div>
+
+                </div>
+              </>
+            )}
+
 
             {/* Repetir ou não as imagens */}
             <div className="w-full">
@@ -674,7 +695,6 @@ export default function Index() {
                 <option value="all">Repetir em todas as páginas</option>
               </select>
             </div>
-
 
 
             {/* Input de Imagens e Controle de Visualização */}
@@ -721,7 +741,7 @@ export default function Index() {
                   setAlteracoesPendentes(true);
                 }}
               >
-                <option value="none">Retângulo</option>
+                <option value="retangulo">Retângulo</option>
                 <option value="circulo">Círculo</option>
                 <option value="coracao">Coração</option>
 
@@ -735,26 +755,45 @@ export default function Index() {
               </button>
             </div>
 
-            {/* BOTÃO PARA CHAMAR A FUNÇÃO DE GERAÇÃO DE PDF */}
-            <div className='w-full mt-4'>
-              <button
-                onClick={aplicarMascaraNaImagem}
-                className="pro-btn-green" // Classe visual de destaque
-                disabled={imagens.length === 0 || isGenerating} // Desabilita se não houver imagens ou estiver gerando
-              >
-                {/* Texto dinâmico de loading */}
-                {isGenerating ? "Gerando PDF..." : "Gerar PDF"}
-              </button>
+            {/* ÁREA DOS BOTÕES */}
+            <div className="w-full mt-4 flex flex-col items-center gap-2">
+
+              {/* 1. Quando há alterações pendentes */}
+              {alteracoesPendentes && (
+                <button
+                  onClick={aplicarMascaraNaImagem}
+                  className="pro-btn-green my-2"
+                  disabled={imagens.length === 0 || isGenerating}
+                >
+                  {isGenerating ? "Processando imagens..." : "Aplicar alterações"}
+                </button>
+              )}
 
 
-              <button
-                onClick={gerarPdf}
-                title="Gerar PDF"
-                className="pro-btn-purple text-center"
-              >
-                Traga o pdf
-              </button>
+              {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
+              {!alteracoesPendentes && !isGenerating && (
+                <button
+                  onClick={gerarPdf}
+                  title="Gerar PDF"
+                  className="pro-btn-purple my-2"
+                  disabled={isGenerating}
+                >
+                  ⚙️ Gerar/Atualizar PDF
+                </button>
+              )}
+
+              {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
+              {!alteracoesPendentes && !isGenerating && pdfUrl && (
+                <a
+                  href={pdfUrl}
+                  download="arquivo.pdf"
+                  className="pro-btn-red my-2 text-center cursor-pointer"
+                >
+                  📥 Baixar PDF
+                </a>
+              )}
             </div>
+
 
           </div>
 
