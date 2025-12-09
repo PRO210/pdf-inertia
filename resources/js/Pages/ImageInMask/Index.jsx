@@ -2,7 +2,6 @@ import Footer from '@/Components/Footer';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, usePage, router } from '@inertiajs/react';
 import { useRef, useState } from 'react';
-
 import {
   PDFDocument, rgb, StandardFonts, PageSizes, pushGraphicsState,
   popGraphicsState,
@@ -13,12 +12,9 @@ import {
 import * as pdfjsLib from 'pdfjs-dist'
 import { aplicarMascaraCanvas } from './Partials/mask';
 import Spinner from '@/Components/Spinner';
+import Swal from 'sweetalert2';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
-
-
-
-
 
 export default function Index() {
   const { user } = usePage().props;
@@ -32,18 +28,17 @@ export default function Index() {
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [imagens, setImagens] = useState([]);
   const [imagensMask, setImagensMask] = useState([]);
-  const uploadInputRef = useRef(null); // <--- Adicionar Ref
-  const [mascaraSelecionada, setMascaraSelecionada] = useState('circulo'); // Novo estado para o tipo de máscara
+  const uploadInputRef = useRef(null);
+  const [mascaraSelecionada, setMascaraSelecionada] = useState('circulo');
   const [repeatMode, setRepeatMode] = useState("all");
-  const [modoDimensionamento, setModoDimensionamento] = useState('grid');
   const [tamanhoCm, setTamanhoCm] = useState({ largura: 27.7, altura: 19.0 });
-  const [mostrarImagensCarregadas, setMostrarImagensCarregadas] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   /* Criar o Pdf */
   const previewRef = useRef(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [initialState, setInitialState] = useState(true);
 
 
 
@@ -301,126 +296,713 @@ export default function Index() {
     }
   };
 
-  const gerarPdfComQuadroCm = async () => {
-    console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+  // const gerarPdfComQuadroCm = async () => {
+  //   console.log("========== 🟣 INICIANDO GERAR PDF ==========");
 
-    setIsGenerating(true);
+  //   setIsGenerating(true);
 
-    if (pdfUrl) {
-      URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(null);
+  //   if (pdfUrl) {
+  //     URL.revokeObjectURL(pdfUrl);
+  //     setPdfUrl(null);
+  //   }
+
+  //   try {
+  //     console.log("📏 Tamanho da página em cm:", tamanhoCm);
+  //     const { largura, altura } = tamanhoCm;
+
+  //     // conversão cm → pontos PDF
+  //     const pageW = largura * 28.35;
+  //     const pageH = altura * 28.35;
+
+  //     const pdfDoc = await PDFDocument.create();
+  //     const page = pdfDoc.addPage([pageW, pageH]);
+
+  //     const margem = 5;
+
+  //     // 🔥 tamanho do quadro fixo em cm
+  //     const quadroW = tamanhoQuadro.larguraCm * 28.35;
+  //     const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+  //     // const espacamento = espacamentoCm * 28.35;
+
+  //     // posição inicial do primeiro quadro
+  //     let atualX = margem;
+  //     let atualY = pageH - margem - quadroH;
+
+  //     // for (let i = 0; i < imagensMask.length; i++) {
+
+  //     //   const imagemObj = imagensMask[i];
+  //     //   const base64 = imagemObj.maskedBase64;
+
+  //     //   if (!base64) continue;
+
+  //     //   // conversão base64
+  //     //   const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+  //     //   const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+  //     //   const pdfImage = await pdfDoc
+  //     //     .embedPng(imgBuffer)
+  //     //     .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+  //     //   const imgW = pdfImage.width;
+  //     //   const imgH = pdfImage.height;
+  //     //   const ratio = imgW / imgH;
+
+  //     //   // 🔥 ajustar imagem para caber no quadro mantendo proporção
+  //     //   let drawW = quadroW;
+  //     //   let drawH = quadroH;
+
+  //     //   // if (quadroW / quadroH < ratio) {
+  //     //   //   drawH = quadroW / ratio;
+  //     //   // } else {
+  //     //   //   drawW = quadroH * ratio;
+  //     //   // }
+
+  //     //   // // centralizar dentro do quadro
+  //     //   // const offsetX = atualX + (quadroW - drawW) / 2;
+  //     //   // const offsetY = atualY + (quadroH - drawH) / 2;
+
+  //     //   // imagem começa exatamente dentro do quadro
+  //     //   const offsetX = atualX;
+  //     //   const offsetY = atualY;
+
+  //     //   // borda do quadro
+  //     //   page.drawRectangle({
+  //     //     x: atualX,
+  //     //     y: atualY,
+  //     //     width: quadroW,
+  //     //     height: quadroH,
+  //     //     borderWidth: 1,
+  //     //     borderColor: rgb(0, 0, 0),
+  //     //   });
+
+  //     //   // imagem
+  //     //   page.drawImage(pdfImage, {
+  //     //     x: offsetX,
+  //     //     y: offsetY,
+  //     //     width: drawW,
+  //     //     height: drawH,
+  //     //   });
+
+  //     //   // avançar posição X
+  //     //   atualX += quadroW + espacamento;
+
+  //     //   // 🔄 se passar da página → nova linha
+  //     //   if (atualX + quadroW + margem > pageW) {
+  //     //     atualX = margem;
+  //     //     atualY -= quadroH + espacamento;
+  //     //   }
+
+  //     //   // 🔄 se passar da página → nova página
+  //     //   if (atualY < margem) {
+  //     //     const newPage = pdfDoc.addPage([pageW, pageH]);
+  //     //     page = newPage;
+
+  //     //     atualX = margem;
+  //     //     atualY = pageH - margem - quadroH;
+  //     //   }
+  //     // }
+  //     // repetir as imagens infinitamente, mas só até encher a página
+  //     let i = 0;
+
+  //     // 1mm = 0.1cm → converter para pontos PDF
+  //     const espacamento = 0.1 * 28.35;
+
+  //     while (true) {
+  //       const imagemObj = imagensMask[i];
+  //       const base64 = imagemObj.maskedBase64;
+  //       if (!base64) {
+  //         i = (i + 1) % imagensMask.length;
+  //         continue;
+  //       }
+
+  //       const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+  //       const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+  //       const pdfImage = await pdfDoc
+  //         .embedPng(imgBuffer)
+  //         .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+  //       // imagem do tamanho exato do quadro
+  //       const drawW = quadroW;
+  //       const drawH = quadroH;
+
+  //       // desenha borda
+  //       page.drawRectangle({
+  //         x: atualX,
+  //         y: atualY,
+  //         width: quadroW,
+  //         height: quadroH,
+  //         borderWidth: 1,
+  //         borderColor: rgb(0, 0, 0),
+  //       });
+
+  //       // desenha imagem
+  //       page.drawImage(pdfImage, {
+  //         x: atualX,
+  //         y: atualY,
+  //         width: drawW,
+  //         height: drawH,
+  //       });
+
+  //       // avança coluna
+  //       atualX += quadroW + espacamento;
+
+  //       // se passar da largura → nova linha
+  //       if (atualX + quadroW + margem > pageW) {
+  //         atualX = margem;
+  //         atualY -= quadroH + espacamento;
+  //       }
+
+  //       // se passar da altura → acabou página
+  //       if (atualY < margem) {
+  //         break;
+  //       }
+
+  //       // próxima imagem (ciclo infinito)
+  //       i = (i + 1) % imagensMask.length;
+  //     }
+
+
+
+  //     const pdfBytes = await pdfDoc.save();
+  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  //     const url = URL.createObjectURL(blob);
+
+  //     setPdfUrl(url);
+
+  //   } catch (error) {
+  //     console.error("❌ ERRO CRÍTICO:", error);
+  //     alert("Erro ao gerar PDF.");
+  //   } finally {
+  //     setIsGenerating(false);
+  //   }
+  // };
+
+  // const gerarPdfComQuadroCm = async () => {
+  //   console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+
+  //   setIsGenerating(true);
+
+  //   if (pdfUrl) {
+  //     URL.revokeObjectURL(pdfUrl);
+  //     setPdfUrl(null);
+  //   }
+
+  //   try {
+  //     console.log("📏 Tamanho da página em cm:", tamanhoCm);
+  //     const { largura, altura } = tamanhoCm;
+
+  //     // conversão cm → pontos PDF
+  //     const pageW = largura * 28.35;
+  //     const pageH = altura * 28.35;
+
+  //     const pdfDoc = await PDFDocument.create();
+  //     let page = pdfDoc.addPage([pageW, pageH]);
+
+  //     const margem = 5;
+
+  //     // quadro fixo
+  //     const quadroW = tamanhoQuadro.larguraCm * 28.35;
+  //     const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+  //     // 🔥 espaçamento = 1mm
+  //     const espacamento = 0.1 * 28.35;
+
+  //     // posição inicial
+  //     let atualX = margem;
+  //     let atualY = pageH - margem - quadroH;
+
+  //     // 📌 métricas
+  //     let totalQuadros = 0;
+  //     let totalLinhas = 1;
+  //     let totalColunas = 0;
+
+  //     // loop infinito até encher a página
+  //     let i = 0;
+
+  //     while (true) {
+  //       const imagemObj = imagensMask[i];
+  //       const base64 = imagemObj.maskedBase64;
+
+  //       if (!base64) {
+  //         i = (i + 1) % imagensMask.length;
+  //         continue;
+  //       }
+
+  //       const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+  //       const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+  //       const pdfImage = await pdfDoc
+  //         .embedPng(imgBuffer)
+  //         .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+  //       const drawW = quadroW;
+  //       const drawH = quadroH;
+
+  //       // desenha quadro
+  //       page.drawRectangle({
+  //         x: atualX,
+  //         y: atualY,
+  //         width: quadroW,
+  //         height: quadroH,
+  //         borderWidth: 1,
+  //         borderColor: rgb(0, 0, 0),
+  //       });
+
+  //       // desenha imagem
+  //       page.drawImage(pdfImage, {
+  //         x: atualX,
+  //         y: atualY,
+  //         width: drawW,
+  //         height: drawH,
+  //       });
+
+  //       totalQuadros++;
+
+  //       // colunas somente primeira linha
+  //       if (totalLinhas === 1) totalColunas++;
+
+  //       // avança coluna
+  //       atualX += quadroW + espacamento;
+
+  //       // nova linha se ultrapassou largura
+  //       if (atualX + quadroW + margem > pageW) {
+  //         atualX = margem;
+  //         atualY -= quadroH + espacamento;
+  //         totalLinhas++;
+  //       }
+
+  //       // se passou da altura → acabou página
+  //       if (atualY < margem) {
+  //         break;
+  //       }
+
+  //       // próximo item (ciclo)
+  //       i = (i + 1) % imagensMask.length;
+  //     }
+
+  //     // sobras em pontos
+  //     const sobraAltura = atualY > 0 ? atualY : 0;
+  //     const sobraLargura = pageW - (atualX + quadroW);
+
+  //     const pontosParaCm = v => (v / 28.35).toFixed(2);
+
+  //     // 🔵 RESUMO NO CONSOLE
+  //     console.log("🔍 RESUMO DA PÁGINA:");
+  //     console.log("➡️ Quadros colocados:", totalQuadros);
+  //     console.log("➡️ Linhas:", totalLinhas);
+  //     console.log("➡️ Colunas:", totalColunas);
+  //     console.log("➡️ Sobra altura:", pontosParaCm(sobraAltura), "cm");
+  //     console.log("➡️ Sobra largura:", pontosParaCm(sobraLargura), "cm");
+
+  //     // 🔥 popup com resumo
+  //     Swal.fire({
+  //       title: "Resumo da Página",
+  //       html: `
+  //       <b>Quadros na página:</b> ${totalQuadros}<br>
+  //       <b>Linhas:</b> ${totalLinhas}<br>
+  //       <b>Colunas:</b> ${totalColunas}<br><br>
+
+  //       <b>Sobra abaixo:</b> ${pontosParaCm(sobraAltura)} cm<br>
+  //       <b>Sobra à direita:</b> ${pontosParaCm(sobraLargura)} cm<br><br>
+
+  //       <i>Aumente o quadro ou diminua o espaçamento caso queira ocupar melhor a página.</i>
+  //     `,
+  //       icon: "info",
+  //       width: 450,
+  //     });
+
+  //     // salvar pdf
+  //     const pdfBytes = await pdfDoc.save();
+  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  //     const url = URL.createObjectURL(blob);
+
+  //     setPdfUrl(url);
+
+  //   } catch (error) {
+  //     console.error("❌ ERRO CRÍTICO:", error);
+  //     alert("Erro ao gerar PDF.");
+  //   } finally {
+  //     setIsGenerating(false);
+  //   }
+  // };
+
+  // const gerarPdfComQuadroCm = async () => {
+  //   console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+
+  //   setIsGenerating(true);
+
+  //   if (pdfUrl) {
+  //     URL.revokeObjectURL(pdfUrl);
+  //     setPdfUrl(null);
+  //   }
+
+  //   try {
+  //     console.log("📏 Tamanho da página em cm:", tamanhoCm);
+  //     const { largura, altura } = tamanhoCm;
+
+  //     // conversão cm → pontos PDF
+  //     const pageW = largura * 28.35;
+  //     const pageH = altura * 28.35;
+
+  //     const pdfDoc = await PDFDocument.create();
+  //     let page = pdfDoc.addPage([pageW, pageH]);
+
+  //     // margem em pontos (você pode adaptar se quiser margem em cm)
+  //     const margem = 5; // pontos
+
+  //     // quadro fixo (em pontos)
+  //     const quadroW = tamanhoQuadro.larguraCm * 28.35;
+  //     const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+  //     // espaçamento = 1mm
+  //     const espacamento = 0.1 * 28.35;
+
+  //     // posição inicial (canto superior-esquerdo do primeiro quadro)
+  //     let atualX = margem;
+  //     let atualY = pageH - margem - quadroH;
+
+  //     // métricas
+  //     let totalQuadros = 0;
+  //     let totalLinhas = 0;
+  //     let currentRowCols = 0;
+  //     let maxCols = 0;
+
+  //     // para calcular sobra da altura corretamente após a última linha
+  //     let lowestYUsed = pageH; // y mais baixa usada pelo último quadro (em pontos)
+
+  //     // índice das imagens (faz loop sobre imagensMask repetidamente)
+  //     let i = 0;
+  //     if (!imagensMask || !imagensMask.length) {
+  //       throw new Error("Nenhuma imagem disponível em imagensMask");
+  //     }
+
+  //     while (true) {
+  //       // --- antes de desenhar: verificar se cabe verticalmente ---
+  //       // Se a posição atualY < margem (ou seja, o quadro não caberia), interrompe
+  //       if (atualY < margem) {
+  //         break;
+  //       }
+
+  //       // --- pega a imagem atual (roda em ciclo) ---
+  //       const imagemObj = imagensMask[i];
+  //       const base64 = imagemObj ? imagemObj.maskedBase64 : null;
+  //       if (!base64) {
+  //         // pula imagens inválidas
+  //         i = (i + 1) % imagensMask.length;
+  //         continue;
+  //       }
+
+  //       const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+  //       const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+  //       const pdfImage = await pdfDoc
+  //         .embedPng(imgBuffer)
+  //         .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+  //       // --- desenha quadro e imagem ---
+  //       page.drawRectangle({
+  //         x: atualX,
+  //         y: atualY,
+  //         width: quadroW,
+  //         height: quadroH,
+  //         borderWidth: 1,
+  //         borderColor: rgb(0, 0, 0),
+  //       });
+
+  //       page.drawImage(pdfImage, {
+  //         x: atualX,
+  //         y: atualY,
+  //         width: quadroW,
+  //         height: quadroH,
+  //       });
+
+  //       totalQuadros++;
+  //       currentRowCols++;
+  //       maxCols = Math.max(maxCols, currentRowCols);
+
+  //       // atualiza lowestYUsed (a borda inferior do quadro desenhado)
+  //       const bottomOfThis = atualY; // y do canto inferior do quadro
+  //       if (bottomOfThis < lowestYUsed) lowestYUsed = bottomOfThis;
+
+  //       // --- prepara a próxima coluna ---
+  //       atualX += quadroW + espacamento;
+
+  //       // se a próxima coluna não couber (verifica com margem direita), quebra linha
+  //       if (atualX + quadroW + margem > pageW) {
+  //         // move para coluna inicial
+  //         atualX = margem;
+  //         // desce uma linha
+  //         atualY -= quadroH + espacamento;
+  //         totalLinhas++;
+  //         // reset coluna atual
+  //         currentRowCols = 0;
+  //       }
+
+  //       // avança o índice da imagem (loop circular)
+  //       i = (i + 1) % imagensMask.length;
+  //     }
+
+  //     // Se totalLinhas acabou não contando a primeira linha (porque incrementamos
+  //     // ao criar uma nova linha), garantir que ao menos 1 linha seja contada se houve quadros
+  //     if (totalQuadros > 0 && totalLinhas === 0) totalLinhas = 1;
+
+  //     // --- calcular sobras corretamente ---
+
+  //     // 1) sobra vertical (em pontos) = espaço entre a borda inferior do último quadro e a margem inferior
+  //     // lowestYUsed contém y (em pontos) do topo da linha mais baixa do último quadro
+  //     // observação: como y representa o canto inferior do quadro, a distância até a margem inferior é lowestYUsed - margem
+  //     let sobraAlturaPts = 0;
+  //     if (totalQuadros > 0) {
+  //       sobraAlturaPts = Math.max(0, lowestYUsed - margem);
+  //     } else {
+  //       // se não colocou nenhum quadro, sobra é área inteira útil (altura útil)
+  //       sobraAlturaPts = (pageH - 2 * margem);
+  //     }
+
+  //     // 2) sobra horizontal: calcular com base na maior linha usada (maxCols).
+  //     // largura útil entre margens:
+  //     const larguraUtilPts = pageW - 2 * margem;
+  //     let usedWidthLastRowPts = 0;
+  //     if (maxCols > 0) {
+  //       usedWidthLastRowPts = maxCols * quadroW + (Math.max(0, maxCols - 1)) * espacamento;
+  //     }
+  //     let sobraLarguraPts = Math.max(0, larguraUtilPts - usedWidthLastRowPts);
+
+  //     // conversões para cm (2 decimais)
+  //     const pontosParaCm = v => (v / 28.35).toFixed(2);
+
+  //     console.log("🔍 RESUMO DA PÁGINA (corrigido):");
+  //     console.log("➡️ Quadros colocados:", totalQuadros);
+  //     console.log("➡️ Linhas:", totalLinhas);
+  //     console.log("➡️ Colunas (máx):", maxCols);
+  //     console.log("➡️ Sobra altura:", pontosParaCm(sobraAlturaPts), "cm");
+  //     console.log("➡️ Sobra largura:", pontosParaCm(sobraLarguraPts), "cm");
+
+  //     // popup com resumo
+  //     Swal.fire({
+  //       title: "Resumo da Página",
+  //       html: `
+  //       <b>Quadros na página:</b> ${totalQuadros}<br>
+  //       <b>Linhas:</b> ${totalLinhas}<br>
+  //       <b>Colunas (máx):</b> ${maxCols}<br><br>
+
+  //       <b>Sobra abaixo:</b> ${pontosParaCm(sobraAlturaPts)} cm<br>
+  //       <b>Sobra à direita:</b> ${pontosParaCm(sobraLarguraPts)} cm<br><br>
+
+  //       <i>Aumente o quadro ou diminua o espaçamento caso queira ocupar melhor a página.</i>
+  //     `,
+  //       icon: "info",
+  //       width: 480,
+  //     });
+
+  //     // salvar pdf
+  //     const pdfBytes = await pdfDoc.save();
+  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  //     const url = URL.createObjectURL(blob);
+
+  //     setPdfUrl(url);
+
+  //   } catch (error) {
+  //     console.error("❌ ERRO CRÍTICO:", error);
+  //     alert("Erro ao gerar PDF: " + (error.message || error));
+  //   } finally {
+  //     setIsGenerating(false);
+  //   }
+  // };
+
+const gerarPdfComQuadroCm = async () => {
+  console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+
+  setIsGenerating(true);
+
+  if (pdfUrl) {
+    URL.revokeObjectURL(pdfUrl);
+    setPdfUrl(null);
+  }
+
+  try {
+    console.log("📏 Tamanho da página em cm:", tamanhoCm);
+    const { largura, altura } = tamanhoCm;
+
+    // conversão cm → pontos PDF
+    const pageW = largura * 28.35;
+    const pageH = altura * 28.35;
+
+    const pdfDoc = await PDFDocument.create();
+    let page = pdfDoc.addPage([pageW, pageH]);
+
+    // margem em pontos
+    const margem = 5;
+
+    // quadro fixo (em pontos)
+    const quadroW = tamanhoQuadro.larguraCm * 28.35;
+    const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+    // espaçamento = 1mm
+    const espacamento = 0.1 * 28.35;
+
+    // posição inicial
+    let atualX = margem;
+    let atualY = pageH - margem - quadroH;
+
+    // métricas
+    let totalQuadros = 0;
+    let totalLinhas = 0;
+    let currentRowCols = 0;
+    let maxCols = 0;
+    let lowestYUsed = pageH;
+
+    // imagens em ciclo
+    let i = 0;
+    if (!imagensMask || !imagensMask.length) {
+      throw new Error("Nenhuma imagem disponível em imagensMask");
     }
 
-    try {
-      console.log("📏 Tamanho da página em cm:", tamanhoCm);
-      const { largura, altura } = tamanhoCm;
+    // ========= LOOP PARA PREENCHER A PÁGINA =========
+    while (true) {
+      if (atualY < margem) break;
 
-      // conversão cm → pontos PDF
-      const pageW = largura * 28.35;
-      const pageH = altura * 28.35;
-
-      const pdfDoc = await PDFDocument.create();
-      const page = pdfDoc.addPage([pageW, pageH]);
-
-      const margem = 5;
-
-      // 🔥 tamanho do quadro fixo em cm
-      const quadroW = tamanhoQuadro.larguraCm * 28.35;
-      const quadroH = tamanhoQuadro.alturaCm * 28.35;
-
-      const espacamento = espacamentoCm * 28.35;
-
-      // posição inicial do primeiro quadro
-      let atualX = margem;
-      let atualY = pageH - margem - quadroH;
-
-      for (let i = 0; i < imagensMask.length; i++) {
-
-        const imagemObj = imagensMask[i];
-        const base64 = imagemObj.maskedBase64;
-
-        if (!base64) continue;
-
-        // conversão base64
-        const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
-        const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
-
-        const pdfImage = await pdfDoc
-          .embedPng(imgBuffer)
-          .catch(() => pdfDoc.embedJpg(imgBuffer));
-
-        const imgW = pdfImage.width;
-        const imgH = pdfImage.height;
-        const ratio = imgW / imgH;
-
-        // 🔥 ajustar imagem para caber no quadro mantendo proporção
-        let drawW = quadroW;
-        let drawH = quadroH;
-
-        // if (quadroW / quadroH < ratio) {
-        //   drawH = quadroW / ratio;
-        // } else {
-        //   drawW = quadroH * ratio;
-        // }
-
-        // // centralizar dentro do quadro
-        // const offsetX = atualX + (quadroW - drawW) / 2;
-        // const offsetY = atualY + (quadroH - drawH) / 2;
-
-        // imagem começa exatamente dentro do quadro
-        const offsetX = atualX;
-        const offsetY = atualY;
-
-        // borda do quadro
-        page.drawRectangle({
-          x: atualX,
-          y: atualY,
-          width: quadroW,
-          height: quadroH,
-          borderWidth: 1,
-          borderColor: rgb(0, 0, 0),
-        });
-
-        // imagem
-        page.drawImage(pdfImage, {
-          x: offsetX,
-          y: offsetY,
-          width: drawW,
-          height: drawH,
-        });
-
-        // avançar posição X
-        atualX += quadroW + espacamento;
-
-        // 🔄 se passar da página → nova linha
-        if (atualX + quadroW + margem > pageW) {
-          atualX = margem;
-          atualY -= quadroH + espacamento;
-        }
-
-        // 🔄 se passar da página → nova página
-        if (atualY < margem) {
-          const newPage = pdfDoc.addPage([pageW, pageH]);
-          page = newPage;
-
-          atualX = margem;
-          atualY = pageH - margem - quadroH;
-        }
+      const imagemObj = imagensMask[i];
+      const base64 = imagemObj?.maskedBase64;
+      if (!base64) {
+        i = (i + 1) % imagensMask.length;
+        continue;
       }
 
-      const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
+      const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+      const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
 
-      setPdfUrl(url);
+      const pdfImage = await pdfDoc
+        .embedPng(imgBuffer)
+        .catch(() => pdfDoc.embedJpg(imgBuffer));
 
-    } catch (error) {
-      console.error("❌ ERRO CRÍTICO:", error);
-      alert("Erro ao gerar PDF.");
-    } finally {
-      setIsGenerating(false);
+      // desenha quadro
+      page.drawRectangle({
+        x: atualX,
+        y: atualY,
+        width: quadroW,
+        height: quadroH,
+        borderWidth: 1,
+        borderColor: rgb(0, 0, 0),
+      });
+
+      // desenha imagem dentro do quadro
+      page.drawImage(pdfImage, {
+        x: atualX,
+        y: atualY,
+        width: quadroW,
+        height: quadroH,
+      });
+
+      totalQuadros++;
+      currentRowCols++;
+      maxCols = Math.max(maxCols, currentRowCols);
+
+      if (atualY < lowestYUsed) lowestYUsed = atualY;
+
+      // próxima coluna
+      atualX += quadroW + espacamento;
+
+      // quebra linha
+      if (atualX + quadroW + margem > pageW) {
+        atualX = margem;
+        atualY -= quadroH + espacamento;
+        totalLinhas++;
+        currentRowCols = 0;
+      }
+
+      i = (i + 1) % imagensMask.length;
     }
-  };
+
+    if (totalQuadros > 0 && totalLinhas === 0) totalLinhas = 1;
+
+    // ===================== CÁLCULO DE SOBRAS =====================
+    const sobraAlturaPts = Math.max(0, lowestYUsed - margem);
+    const larguraUtilPts = pageW - margem * 2;
+
+    const usedWidthLastRowPts =
+      maxCols * quadroW + (maxCols - 1) * espacamento;
+
+    const sobraLarguraPts =
+      larguraUtilPts - usedWidthLastRowPts > 0
+        ? larguraUtilPts - usedWidthLastRowPts
+        : 0;
+
+    const pontosParaCm = v => v / 28.35;
+
+    const sobraAbaixoCm = pontosParaCm(sobraAlturaPts);
+    const sobraDireitaCm = pontosParaCm(sobraLarguraPts);
+
+    const tamanhoQuadroCm = tamanhoQuadro.larguraCm;
+    const espacamentoCm = 0.1;
+
+    // ========== SUGESTÕES AUTOMÁTICAS ==========
+
+    const cols = maxCols;
+    const rows = totalLinhas;
+
+    const larguraUtilCm = pontosParaCm(larguraUtilPts);
+    const alturaUtilCm =
+      (rows * tamanhoQuadroCm) + ((rows - 1) * espacamentoCm) + sobraAbaixoCm;
+
+    const quadroNewW = (larguraUtilCm - (cols - 1) * espacamentoCm) / cols;
+    const quadroNewH = (alturaUtilCm - (rows - 1) * espacamentoCm) / rows;
+
+    const espNewW = cols > 1
+      ? (larguraUtilCm - cols * tamanhoQuadroCm) / (cols - 1)
+      : espacamentoCm;
+
+    const scaleW = quadroNewW / tamanhoQuadroCm;
+    const scaleH = quadroNewH / tamanhoQuadroCm;
+    const scaleUniform = Math.min(scaleW, scaleH);
+    const quadroUniform = tamanhoQuadroCm * scaleUniform;
+
+    // ========== EXIBE RESULTADO ==========
+    Swal.fire({
+      title: "📐 Ajustes da Página",
+      width: 550,
+      html: `
+        <b>Resultados</b><br>
+        Quadros: <b>${totalQuadros}</b><br>
+        Linhas: <b>${rows}</b><br>
+        Colunas: <b>${cols}</b><br><br>
+
+        Sobra abaixo: <b>${sobraAbaixoCm.toFixed(2)} cm</b><br>
+        Sobra à direita: <b>${sobraDireitaCm.toFixed(2)} cm</b><br><br>
+
+        <b>Sugestões automáticas</b><br><br>
+
+        📌 <b>Aumentar o quadro:</b><br>
+        Atual: ${tamanhoQuadroCm.toFixed(2)} cm → 
+        Sugerido: <b>${quadroNewW.toFixed(2)} cm</b><br>
+        Variação: <b>${((scaleW - 1) * 100).toFixed(1)}%</b><br><br>
+
+        📌 <b>Aumentar espaçamento:</b><br>
+        Atual: ${espacamentoCm} cm → 
+        Sugerido: <b>${espNewW.toFixed(2)} cm</b><br><br>
+
+        📌 <b>Escala uniforme:</b><br>
+        Novo quadro: <b>${quadroUniform.toFixed(2)} cm</b><br>
+        Escala: <b>${(scaleUniform * 100).toFixed(1)}%</b><br>
+      `,
+      icon: "info",
+    });
+
+    // ========= SALVAR PDF =========
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    setPdfUrl(URL.createObjectURL(blob));
+
+  } catch (error) {
+    console.error("❌ ERRO CRÍTICO:", error);
+    alert("Erro ao gerar PDF: " + error.message);
+  } finally {
+    setIsGenerating(false);
+  }
+};
+
+
 
 
   const removerImagem = (indexParaRemover) => {
@@ -455,6 +1037,13 @@ export default function Index() {
     pdfUrl && URL.revokeObjectURL(pdfUrl);
     setPdfUrl(null);
     setMascaraSelecionada('circulo');
+    setInitialState(false);
+    setTamanhoQuadro({ larguraCm: 4, alturaCm: 6 });
+    setEspacamentoCm(1);
+    setModoReducao("grid");
+    setTamanhoCm({ largura: 27.7, altura: 19.0 });
+    setIsModalOpen(false);
+    setInitialState(true);
 
   }
 
@@ -505,6 +1094,8 @@ export default function Index() {
             name: file.name,
             maskedBase64: base64,
           };
+          setInitialState(false);
+
 
         } catch (err) {
           console.error("❌ Erro ao aplicar máscara:", err);
@@ -653,7 +1244,7 @@ export default function Index() {
                       onChange={(e) =>
                         setTamanhoQuadro(prev => ({
                           ...prev,
-                          larguraCm: parseFloat(e.target.value) || 1,
+                          larguraCm: parseFloat(e.target.value) || 1
                         }))
                       }
                     />
@@ -681,7 +1272,7 @@ export default function Index() {
 
 
             {/* Repetir ou não as imagens */}
-            <div className="w-full">
+            {/* <div className="w-full">
               <label className="block mb-1 pro-label text-center text-xl">Ativar Repetição:</label>
               <select
                 value={repeatMode}
@@ -694,7 +1285,7 @@ export default function Index() {
                 <option value="none">Não repetir</option>
                 <option value="all">Repetir em todas as páginas</option>
               </select>
-            </div>
+            </div> */}
 
 
             {/* Input de Imagens e Controle de Visualização */}
@@ -771,7 +1362,7 @@ export default function Index() {
 
 
               {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
-              {!alteracoesPendentes && !isGenerating && (
+              {!alteracoesPendentes && !isGenerating && initialState && (
                 <button
                   onClick={gerarPdf}
                   title="Gerar PDF"
@@ -782,13 +1373,10 @@ export default function Index() {
                 </button>
               )}
 
-              {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
+              {/* 3. Quando NÃO há alterações pendentes e já existe PDF */}
+
               {!alteracoesPendentes && !isGenerating && pdfUrl && (
-                <a
-                  href={pdfUrl}
-                  download="arquivo.pdf"
-                  className="pro-btn-red my-2 text-center cursor-pointer"
-                >
+                <a href={pdfUrl} download="arquivo.pdf" className="pro-btn-red my-2 text-center cursor-pointer" >
                   📥 Baixar PDF
                 </a>
               )}
