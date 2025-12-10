@@ -43,16 +43,31 @@ export default function Dashboard() {
                                         </p>
                                     </div>
                                     <img
-                                        className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
+                                        className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
                                         src="/imagens/atividades.png"
                                         alt="atividades"
                                     />
                                 </div>
-
                             </Link>
 
-                            {/* Terceiro bloco */}
+                            <Link
+                                href={route('image.in.mask')} className="flex flex-col items-center justify-start h-full" >
+                                <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
+                                    <div className="p-4 text-xl text-justify">
+                                        <p className="text-black">
+                                            Aplique  <strong> formas   </strong> em sua imagens e se divirta com as posssibilidades!
+                                        </p>
+                                    </div>
+                                    <img
+                                        className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
+                                        src="/imagens/image-in-mask.png"
+                                        alt="Fotos em Formas"
+                                    />
+                                </div>
+                            </Link>
 
+
+                            {/* Terceiro bloco */}
                             <Link href={route('tratamento.imagens')} className="flex flex-col items-center justify-start h-full">
                                 <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                     <div className="p-4 text-xl text-justify">

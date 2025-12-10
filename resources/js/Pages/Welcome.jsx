@@ -121,7 +121,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                             {/* <div className="xs: bg-blue-700  sm:bg-gray-500  md:bg-red-600  lg:bg-yellow-500 xl:bg-green-500 h-6 mx-8"></div> */}
 
                             {/* Terceiro bloco */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 items-stretch gap-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 items-stretch gap-8">
 
                                 <Link href={route('pdf.editor')} className="flex flex-col items-center justify-start">
                                     <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
@@ -149,6 +149,21 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                             className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
                                             src="/imagens/atividades.png"
                                             alt="atividades"
+                                        />
+                                    </div>
+                                </Link>
+
+                                <Link href={route('image.in.mask')} className="flex flex-col items-center justify-start">
+                                    <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition pb-6">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                                  Aplique  <strong> formas   </strong> em sua imagens e se divirta com as posssibilidades!
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="/imagens/image-in-mask.png"
+                                            alt="Fotos em Formas"
                                         />
                                     </div>
                                 </Link>
