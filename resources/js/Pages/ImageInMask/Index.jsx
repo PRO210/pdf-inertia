@@ -30,7 +30,7 @@ export default function Index() {
 
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
   const [modoReducao, setModoReducao] = useState("grid");
-  const [tamanhoQuadro, setTamanhoQuadro] = useState({ larguraCm: 4, alturaCm: 6 });
+  const [tamanhoQuadro, setTamanhoQuadro] = useState({ larguraCm: 5, alturaCm: 6 });
   const [espacamentoCm, setEspacamentoCm] = useState(1);
 
   const [orientacao, setOrientacao] = useState('paisagem')
@@ -626,12 +626,11 @@ export default function Index() {
    * da última página.
    * * Dependências externas:
    * - PDFDocument, rgb, pushGraphicsState, clip, endPath, popGraphicsState (do pdf-lib)
-   * - Swal (para alertas)
    * - O array 'imagensMask' (dados processados)
    * - O objeto 'ampliacao' (colunas/linhas)
    * - O objeto 'tamanhoCm' e 'orientacao' (dimensões da página)
    * - Funções de estado (setIsLoading, setPdfUrl, setResumoTamanho, etc.)
-   */ 
+   */
   const gerarPdfComGrid = async () => {
     console.log("========== 🟣 INICIANDO GERAR PDF MULTIPÁGINA (SIMPLIFICADO) ==========");
 
@@ -889,179 +888,411 @@ export default function Index() {
   };
 
 
-  const gerarPdfComQuadroCm = async () => {
-    console.log("========== 🟣 INICIANDO GERAR PDF ==========");
+  // const gerarPdfComQuadroCm = async () => {
+  //   console.log("========== 🟣 INICIANDO GERAR PDF (QUADRO CM) - PAGINADO ==========");
 
+  //   // ================================
+  //   // 📌 Configurações Iniciais e Limpeza
+  //   // ================================
+  //   let resumo = [];
+  //   const addResumo = (txt) => resumo.push(`• ${txt}`);
+  //   setIsLoading(true);
+
+  //   if (pdfUrl) {
+  //     URL.revokeObjectURL(pdfUrl);
+  //     setPdfUrl(null);
+  //   }
+
+  //   try {
+  //     if (!imagensMask || !imagensMask.length) {
+  //       throw new Error("Nenhuma imagem disponível em imagensMask");
+  //     }
+
+  //     const { largura, altura } = tamanhoCm;
+  //     const pageW = largura * 28.35;
+  //     const pageH = altura * 28.35;
+  //     const pageDimensions = [pageW, pageH];
+
+  //     const margem = 10;
+  //     const espacamento = 0 * 28.35; // Espaçamento entre quadros
+  //     const drawW = pageW - margem * 2;
+  //     const drawH = pageH - margem * 2;
+
+  //     const quadroW = tamanhoQuadro.larguraCm * 28.35;
+  //     const quadroH = tamanhoQuadro.alturaCm * 28.35;
+
+  //     // ==========================================================
+  //     // 1️⃣ CÁLCULO DA GRADE
+  //     // ==========================================================
+
+  //     // O número de colunas e linhas que CABEM na página, baseado no tamanho CM
+  //     const numCols = Math.floor(drawW / (quadroW + espacamento));
+  //     const numRows = Math.floor(drawH / (quadroH + espacamento));
+  //     const totalCells = numCols * numRows; // Máximo de itens por página
+
+  //     if (numCols < 1 || numRows < 1) {
+  //       throw new Error("O quadro fixo em CM é muito grande para as margens da página.");
+  //     }
+
+  //     addResumo(`Grade CM calculada: ${numCols} colunas × ${numRows} linhas`);
+  //     addResumo(`Total de células por página: ${totalCells}`);
+
+  //     // ==========================================================
+  //     // 2️⃣ LÓGICA DE REPETIÇÃO/PREENCHIMENTO
+  //     // ==========================================================
+
+  //     const totalImagensOriginais = imagensMask.length;
+  //     let imagensParaRenderizar = [...imagensMask];
+
+  //     // Se houver menos imagens do que cabe na primeira página, preenche com repetição
+  //     if (totalImagensOriginais > 0 && totalImagensOriginais < totalCells) {
+  //       addResumo(`Poucas imagens (${totalImagensOriginais}). Repetindo para preencher a primeira página.`);
+  //       let index = 0;
+  //       while (imagensParaRenderizar.length < totalCells) {
+  //         // Repete as imagens originais
+  //         imagensParaRenderizar.push(imagensMask[index % totalImagensOriginais]);
+  //         index++;
+  //       }
+  //     }
+
+  //     const totalImagensRender = imagensParaRenderizar.length; // Novo total de itens a desenhar
+  //     const totalDePaginas = Math.ceil(totalImagensRender / totalCells);
+  //     addResumo(`Total de itens a renderizar: ${totalImagensRender}. Serão geradas ${totalDePaginas} página(s).`);
+
+  //     // ==========================================================
+  //     // 3️⃣ LOOP PRINCIPAL: RENDERIZAÇÃO E PAGINAÇÃO
+  //     // ==========================================================
+
+  //     const pdfDoc = await PDFDocument.create();
+  //     let paginaAtual = null;
+  //     let imagemIndex = 0; // Índice que percorre o array 'imagensParaRenderizar'
+
+  //     for (let pageIndex = 0; pageIndex < totalDePaginas; pageIndex++) {
+
+  //       // Adiciona uma nova página a cada iteração
+  //       paginaAtual = pdfDoc.addPage(pageDimensions);
+
+  //       // Variáveis de posição reiniciadas para a nova página
+  //       let atualX = margem;
+  //       let atualY = pageH - margem - quadroH;
+
+  //       // Desenha a borda externa da página (opcional)
+  //       paginaAtual.drawRectangle({
+  //         x: margem, y: margem, width: drawW, height: drawH,
+  //         borderWidth: 1, borderColor: rgb(1, 0, 0),
+  //       });
+
+  //       // Loop interno: Percorre as células desta página
+  //       for (let i = 0; i < totalCells; i++) {
+
+  //         // --- A. Checagem de Preenchimento / Fim ---
+  //         let isPlaceholder = imagemIndex >= totalImagensRender;
+
+  //         if (isPlaceholder) {
+  //           // Célula de Placeholder
+  //           paginaAtual.drawRectangle({
+  //             x: atualX, y: atualY, width: quadroW, height: quadroH,
+  //             borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
+  //           });
+
+  //         } else {
+  //           // --- B. Processa Imagem Real/Repetida ---
+  //           const imagemObj = imagensParaRenderizar[imagemIndex];
+  //           const base64 = imagemObj?.maskedBase64;
+
+  //           if (!base64) {
+  //             // Se o item for nulo, desenha o placeholder
+  //             paginaAtual.drawRectangle({
+  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
+  //               borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
+  //             });
+  //           } else {
+  //             // Desenha Imagem
+  //             const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+  //             const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+  //             const pdfImage = await pdfDoc
+  //               .embedPng(imgBuffer)
+  //               .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+  //             // Desenha o quadro (borda)
+  //             paginaAtual.drawRectangle({
+  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
+  //               borderWidth: 0.1, borderColor: rgb(0, 0, 0),
+  //             });
+
+  //             // Desenha a imagem (sem ajuste de proporção, pois o quadro é fixo)
+  //             paginaAtual.drawImage(pdfImage, {
+  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
+  //             });
+  //           }
+
+  //           // Avança o índice da imagem APENAS quando processamos um item
+  //           imagemIndex++;
+  //         }
+
+  //         // --- C. Avanço da Coordenada X ---
+  //         atualX += quadroW + espacamento;
+
+  //         // --- D. Avanço da Coordenada Y (Nova Linha) ---
+  //         if (atualX + quadroW + margem > pageW) {
+  //           atualX = margem;
+  //           atualY -= quadroH + espacamento;
+  //           // Se o Y for menor que a margem, o loop interno (for) garante que ele pare.
+  //         }
+  //       }
+  //       addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
+  //     }
+
+  //     // ==========================================================
+  //     // 4️⃣ FINALIZAÇÃO E LÓGICA DE RESUMO (Adaptada)
+  //     // ==========================================================
+
+  //     // A lógica complexa de sugestão de tamanho e sobra no código original foi projetada 
+  //     // para o cenário de UMA página. Aqui, o quadroW e quadroH são fixos.
+  //     // O resumo deve refletir o que foi desenhado.
+
+  //     const pontosParaCm = v => v / 28.35;
+  //     const totalQuadrosDesenhados = imagemIndex; // O índice final é o total desenhado
+
+  //     // Retiramos a lógica de ajuste e sugestão automática, pois o tamanho CM é fixo.
+  //     setResumoTamanho({
+  //       texto: `
+  //   📐 RESULTADOS\n
+  //   • Quadros/Página: ${totalCells}
+  //   • Total de Itens Desenhados: ${totalQuadrosDesenhados}
+  //   • Páginas Geradas: ${totalDePaginas}
+
+  //   📏 Tamanho do Quadro Fixo\n
+  //   • Largura: ${tamanhoQuadro.larguraCm.toFixed(2)} cm
+  //   • Altura: ${tamanhoQuadro.alturaCm.toFixed(2)} cm
+  // `,
+  //       larguraCm: tamanhoQuadro.larguraCm,
+  //       alturaCm: tamanhoQuadro.alturaCm,
+  //       totalBlocos: totalCells
+  //     });
+
+  //     // ====================================================
+  //     // 5️⃣ SALVA PDF E INICIA RASTERIZAÇÃO
+  //     // ====================================================
+  //     const pdfBytes = await pdfDoc.save();
+  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
+
+  //     const novoPdfUrl = URL.createObjectURL(blob);
+  //     setPdfUrl(novoPdfUrl);
+
+  //     setAlteracoesPendentes(false);
+
+  //     // 🚀 LÓGICA DE PAGINAÇÃO (PDF.js)
+  //     const loadingTask = pdfjsLib.getDocument(novoPdfUrl);
+  //     const pdf = await loadingTask.promise;
+  //     setTotalPaginas(pdf.numPages);
+  //     setPaginaAtual(1); // O useEffect externo cuidará da primeira rasterização.
+
+
+  //   } catch (error) {
+  //     console.error("❌ ERRO CRÍTICO ao gerar PDF (Quadro CM):", error);
+  //     alert("Erro ao gerar PDF: " + error.message);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  const gerarPdfComQuadroCm = async () => {
+    console.log("========== 🟣 INICIANDO GERAR PDF (QUADRO CM) - PAGINADO ==========");
+
+    // ================================
+    // 📌 Configurações Iniciais e Limpeza
+    // ================================
+    let resumo = [];
+    const addResumo = (txt) => resumo.push(`• ${txt}`);
     setIsLoading(true);
 
-    // Se já existe um PDF, remover URL antiga
     if (pdfUrl) {
       URL.revokeObjectURL(pdfUrl);
       setPdfUrl(null);
     }
 
     try {
-      console.log("📏 Tamanho da página em cm:", tamanhoCm);
-      const { largura, altura } = tamanhoCm;
-
-      // ====================================================
-      // 1️⃣ GERAÇÃO DO PDF NORMALMENTE
-      // ====================================================
-
-      const pageW = largura * 28.35;
-      const pageH = altura * 28.35;
-
-      const pdfDoc = await PDFDocument.create();
-      let page = pdfDoc.addPage([pageW, pageH]);
-
-      const margem = 10;
-
-      const quadroW = tamanhoQuadro.larguraCm * 28.35;
-      const quadroH = tamanhoQuadro.alturaCm * 28.35;
-
-      const espacamento = 0 * 28.35;
-
-      let atualX = margem;
-      let atualY = pageH - margem - quadroH;
-
-      let totalQuadros = 0;
-      let totalLinhas = 0;
-      let currentRowCols = 0;
-      let maxCols = 0;
-      let lowestYUsed = pageH;
-
-      let i = 0;
-
       if (!imagensMask || !imagensMask.length) {
         throw new Error("Nenhuma imagem disponível em imagensMask");
       }
 
-      while (true) {
-        if (atualY < margem) break;
+      const { largura, altura } = tamanhoCm;
+      const pageW = largura * 28.35;
+      const pageH = altura * 28.35;
+      const pageDimensions = [pageW, pageH];
 
-        const imagemObj = imagensMask[i];
-        const base64 = imagemObj?.maskedBase64;
-        if (!base64) {
-          i = (i + 1) % imagensMask.length;
-          continue;
-        }
+      const margem = 10;
+      const espacamento = 0 * 28.35; // Espaçamento entre quadros
+      const drawW = pageW - margem * 2;
+      const drawH = pageH - margem * 2;
 
-        const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
-        const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+      const quadroW = tamanhoQuadro.larguraCm * 28.35;
+      const quadroH = tamanhoQuadro.alturaCm * 28.35;
 
-        const pdfImage = await pdfDoc
-          .embedPng(imgBuffer)
-          .catch(() => pdfDoc.embedJpg(imgBuffer));
+      // ==========================================================
+      // 1️⃣ CÁLCULO DA GRADE
+      // ==========================================================
 
-        page.drawRectangle({
-          x: atualX,
-          y: atualY,
-          width: quadroW,
-          height: quadroH,
-          borderWidth: 0.1,
-          borderColor: rgb(0, 0, 0),
-        });
+      // O número de colunas e linhas que CABEM na página, baseado no tamanho CM
+      const numCols = Math.floor(drawW / (quadroW + espacamento));
+      const numRows = Math.floor(drawH / (quadroH + espacamento));
+      // A variável totalCells será usada APENAS para controlar o loop de desenho
+      // e a repetição, mas o limite físico será dado pela checagem de atualY.
+      const totalCells = numCols * numRows;
 
-        page.drawImage(pdfImage, {
-          x: atualX,
-          y: atualY,
-          width: quadroW,
-          height: quadroH,
-        });
-
-        totalQuadros++;
-        currentRowCols++;
-        maxCols = Math.max(maxCols, currentRowCols);
-
-        if (atualY < lowestYUsed) lowestYUsed = atualY;
-
-        atualX += quadroW + espacamento;
-
-        if (atualX + quadroW + margem > pageW) {
-          atualX = margem;
-          atualY -= quadroH + espacamento;
-          totalLinhas++;
-          currentRowCols = 0;
-        }
-
-        i = (i + 1) % imagensMask.length;
+      if (numCols < 1 || numRows < 1) {
+        throw new Error("O quadro fixo em CM é muito grande para as margens da página.");
       }
 
-      if (totalQuadros > 0 && totalLinhas === 0) totalLinhas = 1;
+      addResumo(`Grade CM calculada: ${numCols} colunas × ${numRows} linhas`);
+      addResumo(`Capacidade Máxima Teórica por página: ${totalCells}`);
 
-      const sobraAlturaPts = Math.max(0, lowestYUsed - margem);
-      const larguraUtilPts = pageW - margem * 2;
+      // ==========================================================
+      // 2️⃣ LÓGICA DE REPETIÇÃO/PREENCHIMENTO
+      // ==========================================================
 
-      const usedWidthLastRowPts =
-        maxCols * quadroW + (maxCols - 1) * espacamento;
+      const totalImagensOriginais = imagensMask.length;
+      let imagensParaRenderizar = [...imagensMask];
 
-      const sobraLarguraPts =
-        larguraUtilPts - usedWidthLastRowPts > 0
-          ? larguraUtilPts - usedWidthLastRowPts
-          : 0;
+      // Se houver menos imagens do que cabe na primeira página, preenche com repetição
+      if (totalImagensOriginais > 0 && totalImagensOriginais < totalCells) {
+        addResumo(`Poucas imagens (${totalImagensOriginais}). Repetindo para preencher a primeira página.`);
+        let index = 0;
+        while (imagensParaRenderizar.length < totalCells) {
+          // Repete as imagens originais
+          imagensParaRenderizar.push(imagensMask[index % totalImagensOriginais]);
+          index++;
+        }
+      }
 
-      const pontosParaCm = v => v / 28.35;
+      const totalImagensRender = imagensParaRenderizar.length; // Novo total de itens a desenhar
+      const totalDePaginas = Math.ceil(totalImagensRender / totalCells);
+      addResumo(`Total de itens a renderizar: ${totalImagensRender}. Serão geradas ${totalDePaginas} página(s).`);
 
-      const sobraAbaixoCm = pontosParaCm(sobraAlturaPts);
-      const sobraDireitaCm = pontosParaCm(sobraLarguraPts);
+      // ==========================================================
+      // 3️⃣ LOOP PRINCIPAL: RENDERIZAÇÃO E PAGINAÇÃO
+      // ==========================================================
 
-      const tamanhoQuadroCm = tamanhoQuadro.larguraCm;
-      const espacamentoCm = 0.1;
+      const pdfDoc = await PDFDocument.create();
+      let paginaAtual = null;
+      let imagemIndex = 0;
 
-      const cols = maxCols;
-      const rows = totalLinhas;
+      for (let pageIndex = 0; pageIndex < totalDePaginas; pageIndex++) {
 
-      const larguraUtilCm = pontosParaCm(larguraUtilPts);
-      const alturaUtilCm =
-        (rows * tamanhoQuadroCm) + ((rows - 1) * espacamentoCm) + sobraAbaixoCm;
+        // Adiciona uma nova página a cada iteração
+        paginaAtual = pdfDoc.addPage(pageDimensions);
 
-      const quadroNewW =
-        (larguraUtilCm - (cols - 1) * espacamentoCm) / cols;
+        // Variáveis de posição reiniciadas para a nova página
+        let atualX = margem;
+        let atualY = pageH - margem - quadroH;
 
-      const quadroNewH =
-        (alturaUtilCm - (rows - 1) * espacamentoCm) / rows;
+        // Desenha a borda externa da página (opcional)
+        paginaAtual.drawRectangle({
+          x: margem, y: margem, width: drawW, height: drawH,
+          borderWidth: 1, borderColor: rgb(1, 0, 0),
+        });
 
-      const espNewW = cols > 1
-        ? (larguraUtilCm - cols * tamanhoQuadroCm) / (cols - 1)
-        : espacamentoCm;
+        // Loop interno: Percorre as células que caberiam teoricamente
+        for (let i = 0; i < totalCells; i++) {
 
-      const scaleW = quadroNewW / tamanhoQuadroCm;
-      const scaleH = quadroNewH / tamanhoQuadroCm;
-      const scaleUniform = Math.min(scaleW, scaleH);
-      const quadroUniform = tamanhoQuadroCm * scaleUniform;
+          // --- A. Checagem de Preenchimento / Fim ---
+          let isPlaceholder = imagemIndex >= totalImagensRender;
+
+          if (isPlaceholder) {
+            // Célula de Placeholder
+            paginaAtual.drawRectangle({
+              x: atualX, y: atualY, width: quadroW, height: quadroH,
+              borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
+            });
+
+          } else {
+            // --- B. Processa Imagem Real/Repetida ---
+            const imagemObj = imagensParaRenderizar[imagemIndex];
+            const base64 = imagemObj?.maskedBase64;
+
+            if (!base64) {
+              // Se o item for nulo, desenha o placeholder
+              paginaAtual.drawRectangle({
+                x: atualX, y: atualY, width: quadroW, height: quadroH,
+                borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
+              });
+            } else {
+              // Desenha Imagem
+              const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
+              const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
+
+              const pdfImage = await pdfDoc
+                .embedPng(imgBuffer)
+                .catch(() => pdfDoc.embedJpg(imgBuffer));
+
+              // Desenha o quadro (borda)
+              paginaAtual.drawRectangle({
+                x: atualX, y: atualY, width: quadroW, height: quadroH,
+                borderWidth: 0.1, borderColor: rgb(0, 0, 0),
+              });
+
+              // Desenha a imagem (sem ajuste de proporção, pois o quadro é fixo)
+              paginaAtual.drawImage(pdfImage, {
+                x: atualX, y: atualY, width: quadroW, height: quadroH,
+              });
+            }
+
+            // Avança o índice da imagem APENAS quando processamos um item
+            imagemIndex++;
+          }
+
+          // --- C. Avanço da Coordenada X ---
+          atualX += quadroW + espacamento;
+
+          // --- D. Avanço da Coordenada Y (Nova Linha) ---
+          if (atualX + quadroW + margem > pageW) {
+            // 1. Resetar X para a próxima linha
+            atualX = margem;
+
+            // 2. Calcular a coordenada Y da PRÓXIMA linha
+            const nextY = atualY - (quadroH + espacamento);
+
+            // 🚀 CORREÇÃO CRÍTICA AQUI: Checa se há espaço para a próxima linha
+            if (nextY < margem) {
+              // Se a próxima linha cair abaixo da margem, encerra o loop interno
+              break;
+            }
+
+            // 3. Aplicar o avanço (Se houver espaço)
+            atualY = nextY;
+          }
+        }
+        addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
+      }
+
+      // ... (O restante da finalização e lógica de resumo/paginação é mantido)
+
+      // ==========================================================
+      // 4️⃣ FINALIZAÇÃO E LÓGICA DE RESUMO (Adaptada)
+      // ==========================================================
+
+      const totalQuadrosDesenhados = imagemIndex;
 
       setResumoTamanho({
         texto: `
     📐 RESULTADOS\n
-    • Quadros: ${totalQuadros}
-    • Linhas: ${rows}
-    • Colunas: ${cols}
+    • Quadros/Página (Máx.): ${totalCells}
+    • Total de Itens Desenhados: ${totalQuadrosDesenhados}
+    • Páginas Geradas: ${totalDePaginas}
 
-    ➕ SOBRAS\n
-    • Abaixo: ${sobraAbaixoCm.toFixed(2)} cm
-    • Direita: ${sobraDireitaCm.toFixed(2)} cm
-
-    🛠️ SUGESTÕES AUTOMÁTICAS\n
-    • Aumentar quadro:
-      - Atual: ${tamanhoQuadroCm.toFixed(2)} cm
-      - Sugerido: ${quadroNewW.toFixed(2)} cm
-      - Variação: ${((scaleW - 1) * 100).toFixed(2)}%
-
-    • Aumentar Espaçamento:
-      - Atual: ${espacamentoCm} cm
-      - Sugerido: ${espNewW.toFixed(2)} cm
-
-    • Escala Uniforme:
-      - Novo quadro: ${quadroUniform.toFixed(2)} cm
-      - Escala: ${(scaleUniform * 100).toFixed(1)}%
+    📏 Tamanho do Quadro Fixo\n
+    • Largura: ${tamanhoQuadro.larguraCm.toFixed(2)} cm
+    • Altura: ${tamanhoQuadro.alturaCm.toFixed(2)} cm
   `,
-        larguraCm: quadroNewW,
-        alturaCm: quadroNewH,
-        totalBlocos: totalQuadros
+        larguraCm: tamanhoQuadro.larguraCm,
+        alturaCm: tamanhoQuadro.alturaCm,
+        totalBlocos: totalCells
       });
 
       // ====================================================
-      // 2️⃣ SALVA PDF E PEGA A URL
+      // 5️⃣ SALVA PDF E INICIA RASTERIZAÇÃO
       // ====================================================
       const pdfBytes = await pdfDoc.save();
       const blob = new Blob([pdfBytes], { type: "application/pdf" });
@@ -1071,35 +1302,23 @@ export default function Index() {
 
       setAlteracoesPendentes(false);
 
-      // ====================================================
-      // 3️⃣ RASTERIZAR O PDF GERADO (PÁGINA 1)
-      // ====================================================
-      try {
-        console.log("🔄 Rasterizando primeira página do PDF gerado...");
-        setIsLoadingImage(true);
+      // 🚀 LÓGICA DE PAGINAÇÃO (PDF.js)
+      const loadingTask = pdfjsLib.getDocument(novoPdfUrl);
+      const pdf = await loadingTask.promise;
+      setTotalPaginas(pdf.numPages);
+      setPaginaAtual(1); // O useEffect externo cuidará da primeira rasterização.
 
-        const base64PrimeiraPagina = await rasterizarPdfParaBase64(
-          novoPdfUrl,
-          1,
-          150
-        );
-
-        setPdfImageBase64(base64PrimeiraPagina);
-        console.log("✅ Rasterização concluída!");
-      } catch (err) {
-        console.error("Erro ao rasterizar:", err);
-        setImageError(err.message);
-      } finally {
-        setIsLoadingImage(false);
-      }
 
     } catch (error) {
-      console.error("❌ ERRO CRÍTICO:", error);
+      console.error("❌ ERRO CRÍTICO ao gerar PDF (Quadro CM):", error);
       alert("Erro ao gerar PDF: " + error.message);
     } finally {
       setIsLoading(false);
     }
   };
+
+
+
 
 
   const removerImagem = (indexParaRemover) => {
@@ -1134,7 +1353,7 @@ export default function Index() {
     pdfUrl && URL.revokeObjectURL(pdfUrl);
     setPdfUrl(null);
     setMascaraSelecionada('circulo');
-    setTamanhoQuadro({ larguraCm: 4, alturaCm: 6 });
+    setTamanhoQuadro({ larguraCm: 5, alturaCm: 6 });
     setEspacamentoCm(1);
     setModoReducao("grid");
     setTamanhoCm({ largura: 27.7, altura: 19.0 });
@@ -1324,7 +1543,6 @@ export default function Index() {
 
 
 
-
   return (
     <>
       <Head title="Fotos em Formas" />
@@ -1434,53 +1652,137 @@ export default function Index() {
               </>
             )}
 
-            {modoReducao === "cm" && (
-              <>
-                <label className="block pro-label text-xl text-center">Redução (Tamanho Fixo em CM):</label>
+            {modoReducao === "cm" && (() => {
 
-                <div className="flex flex-col sm:flex-row gap-4 w-full">
+              // 📄 Limites dinâmicos conforme orientação (A4)
+              const limitesCm = {
+                largura: orientacao === "paisagem" ? 29.7 : 21,
+                altura: orientacao === "paisagem" ? 21 : 29.7,
+              };
 
-                  <div className="flex-1">
-                    <label className="block mb-2 pro-label text-center">Largura (cm)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={tamanhoQuadro.larguraCm}
-                      className="pro-input rounded-full w-full"
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const parsed = parseFloat(raw);
+              return (
+                <>
+                  <label className="block pro-label text-xl text-center">
+                    Redução (Tamanho Fixo em CM)
+                  </label>
 
-                        setTamanhoQuadro(prev => ({
-                          ...prev,
-                          larguraCm: raw === "" ? 1 : (isNaN(parsed) ? 1 : parsed)
-                        }));
+                  <div className="flex flex-col sm:flex-row gap-6 w-full">
 
-                        setAlteracoesPendentes(true);
-                      }}
+                    {/* 🔹 LARGURA */}
+                    <div className="flex-1">
+                      <label className="block sm:hidden mb-2 pro-label text-center">
+                        Largura (cm)
+                        <span className="block sm:hidden text-sm font-bold">
+                          {tamanhoQuadro.larguraCm.toFixed(1)} cm
+                          <span className="text-xs block opacity-70">
+                            máx {limitesCm.largura} cm
+                          </span>
+                        </span>
+                      </label>
 
-                    />
+                      {/* 📱 MOBILE → SLIDER */}
+                      <input
+                        type="range"
+                        min="1"
+                        max={limitesCm.largura}
+                        step="0.1"
+                        value={tamanhoQuadro.larguraCm}
+                        className="w-full sm:hidden"
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value);
+
+                          setTamanhoQuadro(prev => ({
+                            ...prev,
+                            larguraCm: Math.min(valor, limitesCm.largura),
+                          }));
+
+                          setAlteracoesPendentes(true);
+                        }}
+                      />
+
+                      {/* 💻 DESKTOP → INPUT ORIGINAL */}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tamanhoQuadro.larguraCm}
+                        max={limitesCm.largura}
+                        className="pro-input rounded-full w-full hidden sm:block"
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const parsed = parseFloat(raw);
+
+                          setTamanhoQuadro(prev => ({
+                            ...prev,
+                            larguraCm:
+                              raw === ""
+                                ? 1
+                                : Math.min(
+                                  isNaN(parsed) ? 1 : parsed,
+                                  limitesCm.largura
+                                ),
+                          }));
+
+                          setAlteracoesPendentes(true);
+                        }}
+                      />
+                    </div>
+
+                    {/* 🔹 ALTURA */}
+                    <div className="flex-1">
+                      <label className="block sm:hidden mb-2 pro-label text-center">
+                        Altura (cm)
+                        <span className="block sm:hidden text-sm font-bold">
+                          {tamanhoQuadro.alturaCm.toFixed(1)} cm
+                          <span className="text-xs block opacity-70">
+                            máx {limitesCm.altura} cm
+                          </span>
+                        </span>
+                      </label>
+
+                      {/* 📱 MOBILE → SLIDER */}
+                      <input
+                        type="range"
+                        min="1"
+                        max={limitesCm.altura}
+                        step="0.1"
+                        value={tamanhoQuadro.alturaCm}
+                        className="w-full sm:hidden"
+                        onChange={(e) => {
+                          const valor = parseFloat(e.target.value);
+
+                          setTamanhoQuadro(prev => ({
+                            ...prev,
+                            alturaCm: Math.min(valor, limitesCm.altura),
+                          }));
+
+                          setAlteracoesPendentes(true);
+                        }}
+                      />
+
+                      {/* 💻 DESKTOP → INPUT ORIGINAL */}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={tamanhoQuadro.alturaCm}
+                        max={limitesCm.altura}
+                        className="pro-input rounded-full w-full hidden sm:block"
+                        onChange={(e) => {
+                          const parsed = parseFloat(e.target.value);
+
+                          setTamanhoQuadro(prev => ({
+                            ...prev,
+                            alturaCm: Math.min(parsed || 1, limitesCm.altura),
+                          }));
+
+                          setAlteracoesPendentes(true);
+                        }}
+                      />
+                    </div>
+
                   </div>
-
-                  <div className="flex-1">
-                    <label className="block mb-2 pro-label text-center">Altura (cm)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={tamanhoQuadro.alturaCm}
-                      className="pro-input rounded-full w-full"
-                      onChange={(e) =>
-                        setTamanhoQuadro(prev => ({
-                          ...prev,
-                          alturaCm: parseFloat(e.target.value) || 1,
-                        }))
-                      }
-                    />
-                  </div>
-
-                </div>
-              </>
-            )}
+                </>
+              );
+            })()}
 
 
             {/* Repetir ou não as imagens */}
