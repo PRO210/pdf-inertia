@@ -53,6 +53,7 @@ export default function Index() {
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(1)
   const [isLoading, setIsLoading] = useState(false);
+  const CM_TO_PT = 28.35;
 
   const [resumoTamanho, setResumoTamanho] = useState({ texto: "", larguraCm: 0, alturaCm: 0, totalBlocos: 0 });
 
@@ -669,7 +670,7 @@ export default function Index() {
         height: pageDimensions[1]
       };
 
-      const margem = 10;
+      const margem = 8;
       const drawW = pageW - margem * 2;
       const drawH = pageH - margem * 2;
 
@@ -1119,11 +1120,22 @@ export default function Index() {
       }
 
       const { largura, altura } = tamanhoCm;
-      const pageW = largura * 28.35;
-      const pageH = altura * 28.35;
+
+
+      // 🔁 Alterna entre RETRATO e PAISAGEM
+      const pageW =
+        orientacao === "paisagem"
+          ? altura * CM_TO_PT
+          : largura * CM_TO_PT;
+
+      const pageH =
+        orientacao === "paisagem"
+          ? largura * CM_TO_PT
+          : altura * CM_TO_PT;
+
       const pageDimensions = [pageW, pageH];
 
-      const margem = 10;
+      const margem = 8;
       const espacamento = 0 * 28.35; // Espaçamento entre quadros
       const drawW = pageW - margem * 2;
       const drawH = pageH - margem * 2;
@@ -1189,10 +1201,10 @@ export default function Index() {
         let atualY = pageH - margem - quadroH;
 
         // Desenha a borda externa da página (opcional)
-        paginaAtual.drawRectangle({
-          x: margem, y: margem, width: drawW, height: drawH,
-          borderWidth: 1, borderColor: rgb(1, 0, 0),
-        });
+        // paginaAtual.drawRectangle({
+        //   x: margem, y: margem, width: drawW, height: drawH,
+        //   borderWidth: 1, borderColor: rgb(1, 0, 0),
+        // });
 
         // Loop interno: Percorre as células que caberiam teoricamente
         for (let i = 0; i < totalCells; i++) {
