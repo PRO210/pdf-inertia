@@ -15,6 +15,7 @@ import Swal from 'sweetalert2';
 import FullScreenSpinner from '@/Components/FullScreenSpinner';
 import { getOriginalImageDimensions } from './Partials/getOriginalImageDimensions';
 import { ajustarImagemBic } from './Partials/ajustarImagemBic';
+import { downloadCount } from '@/Services/DownloadsCount';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -54,8 +55,8 @@ export default function Index() {
   const [totalPaginas, setTotalPaginas] = useState(1)
   const [isLoading, setIsLoading] = useState(false);
   const CM_TO_PT = 28.35;
-
-  const [resumoTamanho, setResumoTamanho] = useState({ texto: "", larguraCm: 0, alturaCm: 0, totalBlocos: 0 });
+  const [resumoTamanho, setResumoTamanho] = useState(
+    { texto: "", larguraCm: 0, alturaCm: 0, totalBlocos: 0 });
 
 
 
@@ -67,11 +68,6 @@ export default function Index() {
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(paginaNum);
 
-      // Encontrar o total de páginas e atualizar o estado
-      // setTotalPaginas(pdf.numPages);
-
-      // Atualizar a página atual sendo visualizada
-      // setPaginaAtual(paginaNum);
 
       // 1. Calcula o scale base com o DPI
       let scale = dpi / 72;
@@ -99,12 +95,6 @@ export default function Index() {
       throw new Error("Não foi possível converter o PDF em imagem.");
     }
   };
-
-  // Supondo que você tem estados:
-  // const [pdfUrl, setPdfUrl] = useState(null);
-  // const [paginaAtual, setPaginaAtual] = useState(1);
-  // const [totalPaginas, setTotalPaginas] = useState(0);
-  // const [pdfImageBase64, setPdfImageBase64] = useState(null);
 
   useEffect(() => {
     // Esta função será o gatilho para a visualização
@@ -219,407 +209,6 @@ export default function Index() {
     }
   };
 
-
-  // const gerarPdfComGrid = async () => {
-  //   console.log("========== 🟣 INICIANDO GERAR PDF ==========");
-
-  //   // ================================
-  //   // 📌 Histórico para exibir no Swal
-  //   // ================================
-  //   let resumo = [];
-  //   const addResumo = (txt) => resumo.push(`• ${txt}`);
-  //   setIsLoading(true);
-
-  //   if (pdfUrl) {
-  //     console.log("🔁 Limpando PDF anterior...");
-  //     addResumo("PDF anterior removido");
-  //     URL.revokeObjectURL(pdfUrl);
-  //     setPdfUrl(null);
-  //   }
-
-  //   try {
-  //     console.log("📏 Tamanho em cm recebido:", tamanhoCm);
-  //     addResumo("Tamanho da página carregado");
-
-  //     const { largura, altura } = tamanhoCm;
-
-  //     const pageDimensions = orientacao === "retrato"
-  //       ? [altura * 28.35, largura * 28.35]
-  //       : [largura * 28.35, altura * 28.35];
-
-  //     addResumo("Dimensões convertidas para pixels");
-
-  //     const pdfDoc = await PDFDocument.create();
-  //     addResumo("PDF inicializado");
-
-  //     const page = pdfDoc.addPage(pageDimensions);
-  //     addResumo("Página adicionada ao PDF");
-
-  //     const { width: pageW, height: pageH } = page.getSize();
-
-  //     const margem = 10;
-
-  //     page.drawRectangle({
-  //       x: margem,
-  //       y: margem,
-  //       width: pageW - margem * 2,
-  //       height: pageH - margem * 2,
-  //       borderWidth: 1,
-  //       borderColor: rgb(1, 0, 0),
-  //     });
-
-  //     addResumo("Borda externa desenhada");
-
-  //     // ----------------------
-  //     // GRADE
-  //     // ----------------------
-  //     const drawW = pageW - margem * 2;
-  //     const drawH = pageH - margem * 2;
-
-  //     addResumo("Área útil da página calculada");
-
-  //     const numCols = ampliacao.colunas;
-  //     const numRows = ampliacao.linhas;
-
-  //     addResumo(`Grade configurada: ${numCols} colunas × ${numRows} linhas`);
-
-  //     const cellW = drawW / numCols;
-  //     const cellH = drawH / numRows;
-
-  //     // converter células para cm para usar no resumo
-  //     const cellWcm = (cellW / 28.35).toFixed(2);
-  //     const cellHcm = (cellH / 28.35).toFixed(2);
-
-  //     const totalCells = numCols * numRows;
-
-  //     addResumo(`Cada célula mede ${cellW.toFixed(1)} × ${cellH.toFixed(1)} px`);
-  //     addResumo(`Total de células do grid: ${totalCells}`);
-
-  //     if (!imagensMask.length) {
-  //       addResumo("⚠ Nenhuma imagem mascarada encontrada!");
-  //     } else {
-  //       addResumo(`Total de imagens disponíveis: ${imagensMask.length}`);
-  //     }
-
-  //     // ----------------------
-  //     // RENDER DAS IMAGENS
-  //     // ----------------------
-  //     for (let i = 0; i < totalCells; i++) {
-  //       const imagemIndex = i % imagensMask.length;
-  //       const imagemObj = imagensMask[imagemIndex];
-
-  //       if (!imagemObj?.maskedBase64) continue;
-
-  //       const base64 = imagemObj.maskedBase64;
-
-  //       const col = i % numCols;
-  //       const row = Math.floor(i / numCols);
-
-  //       const x = col * cellW + margem;
-  //       const y = margem + (drawH - row * cellH - cellH);
-
-  //       let pdfImage;
-  //       try {
-  //         const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
-  //         const imgBuffer = Uint8Array.from(atob(cleanBase64), (c) =>
-  //           c.charCodeAt(0)
-  //         );
-
-  //         pdfImage = await pdfDoc
-  //           .embedPng(imgBuffer)
-  //           .catch(() => pdfDoc.embedJpg(imgBuffer));
-  //       } catch {
-  //         continue;
-  //       }
-
-  //       const { width: imgW, height: imgH } = pdfImage;
-
-  //       let drawW_img = cellW;
-  //       let drawH_img = cellH;
-  //       let drawX_img = x;
-  //       let drawY_img = y;
-
-  //       const ratio = imgW / imgH;
-
-  //       if (cellW / cellH < ratio) {
-  //         drawH_img = cellW / ratio;
-  //         drawY_img = y + (cellH - drawH_img) / 2;
-  //       } else {
-  //         drawW_img = cellH * ratio;
-  //         drawX_img = x + (cellW - drawW_img) / 2;
-  //       }
-
-  //       // clipping
-  //       page.pushOperators(pushGraphicsState());
-  //       page.drawRectangle({ x, y, width: cellW, height: cellH, opacity: 0 });
-  //       page.pushOperators(clip(), endPath());
-
-  //       // desenhar imagem
-  //       page.drawImage(pdfImage, {
-  //         x: drawX_img,
-  //         y: drawY_img,
-  //         width: drawW_img,
-  //         height: drawH_img,
-  //       });
-
-  //       // borda da célula
-  //       page.drawRectangle({
-  //         x,
-  //         y,
-  //         width: cellW,
-  //         height: cellH,
-  //         borderWidth: 0.1,
-  //         borderColor: rgb(0.1, 0.1, 0.1),
-  //       });
-  //     }
-
-  //     addResumo("Imagens renderizadas no grid");
-
-  //     const pdfBytes = await pdfDoc.save();
-  //     addResumo("PDF finalizado e convertido em bytes");
-
-  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
-  //     const url = URL.createObjectURL(blob);
-  //     setPdfUrl(url);
-  //     setIsGenerating(false);
-
-  //     rasterizarPdfParaBase64(url, 1, 150)
-  //       .then((base64) => {
-  //         setPdfImageBase64(base64);
-  //       })
-
-  //     addResumo("PDF disponível para visualização");
-
-  //     // Enviar resumo para o componente
-  //     setResumoTamanho({
-  //       totalBlocos: numCols * numRows,
-  //       larguraCm: cellWcm,
-  //       alturaCm: cellHcm
-  //     });
-
-  //     setAlteracoesPendentes(false);
-
-  //     setIsLoading(false);
-
-  //   } catch (error) {
-  //     console.error("❌ ERRO CRÍTICO:", error);
-
-  //     Swal.fire({
-  //       icon: "error",
-  //       title: "Erro ao gerar PDF",
-  //       text: "Veja o console para detalhes.",
-  //     });
-
-  //   } finally {
-  //     setTimeout(() => {
-  //       setIsLoading(false);
-  //     }, 0);
-  //   }
-  // };
-
-
-  // ASSUMIR: A função 'paginarEPreencherImagens' e o objeto 'IMAGEM_VAZIA_PLACEHOLDER'
-  // estão definidos no mesmo escopo ou foram importados.
-
-  // const gerarPdfComGrid = async () => {
-  //   console.log("========== 🟣 INICIANDO GERAR PDF MULTIPÁGINA ==========");
-
-  //   let resumo = [];
-  //   const addResumo = (txt) => resumo.push(`• ${txt}`);
-  //   setIsLoading(true);
-
-  //   if (pdfUrl) {
-  //     console.log("🔁 Limpando PDF anterior...");
-  //     addResumo("PDF anterior removido");
-  //     URL.revokeObjectURL(pdfUrl);
-  //     setPdfUrl(null);
-  //   }
-
-  //   try {
-  //     console.log("📏 Tamanho em cm recebido:", tamanhoCm);
-  //     addResumo("Tamanho da página carregado");
-
-  //     const { largura, altura } = tamanhoCm;
-
-  //     // Cálculo das dimensões da página (em pontos/pixels)
-  //     const pageDimensions = orientacao === "retrato"
-  //       ? [altura * 28.35, largura * 28.35]
-  //       : [largura * 28.35, altura * 28.35];
-
-  //     addResumo("Dimensões convertidas para pontos/pixels");
-
-  //     const pdfDoc = await PDFDocument.create();
-  //     addResumo("PDF inicializado");
-
-  //     const { width: pageW, height: pageH } = {
-  //       width: pageDimensions[0],
-  //       height: pageDimensions[1]
-  //     };
-
-  //     const margem = 10;
-  //     const drawW = pageW - margem * 2;
-  //     const drawH = pageH - margem * 2;
-
-  //     const numCols = ampliacao.colunas;
-  //     const numRows = ampliacao.linhas;
-  //     const totalCells = numCols * numRows;
-
-  //     const cellW = drawW / numCols;
-  //     const cellH = drawH / numRows;
-
-  //     addResumo(`Grade configurada: ${numCols} colunas × ${numRows} linhas`);
-  //     addResumo(`Total de células do grid por página: ${totalCells}`);
-
-  //     // ==========================================================
-  //     // 🚀 NOVO PASSO 1: PAGINAR E PREENCHER OS DADOS
-  //     // ==========================================================
-
-  //     // A função 'paginarEPreencherImagens' deve ser definida e usar 'totalCells'
-  //     // como o número de itens por página.
-  //     const paginasParaImpressao = paginarEPreencherImagens(imagensMask, totalCells);
-
-  //     if (!paginasParaImpressao || paginasParaImpressao.length === 0) {
-  //       addResumo("⚠ Nenhuma imagem ou página para renderizar!");
-  //       // Adiciona uma página em branco e finaliza
-  //       pdfDoc.addPage(pageDimensions);
-  //       throw new Error("Nenhuma imagem para processar.");
-  //     }
-
-  //     const totalDePaginas = paginasParaImpressao.length;
-  //     addResumo(`Total de páginas geradas: ${totalDePaginas}`);
-
-  //     // ==========================================================
-  //     // 🚀 NOVO PASSO 2: LOOP DE RENDERIZAÇÃO POR PÁGINA
-  //     // ==========================================================
-
-  //     for (let pageIndex = 0; pageIndex < totalDePaginas; pageIndex++) {
-
-  //       const imagensDaPagina = paginasParaImpressao[pageIndex];
-  //       const paginaAtual = pdfDoc.addPage(pageDimensions); // Adiciona uma nova página a cada iteração
-
-  //       // Desenha a borda externa da página atual
-  //       paginaAtual.drawRectangle({
-  //         x: margem,
-  //         y: margem,
-  //         width: drawW,
-  //         height: drawH,
-  //         borderWidth: 1,
-  //         borderColor: rgb(1, 0, 0),
-  //       });
-
-  //       // Loop para desenhar as células/imagens na página atual
-  //       for (let i = 0; i < totalCells; i++) {
-
-  //         const imagemObj = imagensDaPagina[i]; // Pega a imagem ou o placeholder preenchido
-
-  //         const col = i % numCols;
-  //         const row = Math.floor(i / numCols);
-
-  //         const x = col * cellW + margem;
-  //         const y = margem + (drawH - row * cellH - cellH);
-
-  //         let isPlaceholder = !imagemObj?.maskedBase64;
-
-  //         // --- 1. SE FOR PLACEHOLDER (PREENCHIMENTO) ---
-  //         if (isPlaceholder) {
-  //           paginaAtual.drawRectangle({
-  //             x,
-  //             y,
-  //             width: cellW,
-  //             height: cellH,
-  //             borderWidth: 0.1,
-  //             borderColor: rgb(0.7, 0.7, 0.7), // Borda mais clara para o placeholder
-  //           });
-  //           continue; // Pula para a próxima célula
-  //         }
-
-  //         // --- 2. SE FOR IMAGEM REAL ---
-
-  //         const base64 = imagemObj.maskedBase64;
-
-  //         let pdfImage;
-  //         try {
-  //           const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
-  //           const imgBuffer = Uint8Array.from(atob(cleanBase64), (c) =>
-  //             c.charCodeAt(0)
-  //           );
-
-  //           pdfImage = await pdfDoc
-  //             .embedPng(imgBuffer)
-  //             .catch(() => pdfDoc.embedJpg(imgBuffer));
-  //         } catch {
-  //           continue; // Se o embed falhar, desenha apenas a borda (célula vazia)
-  //         }
-
-  //         const { width: imgW, height: imgH } = pdfImage;
-
-  //         // Lógica de ajuste (fit/contain) da imagem na célula
-  //         let drawW_img = cellW;
-  //         let drawH_img = cellH;
-  //         let drawX_img = x;
-  //         let drawY_img = y;
-
-  //         const ratio = imgW / imgH;
-
-  //         if (cellW / cellH < ratio) {
-  //           drawH_img = cellW / ratio;
-  //           drawY_img = y + (cellH - drawH_img) / 2;
-  //         } else {
-  //           drawW_img = cellH * ratio;
-  //           drawX_img = x + (cellW - drawW_img) / 2;
-  //         }
-
-  //         // Clipping (Opcional, mas bom para garantir que a imagem não vaze)
-  //         paginaAtual.pushOperators(pushGraphicsState());
-  //         paginaAtual.drawRectangle({ x, y, width: cellW, height: cellH, opacity: 0 });
-  //         paginaAtual.pushOperators(clip(), endPath());
-
-  //         // Desenhar imagem
-  //         paginaAtual.drawImage(pdfImage, {
-  //           x: drawX_img,
-  //           y: drawY_img,
-  //           width: drawW_img,
-  //           height: drawH_img,
-  //         });
-
-  //         // Restaura o estado gráfico
-  //         paginaAtual.pushOperators(popGraphicsState());
-
-  //         // Borda da célula (sempre desenhada no final, exceto para o clipping)
-  //         paginaAtual.drawRectangle({
-  //           x,
-  //           y,
-  //           width: cellW,
-  //           height: cellH,
-  //           borderWidth: 0.1,
-  //           borderColor: rgb(0.1, 0.1, 0.1),
-  //         });
-  //       }
-
-  //       addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
-  //     }
-
-
-  //     addResumo("Imagens renderizadas em todas as páginas");
-  //     // ... (O restante do código de finalização do PDF)
-
-  //     const pdfBytes = await pdfDoc.save();
-  //     // ... (Restante do código: setPdfUrl, rasterizarPdfParaBase64, setResumoTamanho, etc.)
-
-  //   } catch (error) {
-  //     console.error("❌ ERRO CRÍTICO:", error);
-  //     Swal.fire({
-  //       icon: "error",
-  //       title: "Erro ao gerar PDF",
-  //       text: "Veja o console para detalhes.",
-  //     });
-
-  //   } finally {
-  //     setTimeout(() => {
-  //       setIsLoading(false);
-  //     }, 0);
-  //   }
-  // };
 
   /**
    * Gera o documento PDF com o grid (grade) e renderiza todas as imagens mascaradas
@@ -1124,12 +713,12 @@ export default function Index() {
 
       // 🔁 Alterna entre RETRATO e PAISAGEM
       const pageW =
-        orientacao === "paisagem"
+        orientacao === "retrato"
           ? altura * CM_TO_PT
           : largura * CM_TO_PT;
 
       const pageH =
-        orientacao === "paisagem"
+        orientacao === "retrato"
           ? largura * CM_TO_PT
           : altura * CM_TO_PT;
 
@@ -1329,26 +918,29 @@ export default function Index() {
     }
   };
 
-
-
-
-
   const removerImagem = (indexParaRemover) => {
-    // Filtra o array `imagens`, mantendo apenas os elementos cujo índice é diferente do índice a ser removido.
-    setImagens((prevImagens) => {
-      const novasImagens = prevImagens.filter((_, index) => index !== indexParaRemover);
+    setImagens(prevImagens => {
+      const novasImagens = prevImagens.filter(
+        (_, index) => index !== indexParaRemover
+      );
 
-      // Se a lista ficar vazia, fechar modal, desmarcar checkbox, E LIMPAR O INPUT:
+      // Se não restar nenhuma imagem
       if (novasImagens.length === 0) {
-        setIsModalOpen(false);
-        setMostrarImagensCarregadas(false);
+        // Limpa também as imagens mascaradas
+        setImagensMask([]);
 
+        // Fecha modal se estiver aberto
+        setIsModalOpen(false);
+
+        // Limpa input file
         if (uploadInputRef.current) {
-          uploadInputRef.current.value = null;
+          uploadInputRef.current.value = "";
         }
+
+        // Marca que houve alteração
+        setAlteracoesPendentes(true);
       }
 
-      setAlteracoesPendentes(true);
       return novasImagens;
     });
   };
@@ -1375,83 +967,6 @@ export default function Index() {
   }
 
 
-  // const aplicarMascaraNaImagem = async () => {
-
-  //   setIsLoading(true);
-
-  //   console.log("🟣 Iniciando aplicação de máscara em todas as imagens...");
-  //   console.log("👉 Total de imagens:", imagens.length);
-  //   console.log("👉 Máscara selecionada:", mascaraSelecionada);
-  //   console.log("📌 Conteúdo real de imagens:", imagens);
-
-  //   if (!imagens.length) {
-  //     console.warn("⚠️ Nenhuma imagem encontrada no array.");
-  //     return;
-  //   }
-
-  //   // const mascaraPath = `http://localhost/imagens/mascaras/${mascaraSelecionada}.png`;
-  //   const mascaraPath = `${initialPath}/imagens/mascaras/${mascaraSelecionada}.png`;
-
-  //   const inicio = performance.now();
-
-  //   const mascaradas = await Promise.all(
-
-  //     imagens.map(async (file, index) => {
-  //       console.log("\n------------------------------");
-  //       console.log(`🔵 Processando imagem ${index + 1}/${imagens.length}`);
-  //       console.log("📦 File recebido:", file);
-
-  //       try {
-  //         if (!(file instanceof File)) {
-  //           console.error("❌ Item não é File!", file);
-  //           throw new Error("Item do array não é File válido.");
-  //         }
-
-  //         console.log("⏳ Criando URL temporária...");
-  //         const caminhoImagem = URL.createObjectURL(file);
-
-  //         console.log("👉 Caminho temporário:", caminhoImagem);
-
-  //         console.log("⏳ Aplicando máscara...");
-  //         const base64 = await aplicarMascaraCanvas(caminhoImagem, mascaraPath);
-
-  //         console.log("✅ Máscara aplicada!");
-  //         console.log("📤 Base64 gerada (tamanho):", base64.length);
-
-  //         // liberar memória
-  //         URL.revokeObjectURL(caminhoImagem);
-
-  //         return {
-  //           fileOriginal: file,
-  //           name: file.name,
-  //           maskedBase64: base64,
-  //         };
-
-  //       } catch (err) {
-  //         console.error("❌ Erro ao aplicar máscara:", err);
-  //         setIsLoading(false);
-
-  //         return null;
-  //       }
-  //       setIsLoading(false);
-
-  //     })
-  //   );
-
-  //   // remove nulls (em caso de erro)
-  //   const filtradas = mascaradas.filter(Boolean);
-
-  //   console.log("\n==============================");
-  //   console.log("🏁 Finalizado!");
-  //   console.log(`⏱️ Tempo total: ${(performance.now() - inicio).toFixed(1)} ms`);
-  //   console.log("📸 Total mascaradas:", filtradas.length);
-  //   console.log("==============================\n");
-
-  //   // salvar em um array separado sem tocar nas originais
-  //   setImagensMask(filtradas);
-  // };
-
-
   const aplicarMascaraNaImagem = async () => {
 
     setIsLoading(true);
@@ -1461,6 +976,15 @@ export default function Index() {
 
     if (!imagens.length) {
       console.warn("⚠️ Nenhuma imagem encontrada no array.");
+      Swal.fire({
+        title: 'Aviso !',
+        text: 'Nenhum imagem Selecionada :)',
+        icon: 'warning',
+        confirmButtonText: 'OK',
+        timer: 10000,
+        timerProgressBar: true,
+      });
+      setIsLoading(false);
       return;
     }
 
@@ -1552,6 +1076,50 @@ export default function Index() {
       gerarPdf();
     }
   }, [imagensMask])
+
+  const handleDownloadPdf = async () => {
+    if (!pdfUrl) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Aviso',
+        text: 'Nenhum PDF disponível para download.',
+      });
+      return;
+    }
+
+    try {
+      // 🔒 Garante que o blob ainda é válido
+      const response = await fetch(pdfUrl);
+      if (!response.ok) {
+        throw new Error('PDF indisponível');
+      }
+
+      const blob = await response.blob();
+
+      const link = document.createElement('a');
+      const blobUrl = URL.createObjectURL(blob);
+
+      link.href = blobUrl;
+      link.download = `Imagem-em-Formas.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(blobUrl);
+
+      // 📊 Log estatístico
+      await downloadCount('Imagem-em-Formas.pdf');
+
+    } catch (err) {
+      console.error('Erro no download do PDF:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro',
+        text: 'Não foi possível baixar o PDF.',
+      });
+    }
+  };
 
 
 
@@ -1880,18 +1448,21 @@ export default function Index() {
                 <button
                   onClick={aplicarMascaraNaImagem}
                   className="pro-btn-green my-2"
-                  disabled={imagens.length === 0 || isGenerating}
+                // disabled={imagens.length === 0 }
                 >
-                  {isGenerating ? "Processando imagens..." : "Aplicar alterações"}
+                  Aplicar alterações
                 </button>
               )}
 
               {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
-
               {!alteracoesPendentes && pdfUrl && (
-                <a href={pdfUrl} download="arquivo.pdf" className="pro-btn-red my-2 text-center cursor-pointer" >
+                <button
+                  onClick={handleDownloadPdf}
+                  className="pro-btn-red my-2"
+                >
                   📥 Baixar PDF
-                </a>
+                </button>
+
               )}
             </div>
 
