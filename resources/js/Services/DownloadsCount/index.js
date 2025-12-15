@@ -16,11 +16,15 @@ export const downloadCount = async (fileName) => {
   }
 
   try {
-    await axios.post(route('user.downloads.store'), {
+    const response = await axios.post(route('user.downloads.store'), {
       file_name: fileName,
     });
-    console.log(`✅ Uso de '${fileName}' contabilizado com sucesso.`);
-    return true;
+    console.log(`✅ Uso de '${fileName}' contabilizado com sucesso. Total: ${response.data.total_downloads}`);
+
+    const total = response.data.total_downloads
+
+    return total;
+
   } catch (error) {
     // Apenas logamos o erro, não queremos interromper o fluxo principal
     console.error(`⚠️ Erro ao contabilizar uso de '${fileName}':`, error.message);

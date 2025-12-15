@@ -36,6 +36,8 @@ export default function TratamentoImagens() {
     REMOVE_BG_PRICE: 0.1,
     UPSCALER_ESRGAN: 'aumentar-qualidade',
     UPSCALER_ESRGAN_PRICE: 0.1,
+    NAFNet: 'remoção-de-ruido-desfoque',
+    NAFNet_PRICE: 0.2,
   };
 
   // // Exemplo: Função Reutilizável de Fetch
@@ -169,10 +171,10 @@ export default function TratamentoImagens() {
   //   }
   // }, [lastSavedImageId]); // Dependência: só roda quando o ID salvo muda
 
- 
-  
+
+
   // Isso garante que o Pica seja carregado antes de qualquer processamento.
-  
+
   useEffect(() => {
     let isMounted = true;
 
@@ -329,7 +331,6 @@ export default function TratamentoImagens() {
       });
     }
 
-
     let dataToSend = {};
     let originalWidth, originalHeight, originalMaxSide;
     let expectedMaxSide;
@@ -365,6 +366,26 @@ export default function TratamentoImagens() {
       const formData = new FormData();
       formData.append('image', image);
       dataToSend = formData;
+    } else if (type === MODELS.NAFNet) {
+      // 🆕 Lógica Específica para NAFNet (Remoção de Ruído/Desfoque)
+      try {
+        // O NAFNet espera apenas o Base64 da imagem (sem downsize complexo)
+        const base64Image = await imageCompression.getDataUrlFromFile(image);
+
+        dataToSend.image = base64Image;
+
+        console.log(`🧼 NAFNet: Imagem Base64 pronta para envio.`);
+
+      } catch (e) {
+        setLoading(false);
+        console.error("Erro ao preparar imagem para NAFNet:", e);
+        return Swal.fire({
+          icon: 'error',
+          title: 'Erro de Preparação!',
+          text: 'Falha ao preparar imagem para remoção de ruído.',
+        });
+      }
+
     }
 
     const endpoint = `/imagens/${type}`;
@@ -389,6 +410,27 @@ export default function TratamentoImagens() {
           });
         } else {
           console.log(usarCarteira.success);
+          return;
+        }
+
+      } else if (type === MODELS.NAFNet) {
+
+        console.log(`Aqui MODELS.NAFNet`, MODELS.NAFNet);
+        
+        const price = MODELS.NAFNet_PRICE;
+        const fileName = "nafnet-denoise";
+
+        usarCarteira = await wallet({ preco: price, fileName: fileName });
+
+        if (usarCarteira.success) {
+          res = await axios.post(endpoint, dataToSend, {
+            headers: {
+              'Content-Type': type === MODELS.NAFNet ? 'application/json' : 'multipart/form-data',
+            },
+          });
+        } else {
+          setLoading(false);
+          console.log("Falha na carteira:", usarCarteira.success);
           return;
         }
 
@@ -529,6 +571,32 @@ export default function TratamentoImagens() {
         });
       }
 
+      // 🔹 Lógica de Pós-Processamento e Contagem
+      if (type === MODELS.NAFNet) {
+                
+        // NAFNet e RemoveBG simplesmente retornam o resultado processado
+        setResult(outputUrlOrBase64);
+
+        // Contabiliza o uso
+        const downloadFileName = 'nafnet_denoise_usage';
+
+        try {
+          await axios.post(route('user.downloads.store'), { file_name: downloadFileName });
+          console.log(`✅ Uso do ${downloadFileName} contabilizado com sucesso!`);
+        } catch (error) {
+          console.error(`⚠️ Erro ao contabilizar uso do ${downloadFileName}:`, error);
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Imagem pronta!',
+            text: `Processamento de ${type} concluído.`,
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+      }
+
 
     } catch (err) {
 
@@ -647,7 +715,7 @@ export default function TratamentoImagens() {
 
         <h2 className="text-4xl font-extrabold text-gray-800 mb-6 border-b pb-2 text-center">
           🪄 Tratamento de Imagens com IA.
-        </h2>      
+        </h2>
 
         {/* Upload e Configurações */}
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-5">
@@ -726,7 +794,15 @@ export default function TratamentoImagens() {
             className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
             disabled={loading || !image}
           >
-            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
+            {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Tamanho...' : '⏫ Aumentar Tamanho'}
+          </button>
+
+          <button
+            onClick={() => processImage(MODELS.NAFNet)}
+            className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700 flex-1"
+            disabled={loading || !image}
+          >
+            {loading && MODELS.NAFNet === 'remoção-de-ruído-desfoque' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
           </button>
 
         </div>

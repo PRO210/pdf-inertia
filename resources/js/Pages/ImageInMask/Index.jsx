@@ -31,7 +31,7 @@ export default function Index() {
 
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 2 })
   const [modoReducao, setModoReducao] = useState("grid");
-  const [tamanhoQuadro, setTamanhoQuadro] = useState({ larguraCm: 5, alturaCm: 6 });
+  const [tamanhoQuadro, setTamanhoQuadro] = useState({ larguraCm: 14.4, alturaCm: 10 });
   const [espacamentoCm, setEspacamentoCm] = useState(1);
 
   const [orientacao, setOrientacao] = useState('paisagem')
@@ -41,7 +41,7 @@ export default function Index() {
   const uploadInputRef = useRef(null);
   const [mascaraSelecionada, setMascaraSelecionada] = useState('circulo');
   const [repeatMode, setRepeatMode] = useState("all");
-  const [tamanhoCm, setTamanhoCm] = useState({ largura: 27.7, altura: 19.0 });
+  const [tamanhoCm, setTamanhoCm] = useState({ largura: 29.7, altura: 21.0 });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   /* Criar o Pdf */
@@ -54,7 +54,7 @@ export default function Index() {
   const [paginaAtual, setPaginaAtual] = useState(1)
   const [totalPaginas, setTotalPaginas] = useState(1)
   const [isLoading, setIsLoading] = useState(false);
-  const CM_TO_PT = 28.35;
+  const CM_TO_PT = 28.3465;
   const [resumoTamanho, setResumoTamanho] = useState(
     { texto: "", larguraCm: 0, alturaCm: 0, totalBlocos: 0 });
 
@@ -259,7 +259,7 @@ export default function Index() {
         height: pageDimensions[1]
       };
 
-      const margem = 8;
+      const margem = 10;
       const drawW = pageW - margem * 2;
       const drawH = pageH - margem * 2;
 
@@ -325,10 +325,10 @@ export default function Index() {
         paginaAtual = pdfDoc.addPage(pageDimensions);
 
         // Desenha a borda externa da página
-        paginaAtual.drawRectangle({
-          x: margem, y: margem, width: drawW, height: drawH,
-          borderWidth: 1, borderColor: rgb(1, 0, 0),
-        });
+        // paginaAtual.drawRectangle({
+        //   x: margem, y: margem, width: drawW, height: drawH,
+        //   borderWidth: 1, borderColor: rgb(1, 0, 0),
+        // });
 
         // Loop interno: Percorre as células desta página
         for (let i = 0; i < totalCells; i++) {
@@ -477,217 +477,6 @@ export default function Index() {
     }
   };
 
-
-  // const gerarPdfComQuadroCm = async () => {
-  //   console.log("========== 🟣 INICIANDO GERAR PDF (QUADRO CM) - PAGINADO ==========");
-
-  //   // ================================
-  //   // 📌 Configurações Iniciais e Limpeza
-  //   // ================================
-  //   let resumo = [];
-  //   const addResumo = (txt) => resumo.push(`• ${txt}`);
-  //   setIsLoading(true);
-
-  //   if (pdfUrl) {
-  //     URL.revokeObjectURL(pdfUrl);
-  //     setPdfUrl(null);
-  //   }
-
-  //   try {
-  //     if (!imagensMask || !imagensMask.length) {
-  //       throw new Error("Nenhuma imagem disponível em imagensMask");
-  //     }
-
-  //     const { largura, altura } = tamanhoCm;
-  //     const pageW = largura * 28.35;
-  //     const pageH = altura * 28.35;
-  //     const pageDimensions = [pageW, pageH];
-
-  //     const margem = 10;
-  //     const espacamento = 0 * 28.35; // Espaçamento entre quadros
-  //     const drawW = pageW - margem * 2;
-  //     const drawH = pageH - margem * 2;
-
-  //     const quadroW = tamanhoQuadro.larguraCm * 28.35;
-  //     const quadroH = tamanhoQuadro.alturaCm * 28.35;
-
-  //     // ==========================================================
-  //     // 1️⃣ CÁLCULO DA GRADE
-  //     // ==========================================================
-
-  //     // O número de colunas e linhas que CABEM na página, baseado no tamanho CM
-  //     const numCols = Math.floor(drawW / (quadroW + espacamento));
-  //     const numRows = Math.floor(drawH / (quadroH + espacamento));
-  //     const totalCells = numCols * numRows; // Máximo de itens por página
-
-  //     if (numCols < 1 || numRows < 1) {
-  //       throw new Error("O quadro fixo em CM é muito grande para as margens da página.");
-  //     }
-
-  //     addResumo(`Grade CM calculada: ${numCols} colunas × ${numRows} linhas`);
-  //     addResumo(`Total de células por página: ${totalCells}`);
-
-  //     // ==========================================================
-  //     // 2️⃣ LÓGICA DE REPETIÇÃO/PREENCHIMENTO
-  //     // ==========================================================
-
-  //     const totalImagensOriginais = imagensMask.length;
-  //     let imagensParaRenderizar = [...imagensMask];
-
-  //     // Se houver menos imagens do que cabe na primeira página, preenche com repetição
-  //     if (totalImagensOriginais > 0 && totalImagensOriginais < totalCells) {
-  //       addResumo(`Poucas imagens (${totalImagensOriginais}). Repetindo para preencher a primeira página.`);
-  //       let index = 0;
-  //       while (imagensParaRenderizar.length < totalCells) {
-  //         // Repete as imagens originais
-  //         imagensParaRenderizar.push(imagensMask[index % totalImagensOriginais]);
-  //         index++;
-  //       }
-  //     }
-
-  //     const totalImagensRender = imagensParaRenderizar.length; // Novo total de itens a desenhar
-  //     const totalDePaginas = Math.ceil(totalImagensRender / totalCells);
-  //     addResumo(`Total de itens a renderizar: ${totalImagensRender}. Serão geradas ${totalDePaginas} página(s).`);
-
-  //     // ==========================================================
-  //     // 3️⃣ LOOP PRINCIPAL: RENDERIZAÇÃO E PAGINAÇÃO
-  //     // ==========================================================
-
-  //     const pdfDoc = await PDFDocument.create();
-  //     let paginaAtual = null;
-  //     let imagemIndex = 0; // Índice que percorre o array 'imagensParaRenderizar'
-
-  //     for (let pageIndex = 0; pageIndex < totalDePaginas; pageIndex++) {
-
-  //       // Adiciona uma nova página a cada iteração
-  //       paginaAtual = pdfDoc.addPage(pageDimensions);
-
-  //       // Variáveis de posição reiniciadas para a nova página
-  //       let atualX = margem;
-  //       let atualY = pageH - margem - quadroH;
-
-  //       // Desenha a borda externa da página (opcional)
-  //       paginaAtual.drawRectangle({
-  //         x: margem, y: margem, width: drawW, height: drawH,
-  //         borderWidth: 1, borderColor: rgb(1, 0, 0),
-  //       });
-
-  //       // Loop interno: Percorre as células desta página
-  //       for (let i = 0; i < totalCells; i++) {
-
-  //         // --- A. Checagem de Preenchimento / Fim ---
-  //         let isPlaceholder = imagemIndex >= totalImagensRender;
-
-  //         if (isPlaceholder) {
-  //           // Célula de Placeholder
-  //           paginaAtual.drawRectangle({
-  //             x: atualX, y: atualY, width: quadroW, height: quadroH,
-  //             borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
-  //           });
-
-  //         } else {
-  //           // --- B. Processa Imagem Real/Repetida ---
-  //           const imagemObj = imagensParaRenderizar[imagemIndex];
-  //           const base64 = imagemObj?.maskedBase64;
-
-  //           if (!base64) {
-  //             // Se o item for nulo, desenha o placeholder
-  //             paginaAtual.drawRectangle({
-  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
-  //               borderWidth: 0.1, borderColor: rgb(0.7, 0.7, 0.7),
-  //             });
-  //           } else {
-  //             // Desenha Imagem
-  //             const cleanBase64 = base64.replace(/^data:image\/\w+;base64,/, "");
-  //             const imgBuffer = Uint8Array.from(atob(cleanBase64), c => c.charCodeAt(0));
-
-  //             const pdfImage = await pdfDoc
-  //               .embedPng(imgBuffer)
-  //               .catch(() => pdfDoc.embedJpg(imgBuffer));
-
-  //             // Desenha o quadro (borda)
-  //             paginaAtual.drawRectangle({
-  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
-  //               borderWidth: 0.1, borderColor: rgb(0, 0, 0),
-  //             });
-
-  //             // Desenha a imagem (sem ajuste de proporção, pois o quadro é fixo)
-  //             paginaAtual.drawImage(pdfImage, {
-  //               x: atualX, y: atualY, width: quadroW, height: quadroH,
-  //             });
-  //           }
-
-  //           // Avança o índice da imagem APENAS quando processamos um item
-  //           imagemIndex++;
-  //         }
-
-  //         // --- C. Avanço da Coordenada X ---
-  //         atualX += quadroW + espacamento;
-
-  //         // --- D. Avanço da Coordenada Y (Nova Linha) ---
-  //         if (atualX + quadroW + margem > pageW) {
-  //           atualX = margem;
-  //           atualY -= quadroH + espacamento;
-  //           // Se o Y for menor que a margem, o loop interno (for) garante que ele pare.
-  //         }
-  //       }
-  //       addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
-  //     }
-
-  //     // ==========================================================
-  //     // 4️⃣ FINALIZAÇÃO E LÓGICA DE RESUMO (Adaptada)
-  //     // ==========================================================
-
-  //     // A lógica complexa de sugestão de tamanho e sobra no código original foi projetada 
-  //     // para o cenário de UMA página. Aqui, o quadroW e quadroH são fixos.
-  //     // O resumo deve refletir o que foi desenhado.
-
-  //     const pontosParaCm = v => v / 28.35;
-  //     const totalQuadrosDesenhados = imagemIndex; // O índice final é o total desenhado
-
-  //     // Retiramos a lógica de ajuste e sugestão automática, pois o tamanho CM é fixo.
-  //     setResumoTamanho({
-  //       texto: `
-  //   📐 RESULTADOS\n
-  //   • Quadros/Página: ${totalCells}
-  //   • Total de Itens Desenhados: ${totalQuadrosDesenhados}
-  //   • Páginas Geradas: ${totalDePaginas}
-
-  //   📏 Tamanho do Quadro Fixo\n
-  //   • Largura: ${tamanhoQuadro.larguraCm.toFixed(2)} cm
-  //   • Altura: ${tamanhoQuadro.alturaCm.toFixed(2)} cm
-  // `,
-  //       larguraCm: tamanhoQuadro.larguraCm,
-  //       alturaCm: tamanhoQuadro.alturaCm,
-  //       totalBlocos: totalCells
-  //     });
-
-  //     // ====================================================
-  //     // 5️⃣ SALVA PDF E INICIA RASTERIZAÇÃO
-  //     // ====================================================
-  //     const pdfBytes = await pdfDoc.save();
-  //     const blob = new Blob([pdfBytes], { type: "application/pdf" });
-
-  //     const novoPdfUrl = URL.createObjectURL(blob);
-  //     setPdfUrl(novoPdfUrl);
-
-  //     setAlteracoesPendentes(false);
-
-  //     // 🚀 LÓGICA DE PAGINAÇÃO (PDF.js)
-  //     const loadingTask = pdfjsLib.getDocument(novoPdfUrl);
-  //     const pdf = await loadingTask.promise;
-  //     setTotalPaginas(pdf.numPages);
-  //     setPaginaAtual(1); // O useEffect externo cuidará da primeira rasterização.
-
-
-  //   } catch (error) {
-  //     console.error("❌ ERRO CRÍTICO ao gerar PDF (Quadro CM):", error);
-  //     alert("Erro ao gerar PDF: " + error.message);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
   const gerarPdfComQuadroCm = async () => {
     console.log("========== 🟣 INICIANDO GERAR PDF (QUADRO CM) - PAGINADO ==========");
 
@@ -724,7 +513,7 @@ export default function Index() {
 
       const pageDimensions = [pageW, pageH];
 
-      const margem = 8;
+      const margem = 10;
       const espacamento = 0 * 28.35; // Espaçamento entre quadros
       const drawW = pageW - margem * 2;
       const drawH = pageH - margem * 2;
@@ -1093,6 +882,9 @@ export default function Index() {
       if (!response.ok) {
         throw new Error('PDF indisponível');
       }
+      
+      // 📊 Log estatístico
+      const total = await downloadCount('Imagem-em-Formas.pdf');
 
       const blob = await response.blob();
 
@@ -1100,16 +892,13 @@ export default function Index() {
       const blobUrl = URL.createObjectURL(blob);
 
       link.href = blobUrl;
-      link.download = `Imagem-em-Formas.pdf`;
+      link.download = `Imagem-em-Formas-${total}.pdf`;
 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
       URL.revokeObjectURL(blobUrl);
-
-      // 📊 Log estatístico
-      await downloadCount('Imagem-em-Formas.pdf');
 
     } catch (err) {
       console.error('Erro no download do PDF:', err);
@@ -1122,13 +911,11 @@ export default function Index() {
   };
 
 
-
   return (
     <>
       <Head title="Fotos em Formas" />
 
       <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
-
 
         <div className="w-full lg:w-1/3 flex flex-col justify-start items-center px-4" id="opcoes">
           <div className="flex flex-col items-center justify-center gap-4 w-full" >
@@ -1486,8 +1273,8 @@ export default function Index() {
         {/* Coluna do Preview */}
         <div className="w-full lg:w-2/3 flex flex-col justify-center items-center" id="preview">
 
-          <h2 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap">
-            Preview do PDF
+          <h2 className="sm:text-xl lg:text-2xl text-center font-bold whitespace-nowrap mt-4">
+            {pdfUrl ? 'Preview do PDF ' : 'Instruções'}
           </h2>
 
           {/* Paginação */}
@@ -1557,18 +1344,22 @@ export default function Index() {
 
               </div>
             ) : (
-              <p className="text-center text-gray-500 dark:text-gray-400 p-4">
-                Clique em <b>Gerar PDF</b> para visualizar o documento final.
-              </p>
+              <div class="mt-4 p-4 md:p-8 lg:p-12 w-full mx-auto border-4 border-dashed border-gray-300 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <p class="text-center text-gray-500 dark:text-gray-400 p-4">
+                  1) 🔄 Escola a orientação do papel se Paisagem ou Retrato;<br /><br />
+                  2) 📏 A quantidade por folha ou o tamanho específico;<br /><br />
+                  3) 🖼️ Carregue as suas imagens;<br /><br />
+                  4) 📄 Clique em <b>Gerar PDF</b> para visualizar o documento final;<br /><br />
+                  5) ⬇️ Baixe o arquivo pronto.
+                </p>
+              </div>
             )}
 
           </div>
 
-
         </div>
 
       </div>
-
 
       {/* Overlay de carregamento */}
       {isLoading && (

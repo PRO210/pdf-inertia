@@ -117,6 +117,8 @@ Route::post('/publico-post', function (Request $request) {
 
 Route::post('/imagens/remover-fundo', [ImageController::class, 'removeBackground']);
 Route::post('/imagens/aumentar-qualidade', [ImageController::class, 'upscale']);
+Route::post('/imagens/remoção-de-ruido-desfoque', [ImageController::class, 'melhoramento']);
+
 
 
 Route::middleware(['auth'])->group(function () {

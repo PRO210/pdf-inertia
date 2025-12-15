@@ -227,6 +227,77 @@ class ImageController extends Controller
         }
     }
 
+    /**
+     * Processa a imagem para upscale (aumento de qualidade) usando Base64.
+     * O frontend (JavaScript) agora faz o downsize para o limite de 2.1MP.
+     */
+    public function melhoramento(Request $request)
+    {
+        // ⚠️ 1. OBTENÇÃO DOS DADOS (Pode ficar fora se for totalmente seguro)
+        $userId = Auth::check() ? Auth::id() : 0;
+
+        try {
+            // 1️⃣ Verifica se a string Base64 da imagem está no corpo do JSON
+            $base64Image = $request->input('image');
+            if (empty($base64Image)) {
+                Log::error('❌ String Base64 da imagem não encontrada na requisição.');
+                // Retorno de erro DENTRO do try, mas o catch não o pega.
+                return response()->json(['error' => 'Base64 da imagem não enviado'], 400);
+            }
+
+            // NOVO: ID da versão do megvii-research/nafnet
+            $version_id = "018241a6c880319404eaa2714b764313e27e11f950a7ff0a7b5b37b27b74dcf7";
+            $endpoint = 'https://api.replicate.com/v1/predictions';
+
+            // 3️⃣ Monta payload
+            $payload = [
+                'version' => $version_id,
+                'input' => ['image' => $base64Image]
+            ];
+
+            // 4️⃣ Chama a API Replicate com "Prefer: wait" (Ponto crítico de falha)
+            // Se a rede falhar ou a API do Laravel lançar uma exceção, o catch pega.
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
+                'Content-Type' => 'application/json',
+                'Prefer' => 'wait',
+            ])->post($endpoint, $payload);
+
+            // 5️⃣ Verifica resposta (Lógica de erro do Replicate)
+            if (!$response->successful()) {
+                Log::error('❌ Erro ao chamar Replicate', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    // ... (outros detalhes)
+                ]);
+
+                return response()->json([
+                    'error' => 'Falha ao chamar Replicate',
+                    'replicate_response' => $response->json(),
+                ], $response->status());
+            }
+
+            $result = $response->json();
+            $outputValue = $result['output'] ?? null;
+
+            // 6️⃣ Retorna JSON com o resultado
+            return response()->json([
+                'success' => true,
+                'output_base64_or_url' => $outputValue,
+                'replicate_id' => $result['id'] ?? null
+            ]);
+        } catch (\Exception $e) {
+            // 🚨 Bloco de captura para erros INESPERADOS (rede, configuração, etc.)
+            Log::error('💥 Erro inesperado no melhoramento()', [
+                'mensagem' => $e->getMessage(),
+                'linha' => $e->getLine(),
+                'arquivo' => $e->getFile(),
+            ]);
+
+            return response()->json(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function saveFinalImage(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
         $userId = Auth::check() ? Auth::id() : 0;
@@ -427,70 +498,5 @@ class ImageController extends Controller
 
             return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
-    }
-
-    public function imageInMask(Request $request)
-    {
-        $request->validate([
-            'imagens.*' => 'required|image',
-            'colunas' => 'required|integer',
-            'linhas'  => 'required|integer',
-            'mascara' => 'required|string'
-        ]);
-
-        $pdfPath = ImageToMask::gerarPdf(
-            $request->file('imagens'),
-            [
-                'orientacao' => $request->orientacao ?? 'paisagem',
-                'colunas'    => $request->colunas ?? 2,
-                'linhas'     => $request->linhas ?? 2,
-                'margem_cm'  => $request->margem_cm ?? 0.5,
-            ]
-        );
-
-        $maskPath = public_path('imagens/mascaras/coracao.png');
-        $imagePath = public_path('imagens/mascaras/Gil.jpg');
-
-        $image = new Imagick($imagePath);
-        $imageW = $image->getImageWidth();
-        $imageH = $image->getImageHeight();
-
-        Log::info("Imagem original: {$imageW}x{$imageH}");
-
-        // ✅ MÉTODO CORRETO PARA ImageMagick 6.9.10
-        $mask = new Imagick($maskPath);
-        $mask->resizeImage($imageW, $imageH, Imagick::FILTER_LANCZOS, 1);
-
-        // 🔧 ImageMagick 6.x: Converte GRAY -> ALPHA manualmente
-        $mask->setImageColorspace(Imagick::COLORSPACE_GRAY);
-        $mask->setImageMatte(true);  // Ativa canal alpha
-        $mask->evaluateImage(Imagick::EVALUATE_MULTIPLY, 1, Imagick::CHANNEL_ALPHA); // Luminância -> Alpha
-
-        // Salva máscara DEBUG
-        $mask->writeImage(storage_path('app/temp_pdf/debug_mask.png'));
-
-        // 🔧 COMPOSITE CORRETO para IM 6.x (sua máscara branca=visível)
-        $image->compositeImage($mask, Imagick::COMPOSITE_DSTIN, 0, 0);
-        Log::info("Máscara aplicada com COMPOSITE_DSTIN (IM 6.9)");
-
-        // Salva resultado DEBUG
-        $image->writeImage(storage_path('app/temp_pdf/debug_result.png'));
-
-        // Fundo branco para visualizar
-        $background = new Imagick();
-        $background->newImage($imageW, $imageH, 'white');
-        $background->setImageFormat('png');
-        $background->compositeImage($image, Imagick::COMPOSITE_OVER, 0, 0);
-
-        $outputPath = storage_path('app/temp_pdf/masked_' . uniqid() . '.png');
-        $background->writeImage($outputPath);
-
-        $image->clear();
-        $mask->clear();
-        $background->clear();
-
-        Log::info("Resultado salvo em: {$outputPath}");
-
-        return response()->file($outputPath);
     }
 }
