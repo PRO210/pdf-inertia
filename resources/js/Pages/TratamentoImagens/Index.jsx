@@ -37,7 +37,7 @@ export default function TratamentoImagens() {
     UPSCALER_ESRGAN: 'aumentar-qualidade',
     UPSCALER_ESRGAN_PRICE: 0.1,
     NAFNet: 'remoção-de-ruido-desfoque',
-    NAFNet_PRICE: 0.2,
+    NAFNet_PRICE: 0.1,
   };
 
   // // Exemplo: Função Reutilizável de Fetch
@@ -578,7 +578,7 @@ export default function TratamentoImagens() {
         setResult(outputUrlOrBase64);
 
         // Contabiliza o uso
-        const downloadFileName = 'nafnet_denoise_usage';
+        const downloadFileName = 'codeformer';
 
         try {
           await axios.post(route('user.downloads.store'), { file_name: downloadFileName });

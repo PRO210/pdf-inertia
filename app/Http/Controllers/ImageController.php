@@ -246,13 +246,20 @@ class ImageController extends Controller
             }
 
             // NOVO: ID da versão do megvii-research/nafnet
-            $version_id = "018241a6c880319404eaa2714b764313e27e11f950a7ff0a7b5b37b27b74dcf7";
+            $version_id = "sczhou/codeformer:cc4956dd26fa5a7185d5660cc9100fab1b8070a1d1654a8bb5eb6d443b020bb2";
             $endpoint = 'https://api.replicate.com/v1/predictions';
 
-            // 3️⃣ Monta payload
+            // 3️⃣ Monta payload         
             $payload = [
                 'version' => $version_id,
-                'input' => ['image' => $base64Image]
+                'input' => [
+                    // ✅ Coloque TODOS os parâmetros do modelo AQUI dentro!
+                    'image' => $base64Image,
+                    'upscale' => 2,
+                    'face_upsample' => true,
+                    'background_enhance' => true,
+                    'codeformer_fidelity' => 1,
+                ],
             ];
 
             // 4️⃣ Chama a API Replicate com "Prefer: wait" (Ponto crítico de falha)
