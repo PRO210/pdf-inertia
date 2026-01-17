@@ -46,6 +46,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
 
     Route::get('/dashboard/tratamento-imagens', [ImageController::class, 'index'])->name('tratamento.imagens');
+
+    Route::get('/dashboard/tratamento-imagens-remover-objetos', [ImageController::class, 'index'])->name('tratamento.imagens');
     // Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryUpscaleImages'])->name('upscale.temp.images');
 
     // Rota 1: Upscale

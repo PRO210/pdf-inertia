@@ -34,10 +34,49 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
                                     Criar Atividades
                                 </NavLink>
+                              
 
-                                <NavLink href={route('tratamento.imagens')} active={route().current('tratamento.imagens')} >
-                                    Melhoramento de Imagens
-                                </NavLink>
+                                <div className="hidden sm:flex sm:items-center sm:ms-6">
+
+                                    <div className="ms-3 relative group">
+                                        <Dropdown>
+                                            <Dropdown.Trigger>
+                                                <button
+                                                    type="button"
+                                                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full transition duration-300 ease-in-out
+                        ${route().current('tratamento.*')
+                                                            ? 'bg-indigo-100 text-indigo-700 shadow-sm'
+                                                            : 'text-gray-500 hover:text-indigo-600 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <span className="mr-1">✨ Ferramentas de IA</span>
+                                                    <svg className="ms-1 h-4 w-4 transition-transform duration-300 group-hover:rotate-180" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                    </svg>
+                                                </button>
+                                            </Dropdown.Trigger>
+
+                                            <div className="absolute z-50 hidden group-hover:block pt-2 w-56">
+                                                <div className="rounded-xl shadow-lg ring-1 ring-black ring-opacity-5 bg-white overflow-hidden border border-indigo-50">
+                                                    <div className="px-4 py-2 text-xs text-gray-400 uppercase tracking-widest font-semibold bg-gray-50">
+                                                        Processamento de Imagem
+                                                    </div>
+
+                                                    <Dropdown.Link
+                                                        href={route('tratamento.imagens')}
+                                                        className="flex items-center space-x-2 hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <span>📸</span>
+                                                        <span>Melhoramento de Imagens</span>
+                                                    </Dropdown.Link>
+
+
+                                                </div>
+                                            </div>
+                                        </Dropdown>
+                                    </div>
+                                </div>
+
 
                                 <NavLink href={route('imagem-to-anime.create')} active={route().current('imagem-to-anime.create')} >
                                     Imagem para Anime

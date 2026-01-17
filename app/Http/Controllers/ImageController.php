@@ -506,4 +506,10 @@ class ImageController extends Controller
             return response()->json(['error' => 'Erro interno: ' . $e->getMessage()], 500);
         }
     }
+
+    public function removeObject(){
+        return Inertia::render('RemoveObject/index');
+    }
+
+    
 }
