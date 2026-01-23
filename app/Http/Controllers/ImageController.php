@@ -507,9 +507,80 @@ class ImageController extends Controller
         }
     }
 
-    public function removeObject(){
+    public function removeObject()
+    {
         return Inertia::render('RemoveObject/index');
     }
 
-    
+
+    public function briaEraser(Request $request)
+    {
+        $userId = Auth::check() ? Auth::id() : 0;
+        $token = env('REPLICATE_API_TOKEN');
+
+        // 1. VALIDAÇÃO (Agora precisamos de image E mask)
+        if (!$request->hasFile('image') || !$request->hasFile('mask')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você precisa enviar a imagem original e a máscara (mask).',
+            ], 400);
+        }
+
+        try {
+            // 2. CONVERSÃO PARA BASE64
+            $imageFile = $request->file('image');
+            $maskFile = $request->file('mask');
+
+            $base64Image = 'data:image/' . $imageFile->getClientOriginalExtension() . ';base64,' . base64_encode(file_get_contents($imageFile->getRealPath()));
+            $base64Mask = 'data:image/' . $maskFile->getClientOriginalExtension() . ';base64,' . base64_encode(file_get_contents($maskFile->getRealPath()));
+
+            // 3. ENVIO PARA O ENDPOINT DO BRIA ERASER
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                'Prefer' => 'wait',
+            ])->post('https://api.replicate.com/v1/models/bria/eraser/predictions', [
+                'input' => [
+                    'image' => $base64Image,
+                    'mask' => $base64Mask,
+                ],
+            ]);
+
+            $data = $response->json();
+
+            // 4. TRATAMENTO DE ERROS
+            if ($response->failed()) {
+                Log::error('❌ Erro ao chamar Bria Eraser', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro na API do Replicate: ' . ($data['detail'] ?? 'Falha desconhecida.'),
+                ], $response->status());
+            }
+
+            $outputValue = $data['output'] ?? null;
+
+            if ($outputValue) {
+                return response()->json([
+                    'success' => true,
+                    'output_base64_or_url' => $outputValue,
+                    'replicate_id' => $data['id'] ?? null,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'O Replicate não retornou o resultado esperado.',
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error('💥 Erro inesperado no briaEraser()', ['mensagem' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Erro interno: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

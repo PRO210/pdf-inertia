@@ -24,6 +24,9 @@
   .pro-input {
     @apply bg-gray-200 appearance-none border-2 border-gray-200 rounded w-full text-gray-700 leading-tight focus:outline-none focus:bg-white focus:border-purple-500;
   }
+  .pro-navigator{
+    @apply flex items-center space-x-2 hover:bg-indigo-50 transition-colors
+  }
 }
 
 @keyframes spin {

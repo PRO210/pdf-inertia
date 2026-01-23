@@ -34,7 +34,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
                                     Criar Atividades
                                 </NavLink>
-                              
+
 
                                 <div className="hidden sm:flex sm:items-center sm:ms-6">
 
@@ -70,6 +70,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                                         <span>Melhoramento de Imagens</span>
                                                     </Dropdown.Link>
 
+                                                    <Dropdown.Link href={route('remover.objetos')} className="pro-navigator" >
+                                                        <span>🧹</span>
+                                                        <span>Remover Objeto</span>
+                                                    </Dropdown.Link>
+
+                                                    <Dropdown.Link href={route('imagem-to-anime.create')} className="pro-navigator" >
+                                                        <span> 👨 Imagem para Anime 🥷</span>
+                                                    </Dropdown.Link>
 
                                                 </div>
                                             </div>
@@ -77,10 +85,6 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </div>
                                 </div>
 
-
-                                <NavLink href={route('imagem-to-anime.create')} active={route().current('imagem-to-anime.create')} >
-                                    Imagem para Anime
-                                </NavLink>
 
                                 <NavLink href={route('image.in.mask')} active={route().current('image.in.mask')} >
                                     Imagem em Formas

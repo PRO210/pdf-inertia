@@ -47,8 +47,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard/tratamento-imagens', [ImageController::class, 'index'])->name('tratamento.imagens');
 
-    Route::get('/dashboard/tratamento-imagens-remover-objetos', [ImageController::class, 'index'])->name('tratamento.imagens');
-    // Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryUpscaleImages'])->name('upscale.temp.images');
+    //Remover Objetos
+    Route::get('/dashboard/tratamento-imagens-remover-objetos', [ImageController::class, 'removeObject'])->name('remover.objetos');
+    Route::post('/dashboard/imagens-remover-objetos', [ImageController::class, 'briaEraser'])->name('bria-eraser.remover.objetos');
 
     // Rota 1: Upscale
     Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryImages'])->name('upscale.temp.images');
@@ -59,6 +60,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Rota 3: Image To Anime (ITAT)
     Route::get('/dashboard/imagetoanime/temp-images', [ImageController::class, 'getTemporaryImages'])->name('imagetoanime.temp.images');
+    
+    
+
+
 });
 
 Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->middleware('guest')->name('password.request');
