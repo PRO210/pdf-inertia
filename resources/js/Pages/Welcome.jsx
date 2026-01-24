@@ -183,6 +183,21 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </div>
                                 </Link>
 
+                                <Link href={route('remover.objetos')} className="flex flex-col items-center justify-start h-full">
+                                    <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                                Deseja <strong>remover objetos</strong> ou <strong>pessoas</strong> de sua imagem usando usando IA.
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 max-h-36 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="imagens/erase_object.png"
+                                            alt="remover objetos"
+                                        />
+                                    </div>
+                                </Link>
+
                                 <Link href={route('imagem-to-anime.create')} className="flex flex-col items-center justify-start h-full">
                                     <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
                                         <div className="p-4 text-xl text-center">

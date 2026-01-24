@@ -85,6 +85,24 @@ export default function Dashboard() {
                                 </div>
                             </Link>
 
+                            {/* Quarto bloco */}
+                            <Link href={route('remover.objetos')} className="flex flex-col items-center justify-start h-full">
+                                <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
+                                    <div className="p-4 text-xl text-justify">
+                                        <p className="text-gray-700">
+                                            Deseja <strong>remover objetos</strong> ou <strong>pessoas</strong> de sua imagem usando usando IA.
+                                        </p>
+                                    </div>
+
+                                    <img
+                                        className="px-2  object-contain transform transition-transform duration-300 hover:scale-105"
+                                        src="imagens/erase_object.png"
+                                        alt="remover objetos"
+                                    />
+
+                                </div>
+                            </Link>
+
                             <Link href={route('imagem-to-anime.create')} className="flex flex-col items-center justify-start h-full">
                                 <div className="overflow-hidden roundedcursor-pointer hover:shadow-lg transition pb-6">
                                     <div className="p-4 text-xl text-justify">

@@ -15,8 +15,13 @@
   .pro-btn-green {
     @apply w-full bg-transparent px-6 py-2 border-2 border-green-600 text-green-600 font-bold leading-tight rounded-full hover:bg-green-600  hover:text-white focus:outline-none focus:ring-0 transition duration-150 ease-in-out text-xl
   }
+
   .pro-btn-slate {
     @apply w-full bg-transparent px-6 py-2 border-2 border-slate-600 text-slate-600 font-bold leading-tight rounded-full hover:bg-slate-600  hover:text-white focus:outline-none focus:ring-0 transition duration-150 ease-in-out text-xl
+  }
+
+  .pro-btn-amber {
+    @apply w-full bg-transparent px-6 py-2 border-2 border-amber-600 text-amber-600 font-bold leading-tight rounded-full hover:bg-amber-600  hover:text-white focus:outline-none focus:ring-0 transition duration-150 ease-in-out text-xl
   }
   .pro-label {
     @apply block text-gray-500 font-bold md:text-right mb-1 md:mb-0 pr-4;

@@ -11,6 +11,7 @@ import { ImageUpscalePicaJs } from '@/Services/ImageUpscalePicaJs';
 
 
 export default function TratamentoImagens() {
+
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -23,10 +24,9 @@ export default function TratamentoImagens() {
 
   const stageRef = useRef();
   const [konvaImage, setKonvaImage] = useState(null);
-  
+
   const realDimensions = useRef({ width: 0, height: 0 });
 
-  // const STAGE_SIZE = 500; // Tamanho fixo para garantir sincronia entre foto e máscara
 
   // Calcule a proporção
   // Define uma largura padrão de 500px para a interface
@@ -40,7 +40,7 @@ export default function TratamentoImagens() {
 
 
   const MODELS = {
-    BRIA_ERASE_MODEL_PRICE: 0.33,
+    BRIA_ERASE_MODEL_PRICE: 0.30,
   };
 
 
@@ -127,8 +127,13 @@ export default function TratamentoImagens() {
 
   const handleMouseMove = (e) => {
     if (!isDrawing) return;
+
     const stage = e.target.getStage();
     const point = stage.getPointerPosition();
+
+    // Adicione esta linha: Se não houver posição (toque inválido), interrompa.
+    if (!point) return;
+
     let lastLine = lines[lines.length - 1];
     lastLine.points = lastLine.points.concat([point.x, point.y]);
     setLines([...lines.slice(0, -1), lastLine]);
@@ -212,6 +217,32 @@ export default function TratamentoImagens() {
     }
   };
 
+  // 1. Desfazer o último traço (Undo)
+  const handleUndo = () => {
+    if (lines.length === 0) return;
+
+    // Remove a última linha do array
+    const newLines = lines.slice(0, -1);
+    setLines(newLines);
+
+    // Importante: Se não houver mais linhas, limpa o preview da máscara
+    if (newLines.length === 0) {
+      setMaskPreviewUrl(null);
+    } else {
+      // Força a atualização do preview com as linhas que sobraram
+      // Como o updateMaskPreview é assíncrono e depende do ref, 
+      // usamos um pequeno timeout para garantir que o Konva renderizou a remoção
+      setTimeout(() => updateMaskPreview(), 50);
+    }
+  };
+
+  // 2. Limpar tudo
+  const handleClearAll = () => {
+    setLines([]);
+    setMaskPreviewUrl(null);
+    setResult(null); // Opcional: limpa o resultado da IA também
+  };
+
   return (
     <AuthenticatedLayout>
       <Head title="Remover Objetos" />
@@ -239,9 +270,18 @@ export default function TratamentoImagens() {
                 width={stageWidth}
                 height={stageHeight}
                 ref={stageRef}
+                // DESKTOP
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
+                // MOBILE 
+                onTouchStart={handleMouseDown}
+                onTouchMove={handleMouseMove}
+                onTouchEnd={handleMouseUp}
+
+                // ESSENCIAL: Impede que a página suba/desça enquanto você desenha
+                style={{ touchAction: 'none' }}
+
                 className="border-4 border-gray-200 rounded-lg overflow-hidden bg-gray-100"
               >
                 <Layer id="photo-layer">
@@ -267,7 +307,35 @@ export default function TratamentoImagens() {
                 <span>Tamanho do Pincel:</span>
                 <input type="range" min="5" max="100" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} />
               </div>
+
+              <div className="mt-4 flex flex-row gap-3 justify-center items-center w-full max-w-md mx-auto">
+                {/* Botão Desfazer */}
+                <div className="flex-1"> {/* Isso faz o botão ocupar metade do espaço disponível */}
+                  <button
+                    onClick={handleUndo}
+                    disabled={lines.length === 0}
+                    className={`flex items-center justify-center gap-2 rounded-lg font-semibold transition ${lines.length === 0 ? 'pro-btn-slate cursor-not-allowed' : 'pro-btn-amber'
+                      }`}
+                  >
+                    <span>↩️</span> Desfazer
+                  </button>
+                </div>
+
+                {/* Botão Limpar Tudo */}
+                <div className="flex-1">
+                  <button
+                    onClick={handleClearAll}
+                    disabled={lines.length === 0}
+                    className={`flex items-center justify-center gap-2 rounded-lg font-semibold transition ${lines.length === 0 ? 'pro-btn-slate cursor-not-allowed' : 'pro-btn-red'
+                      }`}
+                  >
+                    <span>🗑️</span> Limpar
+                  </button>
+                </div>
+              </div>
+
             </div>
+
 
             {/* PREVIEW DA MÁSCARA */}
             <div className="flex flex-col items-center">
@@ -283,7 +351,7 @@ export default function TratamentoImagens() {
               <button
                 onClick={processImage}
                 disabled={loading}
-                className={`mt-10 px-10 py-4 rounded-full font-bold text-white transition ${loading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700 shadow-lg'}`}
+                className={`mt-10 px-10 py-4 rounded-full font-bold  transition ${loading ? 'bg-gray-400' : 'pro-btn-green shadow-lg'}`}
               >
                 {loading ? 'Processando...' : 'REMOVER OBJETOS AGORA'}
               </button>
