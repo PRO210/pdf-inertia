@@ -6,6 +6,9 @@ import { Head } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
 import { Stage, Layer, Image as KonvaImage, Line, Rect } from 'react-konva';
 import { wallet } from '@/Services/Carteira';
+import { downloadCount } from '@/Services/DownloadsCount';
+import { ImageUpscalePicaJs } from '@/Services/ImageUpscalePicaJs';
+
 
 export default function TratamentoImagens() {
   const [image, setImage] = useState(null);
@@ -20,34 +23,63 @@ export default function TratamentoImagens() {
 
   const stageRef = useRef();
   const [konvaImage, setKonvaImage] = useState(null);
+  
+  const realDimensions = useRef({ width: 0, height: 0 });
 
-  const STAGE_SIZE = 500; // Tamanho fixo para garantir sincronia entre foto e máscara
+  // const STAGE_SIZE = 500; // Tamanho fixo para garantir sincronia entre foto e máscara
+
+  // Calcule a proporção
+  // Define uma largura padrão de 500px para a interface
+  const stageWidth = 500;
+
+  // Se já tivermos as dimensões reais, calculamos a altura proporcional
+  // Caso contrário, usamos 500 como padrão inicial
+  const stageHeight = realDimensions.current.width > 0
+    ? (stageWidth * (realDimensions.current.height / realDimensions.current.width))
+    : 500;
+
 
   const MODELS = {
     BRIA_ERASE_MODEL_PRICE: 0.33,
   };
 
+
   const downloadResult = async () => {
     if (!result) return;
 
+    setLoading(true); // Opcional: mostrar loading durante o upscale
     try {
-      // Se for uma URL externa, precisamos converter para Blob para evitar bloqueio de CORS
-      const image = await fetch(result);
-      const imageBlob = await image.blob();
-      const imageURL = URL.createObjectURL(imageBlob);
+      // 1. Carrega o resultado da IA (500px) em um ImageBitmap ou Image
+      const response = await fetch(result);
+      const blobIA = await response.blob();
+      const imgBitmap = await createImageBitmap(blobIA);
 
+      // 2. Chama sua função "Pica" passando o tamanho original guardado
+      const { width, height } = realDimensions.current;
+
+      // Ajuste: passamos a imagem da IA e os tamanhos originais
+      const imagemAltaRes = await ImageUpscalePicaJs.ajustarImagemPica(
+        imgBitmap,
+        width,
+        height
+      );
+
+      // 3. Executa o download da versão em alta resolução
       const link = document.createElement('a');
-      link.href = imageURL;
-      link.download = `resultado-bria-${Date.now()}.png`;
+      link.href = imagemAltaRes.base64; // Usando o base64 retornado pela sua função
+      link.download = `resultado-alta-res-${Date.now()}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      // Limpa a URL temporária da memória
-      URL.revokeObjectURL(imageURL);
+      // Log de contabilização (mantenha sua lógica original aqui)
+      await downloadCount('bria-eraser-remover-objetos');
+
     } catch (error) {
-      console.error("Erro ao baixar a imagem:", error);
-      Swal.fire('Erro', 'Não foi possível baixar a imagem.', 'error');
+      console.error("Erro no upscale/download:", error);
+      Swal.fire('Erro', 'Não foi possível processar a imagem em alta resolução.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,10 +94,28 @@ export default function TratamentoImagens() {
   const handleUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setImage(file);
-    setImagePreview(URL.createObjectURL(file));
-    setLines([]); // Limpa desenhos anteriores
-    setMaskPreviewUrl(null);
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      // 1. Armazena o tamanho original para o Pica usar no download
+      realDimensions.current = {
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      };
+
+      // 2. Define a imagem para o Konva e o Preview
+      setImage(file);
+      setImagePreview(url);
+
+      // 3. Reseta os estados de edição para a nova imagem
+      setLines([]);
+      setMaskPreviewUrl(null);
+      setResult(null); // Limpa o resultado anterior se houver
+    };
+
+    img.src = url;
   };
 
   /* ---------------- Lógica de Desenho ---------------- */
@@ -102,8 +152,8 @@ export default function TratamentoImagens() {
 
     // Adiciona fundo preto temporário
     const bg = new window.Konva.Rect({
-      width: STAGE_SIZE,
-      height: STAGE_SIZE,
+      width: stageWidth,
+      height: stageHeight,
       fill: 'black',
     });
     maskLayer.add(bg);
@@ -167,6 +217,13 @@ export default function TratamentoImagens() {
       <Head title="Remover Objetos" />
       <div className="max-w-6xl mx-auto p-6 bg-white min-h-screen shadow-xl rounded-xl">
 
+        <div className="text-center mb-8">
+          <h1 className="mt-4 text-3xl font-bold text-gray-800">
+            O que você deseja remover hoje?
+          </h1>
+          <p className="text-gray-500">Pinte sobre pessoas ou objetos para removê-los sem deixar vestígios.</p>
+        </div>
+
         <div className="mb-8 text-center">
           <input type="file" className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700" onChange={handleUpload} />
         </div>
@@ -176,10 +233,11 @@ export default function TratamentoImagens() {
 
             {/* CANVAS PRINCIPAL */}
             <div className="flex flex-col items-center">
-              <p className="mb-2 font-semibold">Pinte o objeto que deseja remover:</p>
+              <p className="mb-2 font-semibold">Pinte o objeto que deseja 🧹 remover:</p>
+
               <Stage
-                width={STAGE_SIZE}
-                height={STAGE_SIZE}
+                width={stageWidth}
+                height={stageHeight}
                 ref={stageRef}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -187,7 +245,7 @@ export default function TratamentoImagens() {
                 className="border-4 border-gray-200 rounded-lg overflow-hidden bg-gray-100"
               >
                 <Layer id="photo-layer">
-                  {konvaImage && <KonvaImage image={konvaImage} width={STAGE_SIZE} height={STAGE_SIZE} />}
+                  {konvaImage && <KonvaImage image={konvaImage} width={stageWidth} height={stageHeight} />}
                 </Layer>
                 <Layer id="mask-layer">
                   {lines.map((line, i) => (
@@ -271,6 +329,7 @@ export default function TratamentoImagens() {
             </div>
           </div>
         )}
+
       </div>
       <Footer ano={2026} />
     </AuthenticatedLayout>
