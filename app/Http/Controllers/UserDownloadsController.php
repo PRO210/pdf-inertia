@@ -8,15 +8,67 @@ use App\Models\UserDownload;
 use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class UserDownloadsController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    // public function index()
+    // {
+    //     $downloads = UserDownload::with(['user:id,name,email'])
+    //         ->orderBy('updated_at', 'desc')
+    //         ->paginate(5)
+    //         ->through(fn($item) => [
+    //             'id' => $item->id,
+    //             'file_name' => $item->file_name,
+    //             'count' => $item->count,
+    //             'updated_at' => $item->updated_at->format('d/m/Y H:i'),
+    //             'user_name' => $item->user?->name ?? 'Usuário Removido',
+    //             'user_email' => $item->user?->email,
+    //         ]);
+
+    //     // Para ver o JSON exato que vai para o React:
+    //     // return response()->json($downloads);
+
+    //     return Inertia::render('Downloads/Index', [
+    //         'downloads' => $downloads
+    //     ]);
+    // }
+    public function index(Request $request)
     {
-        //
+        // Captura os filtros ou define padrões
+        $search = $request->input('search');
+        $perPage = $request->input('perPage', 5);
+        $sortBy = $request->input('sortBy', 'updated_at');
+        $sortDir = $request->input('sortDir', 'desc');
+
+        $downloads = UserDownload::query()
+            ->with(['user:id,name,email'])
+            ->when($search, function ($query, $search) {
+                $query->where('file_name', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+            })
+            ->orderBy($sortBy, $sortDir)
+            ->paginate($perPage)
+            ->withQueryString() // Mantém os filtros nos links de paginação
+            ->through(fn($item) => [
+                'id' => $item->id,
+                'file_name' => $item->file_name,
+                'count' => $item->count,
+                'updated_at' => $item->updated_at->format('d/m/Y H:i'),
+                'user_name' => $item->user?->name ?? 'Removido',
+                'user_email' => $item->user?->email,
+            ]);
+
+        return Inertia::render('Downloads/Index', [
+            'downloads' => $downloads,
+            'filters' => $request->only(['search', 'perPage', 'sortBy', 'sortDir'])
+        ]);
     }
 
     /**
@@ -53,7 +105,7 @@ class UserDownloadsController extends Controller
         ]);
     }
 
-   
+
     private function calcularSaldo($userId)
     {
         $totalPayments = Payment::where('user_id', $userId)

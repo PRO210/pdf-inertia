@@ -72,4 +72,9 @@ class User extends Authenticatable
 
         return $totalCredits - $totalDebits;
     }
+
+    public function downloads()
+    {
+        return $this->hasMany(UserDownload::class);
+    }
 }

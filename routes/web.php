@@ -50,6 +50,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //Remover Objetos
     Route::get('/dashboard/tratamento-imagens-remover-objetos', [ImageController::class, 'removeObject'])->name('remover.objetos');
     Route::post('/dashboard/imagens-remover-objetos', [ImageController::class, 'briaEraser'])->name('bria-eraser.remover.objetos');
+    Route::post('/dashboard/imagens-twn39-remover-objetos', [ImageController::class, 'twn39Lama'])->name('twn39-lama.remover.objetos');
+    //
+
 
     // Rota 1: Upscale
     Route::get('/dashboard/upscale/temp-images', [ImageController::class, 'getTemporaryImages'])->name('upscale.temp.images');
@@ -60,10 +63,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Rota 3: Image To Anime (ITAT)
     Route::get('/dashboard/imagetoanime/temp-images', [ImageController::class, 'getTemporaryImages'])->name('imagetoanime.temp.images');
-    
-    
-
-
 });
 
 Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->middleware('guest')->name('password.request');
@@ -131,7 +130,6 @@ Route::post('/imagens/remoção-de-ruido-desfoque', [ImageController::class, 'me
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard/imagem-to-anime/create', [ImageController::class, 'createImageToAnime'])->name('imagem-to-anime.create');
     Route::post('/imagens/imagem-to-anime', [ImageController::class, 'imageToAnime']);
-   
 });
 
 Route::get('/dashboard/image-in-mask', function () {
@@ -141,6 +139,14 @@ Route::get('/dashboard/image-in-mask', function () {
 Route::post('/dashboard/image-in-mask', [ImageController::class, 'imageInMask'])
     ->name('image.in.mask');
 
+
+Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
+    ->middleware('auth')
+    ->name('user.downloads.store');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/user-downloads', [UserDownloadsController::class, 'index'])->name('downloads.index');
+});
 
 Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
     ->middleware('auth')

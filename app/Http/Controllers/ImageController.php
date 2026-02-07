@@ -584,5 +584,131 @@ class ImageController extends Controller
         }
     }
 
-    
+
+    // public function twn39Lama(Request $request)
+    // {
+    //     $userId = Auth::check() ? Auth::id() : 0;
+    //     $token = env('REPLICATE_API_TOKEN');
+
+    //     // 1. VALIDAÇÃO (Agora precisamos de image E mask)
+    //     if (!$request->hasFile('image') || !$request->hasFile('mask')) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Você precisa enviar a imagem original e a máscara (mask).',
+    //         ], 400);
+    //     }
+
+    //     try {
+    //         // 1. O LAMA costuma exigir URLs. Vamos salvar temporariamente no storage público.
+    //         // Certifique-se de rodar 'php artisan storage:link'
+    //         $imagePath = $request->file('image')->store('temp_replicate', 'public');
+    //         $maskPath = $request->file('mask')->store('temp_replicate', 'public');
+
+    //         $imageUrl = asset('storage/' . $imagePath);
+    //         $maskUrl = asset('storage/' . $maskPath);
+
+    //         // 2. Chamada para o endpoint de PREDICTIONS (Genérico para modelos por Hash)
+    //         $response = Http::withHeaders([
+    //             'Authorization' => "Bearer {$token}",
+    //             'Content-Type' => 'application/json',
+    //             'Prefer' => 'wait',
+    //         ])->post('https://api.replicate.com/v1/predictions', [
+    //             'version' => '2b91ca2340801c2a5be745612356fac36a17f698354a07f48a62d564d3b3a7a0',
+    //             'input' => [
+    //                 'image' => $imageUrl,
+    //                 'mask' => $maskUrl,
+    //             ],
+    //         ]);
+
+    //         $data = $response->json();
+
+    //         // 3. Limpeza (Opcional: deletar após enviar, ou criar um Job para limpar depois)
+    //         // Storage::disk('public')->delete([$imagePath, $maskPath]);
+
+    //         if ($response->failed()) {
+    //             return response()->json(['success' => false, 'message' => $data['detail'] ?? 'Erro no Lama'], 500);
+    //         }
+
+    //         return response()->json([
+    //             'success' => true,
+    //             'output_base64_or_url' => $data['output'] ?? null,
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    //     }
+    // }
+
+    public function twn39Lama(Request $request)
+    {
+        $userId = Auth::check() ? Auth::id() : 0;
+        $token = env('REPLICATE_API_TOKEN');
+
+        // 1. Validação
+        if (!$request->hasFile('image') || !$request->hasFile('mask')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Você precisa enviar a imagem original e a máscara (mask).',
+            ], 400);
+        }
+
+        try {
+
+            // 2. Converter para Base64 (Data URL)
+            $imageFile = $request->file('image');
+            $maskFile  = $request->file('mask');
+
+            $imageBase64 = 'data:' . $imageFile->getMimeType() . ';base64,' .
+                base64_encode(file_get_contents($imageFile->getRealPath()));
+
+            $maskBase64 = 'data:' . $maskFile->getMimeType() . ';base64,' .
+                base64_encode(file_get_contents($maskFile->getRealPath()));
+
+            // 3. Chamada Replicate
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                'Prefer' => 'wait',
+
+            ])->timeout(120) // Aguarda até 2 minutos
+                ->connectTimeout(30) // Aguarda até 30s para estabelecer a conexão inicial
+                ->post('https://api.replicate.com/v1/predictions', [
+                    'version' => '2b91ca2340801c2a5be745612356fac36a17f698354a07f48a62d564d3b3a7a0', // twn39/lama
+                    'input' => [
+                        'image' => $imageBase64,
+                        'mask'  => $maskBase64,
+                    ],
+                ]);
+
+            $data = $response->json();
+
+            // 4. TRATAMENTO DE ERROS
+            if ($response->failed()) {
+                Log::error('❌ Erro ao chamar Twn39/Lama Eraser', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Erro na API do Replicate: ' . ($data['detail'] ?? 'Falha desconhecida.'),
+                ], $response->status());
+            }
+
+
+            $outputValue = $data['output'] ?? null;
+
+            if ($outputValue) {
+                return response()->json([
+                    'success' => true,
+                    'output_base64_or_url' => $outputValue,
+                    'replicate_id' => $data['id'] ?? null,
+                ]);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
 }

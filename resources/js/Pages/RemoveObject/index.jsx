@@ -25,24 +25,51 @@ export default function TratamentoImagens() {
   const stageRef = useRef();
   const [konvaImage, setKonvaImage] = useState(null);
 
+  const containerRef = useRef(null);
+
   const realDimensions = useRef({ width: 0, height: 0 });
 
-
   // Calcule a proporção
-  // Define uma largura padrão de 500px para a interface
-  const stageWidth = 500;
+  // Define uma largura padrão de 400px para a interface
+  // const stageWidth = 400;
+  const [stageWidth, setStageWidth] = useState(400); // Valor inicial seguro
 
   // Se já tivermos as dimensões reais, calculamos a altura proporcional
-  // Caso contrário, usamos 500 como padrão inicial
+  // Caso contrário, usamos 400 como padrão inicial
   const stageHeight = realDimensions.current.width > 0
     ? (stageWidth * (realDimensions.current.height / realDimensions.current.width))
     : 500;
 
+  const [selectedModel, setSelectedModel] = useState('twn39'); // 'bria' ou 'twn39'
 
-  const MODELS = {
-    BRIA_ERASE_MODEL_PRICE: 0.30,
+
+  const MODELS_CONFIG = {
+    bria: {
+      price: 0.30,
+      route: route('bria-eraser.remover.objetos'),
+      label: 'Bria Eraser (Rápido)'
+    },
+    twn39: {
+      price: 0.15,
+      route: route('twn39-lama.remover.objetos'), // Você precisará criar essa rota
+      label: 'Twn39 (Alta Precisão)'
+    }
   };
 
+  // Função para ajustar o tamanho do canvas ao redimensionar a tela
+  useEffect(() => {
+    const checkSize = () => {
+      if (containerRef.current) {
+        // Pega a largura da div pai (menos padding)
+        const width = containerRef.current.offsetWidth;
+        setStageWidth(width > 400 ? 400 : width); // Limita a 400px no desktop
+      }
+    };
+
+    checkSize();
+    window.addEventListener('resize', checkSize);
+    return () => window.removeEventListener('resize', checkSize);
+  }, []);
 
   const downloadResult = async () => {
     if (!result) return;
@@ -179,12 +206,14 @@ export default function TratamentoImagens() {
 
   /* ---------------- Envio para API ---------------- */
   const processImage = async () => {
+
     if (!lines.length) return Swal.fire('Atenção', 'Desenhe sobre o objeto.', 'warning');
+
+    const config = selectedModel === 'twn39' ? MODELS_CONFIG.twn39 : MODELS_CONFIG.bria;
 
     setLoading(true);
     try {
-      const usarCarteira = await wallet({ preco: MODELS.BRIA_ERASE_MODEL_PRICE, fileName: 'bria-eraser' });
-      if (!usarCarteira.success) return;
+      const usarCarteira = await wallet({ preco: config.price, fileName: 'remover-objetos' }); if (!usarCarteira.success) return;
 
       const stage = stageRef.current;
 
@@ -202,10 +231,16 @@ export default function TratamentoImagens() {
       const formData = new FormData();
       formData.append('image', finalImageBlob, 'image.png');
       formData.append('mask', maskBlob, 'mask.png');
+      formData.append('model_type', selectedModel);
 
-      const res = await axios.post(route('bria-eraser.remover.objetos'), formData, {
+
+      // const res = await axios.post(route('bria-eraser.remover.objetos'), formData, {
+      //   headers: { 'Content-Type': 'multipart/form-data' },
+      // });
+      const res = await axios.post(config.route, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
 
       setResult(res.data.output_base64_or_url);
       Swal.fire('Sucesso!', 'Objeto removido.', 'success');
@@ -266,42 +301,44 @@ export default function TratamentoImagens() {
             <div className="flex flex-col items-center">
               <p className="mb-2 font-semibold">Pinte o objeto que deseja 🧹 remover:</p>
 
-              <Stage
-                width={stageWidth}
-                height={stageHeight}
-                ref={stageRef}
-                // DESKTOP
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                // MOBILE 
-                onTouchStart={handleMouseDown}
-                onTouchMove={handleMouseMove}
-                onTouchEnd={handleMouseUp}
+              <div ref={containerRef} className='w-full flex flex-col items-center'>
+                <Stage
+                  width={stageWidth}
+                  height={stageHeight}
+                  ref={stageRef}
+                  // DESKTOP
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  // MOBILE 
+                  onTouchStart={handleMouseDown}
+                  onTouchMove={handleMouseMove}
+                  onTouchEnd={handleMouseUp}
 
-                // ESSENCIAL: Impede que a página suba/desça enquanto você desenha
-                style={{ touchAction: 'none' }}
+                  // ESSENCIAL: Impede que a página suba/desça enquanto você desenha
+                  style={{ touchAction: 'none' }}
 
-                className="border-4 border-gray-200 rounded-lg overflow-hidden bg-gray-100"
-              >
-                <Layer id="photo-layer">
-                  {konvaImage && <KonvaImage image={konvaImage} width={stageWidth} height={stageHeight} />}
-                </Layer>
-                <Layer id="mask-layer">
-                  {lines.map((line, i) => (
-                    <Line
-                      key={i}
-                      points={line.points}
-                      stroke="white"
-                      strokeWidth={line.size}
-                      tension={0.5}
-                      lineCap="round"
-                      lineJoin="round"
-                      opacity={0.5}
-                    />
-                  ))}
-                </Layer>
-              </Stage>
+                  className="border-4 border-gray-200 rounded-lg overflow-hidden bg-gray-100"
+                >
+                  <Layer id="photo-layer">
+                    {konvaImage && <KonvaImage image={konvaImage} width={stageWidth} height={stageHeight} />}
+                  </Layer>
+                  <Layer id="mask-layer">
+                    {lines.map((line, i) => (
+                      <Line
+                        key={i}
+                        points={line.points}
+                        stroke="white"
+                        strokeWidth={line.size}
+                        tension={0.5}
+                        lineCap="round"
+                        lineJoin="round"
+                        opacity={0.5}
+                      />
+                    ))}
+                  </Layer>
+                </Stage>
+              </div>
 
               <div className="mt-4 flex gap-4 items-center">
                 <span>Tamanho do Pincel:</span>
@@ -310,7 +347,7 @@ export default function TratamentoImagens() {
 
               <div className="mt-4 flex flex-row gap-3 justify-center items-center w-full max-w-md mx-auto">
                 {/* Botão Desfazer */}
-                <div className="flex-1"> {/* Isso faz o botão ocupar metade do espaço disponível */}
+                <div className="flex-1 mx-3"> {/* Isso faz o botão ocupar metade do espaço disponível */}
                   <button
                     onClick={handleUndo}
                     disabled={lines.length === 0}
@@ -322,7 +359,7 @@ export default function TratamentoImagens() {
                 </div>
 
                 {/* Botão Limpar Tudo */}
-                <div className="flex-1">
+                <div className="flex-1 mx-3">
                   <button
                     onClick={handleClearAll}
                     disabled={lines.length === 0}
@@ -340,7 +377,8 @@ export default function TratamentoImagens() {
             {/* PREVIEW DA MÁSCARA */}
             <div className="flex flex-col items-center">
               <p className="mb-2 font-semibold">O que a IA vai enxergar:</p>
-              <div className="w-[300px] h-[300px] bg-black border-4 border-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+              <div className="w-full max-w-[400px] aspect-square  bg-black border-4 border-gray-800 rounded-lg flex items-center justify-center overflow-hidden"
+              >
                 {maskPreviewUrl ? (
                   <img src={maskPreviewUrl} className="w-full h-full object-contain" />
                 ) : (
@@ -348,10 +386,22 @@ export default function TratamentoImagens() {
                 )}
               </div>
 
+              <div className="mt-4 w-full max-w-xs">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Escolha a Tecnologia:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="twn39"> Twn-39 - Melhor para detalhes</option>
+                  <option value="bria">Bria AI - Remoção Inteligente (Rápido)</option>
+                </select>
+              </div>
+
               <button
                 onClick={processImage}
                 disabled={loading}
-                className={`mt-10 px-10 py-4 rounded-full font-bold  transition ${loading ? 'bg-gray-400' : 'pro-btn-green shadow-lg'}`}
+                className={`mt-10 px-10 py-3 rounded-lg font-bold  transition ${loading ? 'bg-gray-400' : 'pro-btn-green shadow-lg'}`}
               >
                 {loading ? 'Processando...' : 'REMOVER OBJETOS AGORA'}
               </button>

@@ -14,4 +14,9 @@ class UserDownload extends Model
         'file_name',
         'count',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
