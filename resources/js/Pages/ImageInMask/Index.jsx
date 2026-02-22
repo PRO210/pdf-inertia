@@ -734,7 +734,6 @@ export default function Index() {
     });
   };
 
-
   const resetarConfiguracoes = () => {
     setAmpliacao({ colunas: 2, linhas: 1 })
     setOrientacao('paisagem')
@@ -754,7 +753,6 @@ export default function Index() {
     setResumoTamanho({ texto: "", larguraCm: 0, alturaCm: 0, totalBlocos: 0 });
 
   }
-
 
   const aplicarMascaraNaImagem = async () => {
 
@@ -794,26 +792,46 @@ export default function Index() {
           }
 
           // ==========================================================
-          // 🚀 NOVO PASSO 1: Obter dimensões originais
+          // 🚀 PASSO 1: Obter dimensões e peso
           // ==========================================================
           const { width: originalWidth, height: originalHeight } = await getOriginalImageDimensions(file);
+          const tamanhoEmMB = file.size / (1024 * 1024);
+
+          let finalWidth = originalWidth;
+          let finalHeight = originalHeight;
 
           // ==========================================================
-          // 🚀 NOVO PASSO 2: Calcular redução de 25% (75% do original)
+          // 🚀 PASSO 2: Lógica de Redimensionamento Inteligente
           // ==========================================================
-          const newWidth = Math.round(originalWidth * 0.75);
-          const newHeight = Math.round(originalHeight * 0.75);
+          if (tamanhoEmMB > 2) {
+            let fatorEscala = 1;
 
-          console.log(`📐 Original: ${originalWidth}x${originalHeight}. Reduzindo para: ${newWidth}x${newHeight}`);
+            if (modoReducao === "grid") {
+              // Se são 2 colunas, a imagem ocupa 1/2 da largura (0.5)
+              fatorEscala = 1 / ampliacao.colunas;
+            } else {
+              // Se o quadro tem 10cm e a página 29.7cm, a escala é ~0.33
+              // Usamos a largura da página de acordo com a orientação
+              const larguraPaginaEfetiva = orientacao === 'paisagem' ? tamanhoCm.largura : tamanhoCm.altura;
+              fatorEscala = tamanhoQuadro.larguraCm / larguraPaginaEfetiva;
+            }
+
+            // Calculamos as novas dimensões baseadas na escala de ocupação
+            finalWidth = Math.round(originalWidth * fatorEscala);
+            finalHeight = Math.round(originalHeight * (finalWidth / originalWidth));
+
+            console.log(`📏 Redimensionando (${modoReducao}): ${tamanhoEmMB.toFixed(2)}MB -> Escala ${fatorEscala.toFixed(2)}`);
+            
+            console.log(`📐 Original: ${originalWidth}x${originalHeight}. Reduzindo para: ${finalWidth}x${finalHeight}`);
+
+          }
 
           // ==========================================================
-          // 🚀 NOVO PASSO 3: Redimensionar/Comprimir
+          // 🚀 PASSO 3: Gerar o novo Blob (ajustarImagemBic)
           // ==========================================================
-          // Chama a função 'ajustarImagemBIC' para criar o Blob redimensionado
-          const { blob: compressedBlob } = await ajustarImagemBic(file, newWidth, newHeight);
-
-          // O Blob redimensionado será o arquivo que usaremos
-          const fileToProcess = compressedBlob;
+          // Se a imagem for < 2MB, ela passará com originalWidth/Height (sem perda)
+          const { blob: compressedBlob } = await ajustarImagemBic(file, finalWidth, finalHeight);
+          const fileToProcess = compressedBlob;      
 
           // ==========================================================
 
@@ -882,7 +900,7 @@ export default function Index() {
       if (!response.ok) {
         throw new Error('PDF indisponível');
       }
-      
+
       // 📊 Log estatístico
       const total = await downloadCount('Imagem-em-Formas.pdf');
 

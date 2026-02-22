@@ -29,13 +29,16 @@ const gerarPDF = async (
   larguraBorda = 5,
   cabecalhoTexto = "",
   cabecalhoAtivo = false,
-  cabecalhoModo = "ambas"
+  cabecalhoModo = "ambas",
+  modoDimensionamento = "grid",
+  tamanhoCm = { largura: 19.0, altura: 27.7 },
+  cabecalhoBorder = false
 ) => {
   if (!imagens || !imagens.some(Boolean)) {
     alert('Nenhuma imagem para gerar o PDF.');
     return;
   }
-
+  
   try {
     setCarregando(true);
 
@@ -44,6 +47,7 @@ const gerarPDF = async (
     // Carregar borda (se houver)
     let bordaX = null;
     let bordaY = null;
+
     if (repeatBorder && repeatBorder !== "none") {
       const respX = await fetch(`/imagens/bordas/${repeatBorder}.png`);
       const bytesX = new Uint8Array(await respX.arrayBuffer());
@@ -130,7 +134,7 @@ const gerarPDF = async (
         page = pdfDoc.addPage([pageWidth, pageHeight]);
       }
 
-      // CÁLCULO DA PÁGINA (ADICIONE ESTE BLOCO)
+      // CÁLCULO DA PÁGINA
       const pageIndex = slotIndexInPage; // Índice da página: 0, 1, 2...
       const isOddPage = (pageIndex % 2) === 0; // Se o índice é 0, 2, 4... (Página 1, 3, 5...)
       const isEvenPage = (pageIndex % 2) !== 0; // Se o índice é 1, 3, 5... (Página 2, 4, 6...)
@@ -166,7 +170,7 @@ const gerarPDF = async (
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
 
-      // converte o canvas para JPEG em qualidade máxima (100%)
+      // converte o canvas para JPEG em qualidade de (80%)
       const rotatedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
 
       // extrai a parte base64
@@ -211,7 +215,6 @@ const gerarPDF = async (
         drawX = cellLeftX + totalBorderW / 2;
         drawY = cellBottomY + totalBorderH / 2 - (0);
       }
-
 
       // desenha imagem
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
@@ -272,26 +275,47 @@ const gerarPDF = async (
       }
 
       // --- desenhar cabeçalho ---
+      // --- desenhar cabeçalho ---
       if (shouldDrawHeader && headerFont) {
-        const fontSizeCab = 12;   // tamanho da fonte
-        const lineHeight = 15;    // altura da linha
-        const leftMargin = 2 + (bordaX ? fixedBorderHeight + 2 : 0);
-        const rightMargin = 0;
+        const fontSizeCab = 12;
+        const lineHeight = 15;
+
+        // 1. Definição de Margens do Eixo X (Distância do retângulo para a borda da célula)
+        const margemHorizontalRetangulo = 5;
+        // Margem interna do texto (distância do texto para a linha do retângulo)
+        const paddingTextoX = 8;
 
         const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
-        const maxWidth = cellW - leftMargin - rightMargin;
 
+        // Cálculo da posição X e Largura com margem
+        const rectX = cellLeftX + (bordaY ? fixedBorderWidth : 0) + margemHorizontalRetangulo;
+        const rectWidth = cellW - (bordaY ? fixedBorderWidth * 2 : 0) - (margemHorizontalRetangulo * 2);
+
+
+        if (cabecalhoBorder) {
+          // 2. Desenhar o retângulo arredondado e mais claro
+          page.drawRectangle({
+            x: rectX,
+            y: cellTop - cabecalhoAltura,
+            width: rectWidth,
+            height: cabecalhoAltura,
+            borderWidth: 0.8,
+            borderColor: rgb(0.6, 0.6, 0.6), // Cinza mais claro
+            color: rgb(0.98, 0.98, 0.98),    // Fundo quase branco para destacar
+          });
+        }
+
+        // 3. Desenhar o texto
         cabecalhoTexto.forEach((linha, idx) => {
           const texto = linha.trim();
-
-          const y = cellTop - lineHeight * (idx + 1);
+          const y = cellTop - lineHeight * (idx + 1) - 2; // -2 para centralizar melhor no box
 
           page.drawText(texto, {
-            x: cellLeftX + leftMargin,
+            x: rectX + paddingTextoX, // Texto começa respeitando o retângulo + padding
             y,
             size: fontSizeCab,
             font: boldFont,
-            color: rgb(0, 0, 0),
+            color: rgb(0.2, 0.2, 0.2), // Texto em cinza muito escuro (menos agressivo que preto puro)
           });
         });
       }
@@ -342,7 +366,9 @@ export default function PdfEditor() {
   const espessuraBorda = 22;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
   const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
-  const [cabecalhoTexto, setCabecalhoTexto] = useState(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
+  const [cabecalhoBorder, setCabecalhoBorder] = useState(false);
+  const [cabecalhoTexto, setCabecalhoTexto] = useState(
+    ["Escola ", "Professor(a):", "Aluno:_____________________________________", "Turma:"]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
 
   const [modoDimensionamento, setModoDimensionamento] = useState('grid');
@@ -417,7 +443,8 @@ export default function PdfEditor() {
   };
 
 
-  const resetarConfiguracoes = () => {    setPdfUrl(null)
+  const resetarConfiguracoes = () => {
+    setPdfUrl(null)
     setAmpliacao({ colunas: 2, linhas: 1 })
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
@@ -431,7 +458,7 @@ export default function PdfEditor() {
     setCabecalhoAtivo(false);
     setCabecalhoTexto(["Escola ", "Professor(a):", "Aluno:_____________________________", "Turma:"]);
     setCabecalhoModo("ambas");
-   
+
   }
 
 
@@ -578,7 +605,7 @@ export default function PdfEditor() {
         <div className="flex flex-col lg:flex-row items-start gap-4 min-h-screen">
 
           <div className="w-full lg:w-1/3 flex flex-col justify-start items-center" id="opcoes">
-            
+
             <div className="flex flex-col items-center justify-center gap-4 w-full" >
               <div className="w-full text-center text-2xl font-bold mt-4">
                 <h1>Opções</h1>
@@ -618,9 +645,9 @@ export default function PdfEditor() {
                   <option value="false">Preencher toda a folha</option>
                 </select>
               </div>
-             
-                   
-              {/* Ampliacao (colunas / linhas) - mantém igual */} 
+
+
+              {/* Ampliacao (colunas / linhas) - mantém igual */}
               <label className="block  pro-label text-xl text-center">Redução:</label>
               <div className="flex flex-col sm:flex-row gap-2 w-full">
                 <div className="flex gap-2 w-full">
@@ -743,13 +770,26 @@ export default function PdfEditor() {
                     <option value="pares">Somente Páginas Pares</option>
                     <option value="nenhuma">Não mostrar em nenhuma</option>
                   </select>
+
+                  <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={cabecalhoBorder}
+                      onChange={(e) => {
+                        setCabecalhoBorder(e.target.checked);
+                        setAlteracoesPendentes(true);
+                      }}
+                    />
+                    Bordas no Cabeçalho
+                  </label>
                 </div>
               )}
+
+
 
               <div className="w-full">
                 {cabecalhoAtivo && ( // Use cabecalhoAtivo para mostrar os inputs
                   <>
-                    {/* ... Mantenha o seu cabecalhoTexto.map aqui ... */}
                     {cabecalhoTexto.map((linha, index) => (
                       <input
                         key={index}
@@ -757,21 +797,21 @@ export default function PdfEditor() {
                         value={linha}
                         onChange={(e) => {
                           const valor = e.target.value;
-                          const maxPorLinha = orientacao === "paisagem" ? 54 : 42;
+                          const maxPorLinha = orientacao === "paisagem" ? 72 : 42;
                           const ajustado = valor.slice(0, maxPorLinha);
                           const novoTexto = [...cabecalhoTexto];
                           novoTexto[index] = ajustado;
                           setCabecalhoTexto(novoTexto);
                           setAlteracoesPendentes(true);
                         }}
-                        maxLength={orientacao === "paisagem" ? 54 : 42}
+                        maxLength={orientacao === "paisagem" ? 72 : 42}
                         className="w-full border rounded p-2 mt-2 pro-input"
                         placeholder={`Linha ${index + 1}`}
                       />
                     ))}
 
                     <p className="text-gray-500 mt-1">
-                      Máximo de {orientacao === "paisagem" ? 54 : 42} caracteres por linha.
+                      Máximo de {orientacao === "paisagem" ? 72 : 42} caracteres por linha.
                     </p>
                   </>
                 )}
@@ -802,8 +842,10 @@ export default function PdfEditor() {
                             cabecalhoTexto,
                             cabecalhoAtivo,
                             cabecalhoModo,
-                            modoDimensionamento, 
-                            tamanhoCm
+                            modoDimensionamento,
+                            tamanhoCm,
+                            cabecalhoBorder,
+                           
                           );
 
                           setCarregando(false);
@@ -899,6 +941,8 @@ export default function PdfEditor() {
                 carregando={carregando}
                 adicionarPrimeiraImagem={adicionarPrimeiraImagem}
                 repeatMode={repeatMode}
+                cabecalhoBorder={cabecalhoBorder}
+                
 
               />
 

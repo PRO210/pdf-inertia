@@ -42,10 +42,10 @@ export async function ajustarImagemBic(file, larguraIdeal, alturaIdeal) {
   const options = {
     maxWidthOrHeight: Math.max(larguraIdeal, alturaIdeal),
     useWebWorker: true,
-    maxSizeMB: 1,
-    initialQuality: 1.0,
+    maxSizeMB: 0.5,
+    initialQuality: 0.7,
     fileType: 'image/jpeg',
-    alwaysKeepResolution: true,
+    alwaysKeepResolution: false,
   };
 
   const compressedBlob = await imageCompression(file, options);

@@ -142,7 +142,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </Dropdown>
                                         </div>
                                     </div>
-                                )}
+                                )}]
                                
                             </div>
                         </div>
