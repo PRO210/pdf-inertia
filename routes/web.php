@@ -144,6 +144,8 @@ Route::post('/user-downloads', [UserDownloadsController::class, 'store'])
     ->middleware('auth')
     ->name('user.downloads.store');
 
+Route::post('/downloads/pacote', [UserDownloadsController::class, 'storePacote'])->name('user.downloads.storePacote');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/user-downloads', [UserDownloadsController::class, 'index'])->name('downloads.index');
 });

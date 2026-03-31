@@ -105,6 +105,33 @@ class UserDownloadsController extends Controller
         ]);
     }
 
+    public function storePacote(Request $request)
+    {
+        $request->validate([
+            'file_name' => 'required|string|max:255',
+            'quantidade' => 'required|integer|min:1', // Novo campo
+        ]);
+
+        $user = Auth::user();
+        $fileName = $request->input('file_name');
+        $quantidade = $request->input('quantidade');
+
+        // Busca o registro ou cria um novo
+        $download = UserDownload::firstOrCreate(
+            ['user_id' => $user->id, 'file_name' => $fileName],
+            ['count' => 0]
+        );
+
+        // Incrementa pelo valor total de uma só vez
+        $download->increment('count', $quantidade);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Pacote de {$quantidade} atividades contabilizado.",
+            'total_downloads' => $download->count,
+        ]);
+    }
+
 
     private function calcularSaldo($userId)
     {
