@@ -10,6 +10,7 @@ import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import PdfPreview from './Atividades/Partials/PdfPreview'
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { useMensagens } from '@/hooks/useMensagens'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -397,6 +398,19 @@ export default function PdfEditor() {
   const { auth } = usePage().props;
   const user = auth.user;
 
+  // Instancia o gerenciador de mensagens
+  const { getMsgLocal, podeExibir, silenciar, confirmarComCheck } = useMensagens();
+
+
+  // Movi a lógica de limpeza para uma função separada para não repetir código
+  const executarLimpeza = () => {
+    setImagens([]);
+    setPdfUrl(null);
+    setPaginaAtual(1);
+    setAlteracoesPendentes(false);
+  };
+
+
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
 
@@ -458,82 +472,32 @@ export default function PdfEditor() {
 
     // setAlteracoesPendentes(true)
   };
+  const comecarNovaPagina = async () => {
+    const config = getMsgLocal('limpar_mesa');
+    const temConteudo = imagens.some(Boolean);
 
-  const comecarNovaPagina = () => {
-    // 1. Pergunta ao usuário para evitar cliques acidentais
-    if (imagens.some(Boolean) && !confirm("Deseja limpar a página atual para começar uma nova? (Os PDFs já gerados no histórico não serão apagados)")) {
-      return;
+    if (temConteudo) {
+      // Verifica se o usuário já silenciou esse ID específico
+      if (config && podeExibir(config.id)) {
+        const result = await confirmarComCheck(config);
+
+        if (result.isConfirmed) {
+          // Se o checkbox foi marcado, salvamos no localStorage AGORA
+          if (result.value.isChecked) {
+            silenciar(config.id);
+          }
+          // Depois de salvar a preferência, executa a limpeza
+          executarLimpeza();
+        }
+        return; // Interrompe para não executar a limpeza duas vezes
+      }
     }
-    // 2. Limpa apenas os estados da "Mesa de Trabalho" atual
-    setImagens([]); // Esvazia o array de imagens
-    setPdfUrl(null); // Remove o preview principal
-    setPaginaAtual(1); // Volta para a página 1
-    setAlteracoesPendentes(false); // Remove o aviso de alterações
+
+    // Se já estiver silenciado ou não tiver conteúdo, limpa direto
+    executarLimpeza();
   };
 
-  // const baixarTodosPdfsUnificados = async () => {
-  //   if (!pdfs || pdfs.length === 0) {
-  //     alert("Nenhum PDF no histórico para mesclar.");
-  //     return;
-  //   }
-
-  //   try {
-  //     setCarregando(true);
-
-  //     // 1. Cria o documento mestre
-  //     const pdfUnificado = await PDFDocument.create();
-
-  //     // 2. Loop sequencial para processar cada PDF do array
-  //     for (const item of pdfs) {
-  //       try {
-  //         // Busca o arquivo (o blob) através da URL gerada anteriormente
-  //         const resposta = await fetch(item.url);
-  //         const arrayBuffer = await resposta.arrayBuffer();
-
-  //         // Carrega o documento individual
-  //         const pdfIndividual = await PDFDocument.load(arrayBuffer);
-
-  //         // Copia todas as páginas do documento individual
-  //         const indicesPaginas = pdfIndividual.getPageIndices();
-  //         const paginasCopiadas = await pdfUnificado.copyPages(pdfIndividual, indicesPaginas);
-
-  //         // Adiciona cada página ao documento mestre
-  //         paginasCopiadas.forEach((pagina) => {
-  //           pdfUnificado.addPage(pagina);
-  //         });
-  //       } catch (errInner) {
-  //         console.error(`Erro ao processar um dos PDFs (ID: ${item.id}):`, errInner);
-  //         // Continua para o próximo se um falhar, ou você pode dar um 'throw' aqui
-  //       }
-  //     }
-
-  //     // 3. Verifica se o documento final tem páginas
-  //     if (pdfUnificado.getPageCount() === 0) {
-  //       throw new Error("O PDF final está vazio.");
-  //     }
-
-  //     // 4. Salva e gera o download
-  //     const pdfFinalBytes = await pdfUnificado.save();
-  //     const blobFinal = new Blob([pdfFinalBytes], { type: 'application/pdf' });
-  //     const urlFinal = URL.createObjectURL(blobFinal);
-
-  //     const link = document.createElement('a');
-  //     link.href = urlFinal;
-  //     link.download = `Atividades_Mescladas_${Date.now()}.pdf`;
-  //     document.body.appendChild(link);
-  //     link.click();
-  //     document.body.removeChild(link);
-
-  //     // Limpa a URL da memória após o download
-  //     setTimeout(() => URL.revokeObjectURL(urlFinal), 100);
-
-  //   } catch (error) {
-  //     console.error("Erro crítico ao mesclar PDFs:", error);
-  //     alert("Erro ao gerar o arquivo unificado. Verifique o console.");
-  //   } finally {
-  //     setCarregando(false);
-  //   }
-  // };
+ 
 
   const baixarTodosPdfsUnificados = async () => {
     if (!pdfs || pdfs.length === 0) {
