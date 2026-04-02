@@ -11,6 +11,7 @@ import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import PdfPreview from './Atividades/Partials/PdfPreview'
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useMensagens } from '@/hooks/useMensagens'
+import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -399,7 +400,7 @@ export default function PdfEditor() {
   const user = auth.user;
 
   // Instancia o gerenciador de mensagens
-  const { getMsgLocal, podeExibir, silenciar, confirmarComCheck } = useMensagens();
+  const { getMsgLocal, podeExibir, silenciar, confirmarComCheck, exibirAvisoCritico } = useMensagens();
 
 
   // Movi a lógica de limpeza para uma função separada para não repetir código
@@ -414,45 +415,72 @@ export default function PdfEditor() {
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
 
+
   // Função para disparar o download de um PDF específico da lista
   const downloadFromList = async (pdf) => {
 
-    // 1. Verificação de segurança antes de começar
-    // Certifique-se de que o objeto pdf tem o que o back precisa. 
-    // Se o campo no banco for o ID ou um Nome específico, use ele.
+   
+    // 1. Identifica o contexto da página para o nome do arquivo
+    const isPosterPage = window.location.pathname.includes('pdf-atividades');
+    const fileNameParam = isPosterPage ? 'atividades.pdf' : 'poster.pdf';
+    const prefixoDownload = isPosterPage ? 'atividades' : 'poster';
+
     try {
-      // 2. Chamada ao Backend (Resolvendo o erro de validação)
+      // 2. Registra o download no Backend (Apenas uma chamada)
+      // Se o limite for atingido, o Laravel retornará 403 aqui
       const response = await axios.post(route('user.downloads.store'), {
-        file_name: 'atividades.pdf', // Aqui deve bater com o 'file_name' do seu Request $request->validate
+        file_name: fileNameParam,
       });
 
-      // 3. Pegando o total retornado pelo seu controller
+      // 3. Sucesso: Prepara o arquivo para o usuário
       const total = response.data.total_downloads;
-      const nomeDownload = `Atividades-${total}.pdf`;
+      const nomeFinal = `${prefixoDownload}-${total}.pdf`;
 
-      // 4. Executando o download (Usando Blob para garantir o nome do arquivo)
+      // 4. Executa o download do Blob (O arquivo que já está no navegador)
       const fileResponse = await axios.get(pdf.url, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([fileResponse.data]));
+      const blobUrl = window.URL.createObjectURL(new Blob([fileResponse.data]));
 
       const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', nomeDownload);
+      link.href = blobUrl;
+      link.setAttribute('download', nomeFinal);
       document.body.appendChild(link);
       link.click();
 
-      // 5. Limpeza
+      // 5. Limpeza de memória
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
 
     } catch (error) {
-      if (error.response && error.response.status === 422) {
-        console.error('Erro de Validação:', error.response.data.errors);
-        alert('Falha ao registrar: ' + error.response.data.message);
+      // Tratamento de Erros Centralizado
+      if (error.response) {
+        const status = error.response.status;
+
+        // ERRO 403: Limite Atingido (Regra de Negócio)
+        if (status === 403) {
+          const configMsg = MENSAGENS_SISTEMA.global.limite_downloads;
+          const result = await exibirAvisoCritico(configMsg);
+
+          if (result.isConfirmed) {
+            router.visit('/pagamentos'); // Redireciona para assinatura
+          }
+        }
+        // ERRO 422: Falha de Validação
+        else if (status === 422) {
+          console.error('Erro de Validação:', error.response.data.errors);
+          alert('Falha nos dados: ' + (error.response.data.message || 'Verifique os campos.'));
+        }
+        // OUTROS ERROS (Ex: 500)
+        else {
+          alert('Ocorreu um erro inesperado no servidor.');
+        }
       } else {
-        console.error('Erro ao processar download:', error);
+        console.error('Erro de conexão ou código:', error);
       }
     }
   };
+
+
+
   // Função para remover do array e liberar memória do navegador
   const removerPdf = (id) => {
     setPdfs((prev) => {
@@ -472,6 +500,7 @@ export default function PdfEditor() {
 
     // setAlteracoesPendentes(true)
   };
+
   const comecarNovaPagina = async () => {
     const config = getMsgLocal('limpar_mesa');
     const temConteudo = imagens.some(Boolean);
@@ -497,7 +526,7 @@ export default function PdfEditor() {
     executarLimpeza();
   };
 
- 
+
 
   const baixarTodosPdfsUnificados = async () => {
     if (!pdfs || pdfs.length === 0) {

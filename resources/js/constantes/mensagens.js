@@ -5,7 +5,14 @@ export const MENSAGENS_SISTEMA = {
       titulo: "Manutenção",
       texto: "Teremos uma pausa para manutenção às 23:00.",
       tipo: "warning"
-    }
+    },
+    limite_downloads: {
+      id: "g_limite_alcançado", // Não usamos checkbox aqui, pois é um aviso crítico
+      titulo: "Limite Atingido!",
+      texto: "Você atingiu o limite de downloads gratuitos. Deseja assinar o plano Pro para downloads ilimitados?",
+      tipo: "error",
+      botaoConfirmar: "Ver Condições",
+    },
   },
   paginas: {
     "/dashboard/pdf-atividades": {
@@ -24,3 +31,4 @@ export const MENSAGENS_SISTEMA = {
     }
   }
 };
+

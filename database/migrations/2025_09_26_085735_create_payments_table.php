@@ -26,6 +26,7 @@ return new class extends Migration
 
             // Status e Datas
             $table->string('status', 50)->default('pending'); // Ex: pending, approved, refunded
+            $table->string('type', 50)->nullable(); // Ex: mendalidade ou IA
             $table->timestamp('date_created')->nullable(); // Data em que o pagamento foi registrado
             $table->timestamp('date_of_expiration')->nullable(); // Ex: Prazo para compensação ou expiração do boleto/reserva
 

@@ -23,16 +23,19 @@ initMercadoPago(mpPublicKey, { locale: 'pt-BR' });
 
 export default function Mp() {
 
+
   const { props } = usePage();
   const user = props.auth.user;
   const [preferenceId, setPreferenceId] = useState(null);
 
   const [isLoading, setIsLoading] = useState(false);
+
   const [orderData, setOrderData] = useState({
     title: "Assinatura Mensal",
-    price: 3,
+    price: 4,
     quantity: 1,
     amount: 3,
+    type: "mensalidade",
   });
 
 
@@ -41,9 +44,10 @@ export default function Mp() {
   const handleClick = async () => {
     setIsLoading(true);
     try {
+      
       const items = [
         {
-          title: "Assinatura Mensal",
+          title: orderData.title,
           quantity: parseInt(orderData.quantity),
           unit_price: parseFloat(orderData.price),
           currency_id: "BRL",
@@ -55,7 +59,7 @@ export default function Mp() {
         email: user.email || "cliente@teste.com"
       };
 
-      const response = await axios.post('/create_preference', { items, payer }, {
+      const response = await axios.post('/create_preference', { items, payer, type: orderData.type }, {
         headers: { 'Content-Type': 'application/json' }
       });
 

@@ -46,9 +46,21 @@ export const useMensagens = () => {
       preConfirm: () => {
         const checkbox = MySwal.getPopup().querySelector('#dont-show-again');
         return { isChecked: checkbox ? checkbox.checked : false };
-      }    
+      }
     });
   };
 
-  return { getMsgLocal, podeExibir, silenciar, confirmarComCheck };
+  const exibirAvisoCritico = async (config) => {
+    return MySwal.fire({
+      title: config.titulo,
+      text: config.texto,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: config.botaoConfirmar || 'OK',
+      cancelButtonText: 'Fechar',
+      confirmButtonColor: '#28a745',
+    });
+  };
+
+  return { getMsgLocal, podeExibir, silenciar, confirmarComCheck, exibirAvisoCritico };
 };

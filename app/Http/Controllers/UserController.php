@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Payment;
 use App\Models\User;
+use App\Models\UserDownload;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class UserController extends Controller
@@ -76,4 +79,8 @@ class UserController extends Controller
             'filters' => $request->only(['search', 'perPage', 'sortBy', 'sortDir', 'sortDirection']),
         ]);
     }
+
+    // No seu Controller (ex: UserDownloadController.php)
+
+   
 }

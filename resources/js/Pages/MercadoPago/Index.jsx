@@ -6,13 +6,8 @@ import Mp from './Partials/Mp';
 
 export default function MercadoPago() {
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Checkout de Pagamento/Créditos com Mercado Pago
-                </h2>
-            }
-        >
+        <>
+            {/* O Head define o título da aba do navegador para esta página específica */}
             <Head title="Pagamento/Créditos" />
 
             <div className="py-8 min-h-svh">
@@ -22,9 +17,25 @@ export default function MercadoPago() {
                     </div>
                 </div>
             </div>
-            <Footer ano={2025} />
-        </AuthenticatedLayout>
-
+        </>
     );
-
 }
+
+/**
+ * Aqui definimos o layout para o Inertia — o layout NÃO será desmontado entre navegações.
+ * Repare que passamos o header (que era usado anteriormente) para o AuthenticatedLayout.
+ */
+MercadoPago.layout = page => (
+    <AuthenticatedLayout
+        auth={page.props.auth}
+        header={
+            <>
+                <h1 className="text-xl font-semibold text-gray-800">Checkout de Pagamento/Créditos!</h1>
+                <h2 className="text-sm font-medium text-gray-500">Checkout de Pagamento/Créditos...</h2>
+            </>
+        }
+    >
+        {page}
+        <Footer ano={2025} />
+    </AuthenticatedLayout>
+);
