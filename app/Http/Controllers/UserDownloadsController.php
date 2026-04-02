@@ -239,7 +239,7 @@ class UserDownloadsController extends Controller
     //     ]);
     // }
 
-    
+
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -264,16 +264,7 @@ class UserDownloadsController extends Controller
         $totalGastos = CreditUsage::where('user_id', $user->id)->sum('cost');
         $saldoValido = ($totalEntradas - $totalGastos) > 0;
 
-        if ($saldoValido) {
-            // Se ele tem saldo, registramos o gasto de 1 crédito (ou o custo que você definir)
-            CreditUsage::create([
-                'user_id' => $user->id,
-                'description' => "Download do arquivo: $fileName",
-                'cost' => 1, // Custo de 1 real ou 1 crédito por download
-            ]);
-
-            return $this->registrarDownload($user, $fileName, 'credito_ia');
-        }
+        return $this->registrarDownload($user, $fileName, 'credito_ia');
 
         // 3. REGRA PARA USUÁRIO FREE
         $contagem = UserDownload::where('user_id', $user->id)
