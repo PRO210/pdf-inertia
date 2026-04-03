@@ -34,7 +34,7 @@ export default function Mp() {
     title: "Assinatura Mensal",
     price: 4,
     quantity: 1,
-    amount: 3,
+    amount: 4,
     type: "mensalidade",
   });
 

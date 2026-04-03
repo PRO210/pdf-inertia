@@ -12,348 +12,10 @@ import PdfPreview from './Atividades/Partials/PdfPreview'
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useMensagens } from '@/hooks/useMensagens'
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
+import { useDownloadPdf } from '@/hooks/useDownloadPdf'
+import { gerarPDFService } from '@/Services/PdfGeneratorService'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
-
-
-// Função para gerar o PDF com pdf-lib
-const gerarPDF = async (
-  imagens,
-  ampliacao,
-  orientacao,
-  aspecto,
-  setCarregando,
-  setPdfUrl,
-  setPaginaAtual,
-  setAlteracoesPendentes,
-  setErroPdf,
-  repeatBorder = "none",
-  alturaBorda = 5,
-  larguraBorda = 5,
-  cabecalhoTexto = "",
-  cabecalhoAtivo = false,
-  cabecalhoModo = "ambas",
-  modoDimensionamento = "grid",
-  tamanhoCm = { largura: 19.0, altura: 27.7 },
-  cabecalhoBorder = false,
-  setPdfs
-) => {
-  if (!imagens || !imagens.some(Boolean)) {
-    alert('Nenhuma imagem para gerar o PDF.');
-    return;
-  }
-
-  try {
-    setCarregando(true);
-
-    const pdfDoc = await PDFDocument.create();
-
-    // Carregar borda (se houver)
-    let bordaX = null;
-    let bordaY = null;
-
-    if (repeatBorder && repeatBorder !== "none") {
-      const respX = await fetch(`/imagens/bordas/${repeatBorder}.png`);
-      const bytesX = new Uint8Array(await respX.arrayBuffer());
-      bordaX = await pdfDoc.embedPng(bytesX);
-
-      const respY = await fetch(`/imagens/bordas/${repeatBorder}Y.png`);
-      const bytesY = new Uint8Array(await respY.arrayBuffer());
-      bordaY = await pdfDoc.embedPng(bytesY);
-    }
-
-    const A4_WIDTH = 595.28;
-    const A4_HEIGHT = 841.89;
-    const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
-    const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
-
-    const CM_TO_POINTS = 28.3465;
-    const margin = 0.5 * CM_TO_POINTS;
-    const gap = 3;
-
-    const cols = Math.max(ampliacao?.colunas || 1, 1);
-    const rows = Math.max(ampliacao?.linhas || 1, 1);
-    const slotsPerPage = cols * rows;
-
-    // espaço útil só com margens
-    const usableW = pageWidth - margin * 2;
-    const usableH = pageHeight - margin * 2;
-    const cellW = (usableW - (cols - 1) * gap) / cols;
-    const cellH = (usableH - (rows - 1) * gap) / rows;
-
-    const totalSlots = imagens.length;
-    let page = null;
-
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // bordas fixas em pontos
-    const fixedBorderHeight = alturaBorda * CM_TO_POINTS / 10;
-    const fixedBorderWidth = larguraBorda * CM_TO_POINTS / 10;
-    const totalBorderW = bordaY ? fixedBorderWidth * 2 : 0;
-    const totalBorderH = bordaX ? fixedBorderHeight * 2 : 0;
-
-
-    //Cabeçalho
-    // Header font (embed uma vez)
-    let headerFont = null;
-    if (cabecalhoTexto && cabecalhoAtivo) {
-      headerFont = await pdfDoc.embedFont(StandardFonts.Courier);
-    }
-
-    // Altura do cabeçalho baseada no número de linhas
-    let cabecalhoAltura = 0;
-
-    if (cabecalhoAtivo && cabecalhoTexto) {
-      const linhasCab = cabecalhoTexto.length;
-
-      if (linhasCab === 1) {
-        cabecalhoAltura = 20;
-      } else if (linhasCab === 2) {
-        cabecalhoAltura = 36;
-      } else if (linhasCab === 3) {
-        cabecalhoAltura = 52;
-      } else if (linhasCab === 4) {
-        cabecalhoAltura = 68;
-      } else if (linhasCab === 5) {
-        cabecalhoAltura = 84;
-      } else {
-        cabecalhoAltura = linhasCab * 16;
-      }
-    }
-
-    // Carregue a fonte em negrito apenas uma vez, fora do loop
-    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-    // --- loop de slots ---
-    for (let i = 0; i < totalSlots; i++) {
-
-      const slotIndexInPage = i % slotsPerPage;
-      const col = slotIndexInPage % cols;
-      const row = Math.floor(slotIndexInPage / cols);
-
-      // criar página se necessário
-      if (!page || slotIndexInPage === 0) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
-      }
-
-      // CÁLCULO DA PÁGINA
-      const pageIndex = slotIndexInPage; // Índice da página: 0, 1, 2...
-      const isOddPage = (pageIndex % 2) === 0; // Se o índice é 0, 2, 4... (Página 1, 3, 5...)
-      const isEvenPage = (pageIndex % 2) !== 0; // Se o índice é 1, 3, 5... (Página 2, 4, 6...)
-
-      let shouldDrawHeader = false;
-
-      if (cabecalhoAtivo && cabecalhoTexto && cabecalhoTexto.some(t => t.trim() !== "")) { // Verifique se há texto
-        if (cabecalhoModo === "ambas") {
-          shouldDrawHeader = true;
-        } else if (cabecalhoModo === "impares" && isOddPage) {
-          shouldDrawHeader = true;
-        } else if (cabecalhoModo === "pares" && isEvenPage) {
-          shouldDrawHeader = true;
-        }
-        // cabecalhoModo="nenhuma" (e cabecalhoAtivo=true) já significa shouldDrawHeader=false
-      }
-
-      const item = imagens[i];
-      if (!item) continue;
-
-      const dataUrl = typeof item === "string" ? item : item.src;
-      if (!dataUrl) continue;
-
-      // carregar imagem -> canvas -> embedded
-      const img = new Image();
-      const loadedImg = await new Promise((resolve) => {
-        img.onload = () => resolve(img);
-        img.src = dataUrl;
-      });
-
-      canvas.width = loadedImg.width;
-      canvas.height = loadedImg.height;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
-
-      // converte o canvas para JPEG em qualidade de (90%)
-      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 0.9);
-
-      // extrai a parte base64
-      const base64 = rotatedDataUrl.split(",")[1];
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-
-      // como agora sempre é JPEG, não precisa do if/else
-      const embeddedImg = await pdfDoc.embedJpg(bytes);
-
-      const embeddedW = embeddedImg.width || 1;
-      const embeddedH = embeddedImg.height || 1;
-
-      // topo da grade
-      const topStartY = pageHeight - margin;
-      const cellLeftX = margin + col * (cellW + gap);
-      const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
-
-      // verifica se existe cabeçalho
-      // const temCabecalho = cabecalhoAtivo && cabecalhoAltura > 0;
-      const temCabecalho = shouldDrawHeader && cabecalhoAltura > 0;
-
-      // dimensionamento da imagem respeitando bordas e cabeçalho
-      const availableW = Math.max(1, cellW - totalBorderW);
-      const availableH = Math.max(1, cellH - totalBorderH - (temCabecalho ? cabecalhoAltura : 0));
-
-      let drawW, drawH, drawX, drawY;
-
-      if (aspecto) {
-        const scaleW = embeddedW > 0 ? availableW / embeddedW : 1;
-        const scaleH = embeddedH > 0 ? availableH / embeddedH : 1;
-        const scale = Math.min(scaleW, scaleH, 1.0);
-
-        drawW = embeddedW * scale;
-        drawH = embeddedH * scale;
-        drawX = cellLeftX + (cellW - drawW) / 2;
-        drawY = cellBottomY + (cellH - drawH) / 2 - (temCabecalho ? cabecalhoAltura / 2 : 0);
-      } else {
-        // estica sem manter proporção
-        drawW = availableW;
-        drawH = availableH;
-        drawX = cellLeftX + totalBorderW / 2;
-        drawY = cellBottomY + totalBorderH / 2 - (0);
-      }
-
-      // desenha a imagem
-      page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
-
-      // bordas horizontais
-      if (bordaX) {
-        const tileWidth = bordaX.width || 1;
-        const tilesX = Math.max(1, Math.ceil(drawW / tileWidth));
-        const scaleX = Math.max(0.01, drawW / (tilesX * tileWidth));
-
-        // topo e base da célula (respeitando borda e margem)
-        const yTopo = cellBottomY + cellH - fixedBorderHeight; // topo da célula
-        const yBase = cellBottomY; // base da célula
-
-        for (let x = 0; x < tilesX; x++) {
-          const tileX = drawX + x * tileWidth * scaleX;
-          page.drawImage(bordaX, {
-            x: tileX,
-            y: yTopo,
-            width: tileWidth * scaleX,
-            height: fixedBorderHeight,
-          });
-          page.drawImage(bordaX, {
-            x: tileX,
-            y: yBase,
-            width: tileWidth * scaleX,
-            height: fixedBorderHeight,
-          });
-        }
-      }
-
-      // bordas laterais
-      if (bordaY) {
-        const tileHeight = bordaY.height || 1;
-        // usa a altura da célula inteira em vez da imagem
-        const tilesY = Math.max(1, Math.ceil(cellH / tileHeight));
-        const scaleY = Math.max(0.01, cellH / (tilesY * tileHeight));
-
-        for (let yi = 0; yi < tilesY; yi++) {
-          const tileY = cellBottomY + yi * tileHeight * scaleY;
-
-          // borda esquerda
-          page.drawImage(bordaY, {
-            x: cellLeftX,
-            y: tileY,
-            width: fixedBorderWidth,
-            height: tileHeight * scaleY,
-          });
-
-          // borda direita
-          page.drawImage(bordaY, {
-            x: cellLeftX + cellW - fixedBorderWidth,
-            y: tileY,
-            width: fixedBorderWidth,
-            height: tileHeight * scaleY,
-          });
-        }
-      }
-
-      // --- desenhar cabeçalho ---     
-      if (shouldDrawHeader && headerFont) {
-        const fontSizeCab = 12;
-        const lineHeight = 15;
-
-        // 1. Definição de Margens do Eixo X (Distância do retângulo para a borda da célula)
-        const margemHorizontalRetangulo = 5;
-        // Margem interna do texto (distância do texto para a linha do retângulo)
-        const paddingTextoX = 8;
-
-        const cellTop = cellBottomY + cellH - (bordaX ? fixedBorderHeight : 0);
-
-        // Cálculo da posição X e Largura com margem
-        const rectX = cellLeftX + (bordaY ? fixedBorderWidth : 0) + margemHorizontalRetangulo;
-        const rectWidth = cellW - (bordaY ? fixedBorderWidth * 2 : 0) - (margemHorizontalRetangulo * 2);
-
-
-        if (cabecalhoBorder) {
-          // 2. Desenhar o retângulo arredondado e mais claro
-          page.drawRectangle({
-            x: rectX,
-            y: cellTop - cabecalhoAltura,
-            width: rectWidth,
-            height: cabecalhoAltura,
-            borderWidth: 0.8,
-            borderColor: rgb(0.6, 0.6, 0.6), // Cinza mais claro
-            color: rgb(0.98, 0.98, 0.98),    // Fundo quase branco para destacar
-          });
-        }
-
-        // 3. Desenhar o texto
-        cabecalhoTexto.forEach((linha, idx) => {
-          // const texto = linha.trim();
-          const texto = linha;
-          const y = cellTop - lineHeight * (idx + 1) - 2; // -2 para centralizar melhor no box
-
-          page.drawText(texto, {
-            x: rectX + paddingTextoX, // Texto começa respeitando o retângulo + padding
-            y,
-            size: fontSizeCab,
-            font: boldFont,
-            color: rgb(0.2, 0.2, 0.2), // Texto em cinza muito escuro (menos agressivo que preto puro)
-          });
-        });
-      }
-
-
-    } // fim loop
-
-    const pdfBytes = await pdfDoc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-
-    setPdfUrl(url);
-    setPaginaAtual(1);
-
-
-    setPdfs(prev => {
-      const currentList = Array.isArray(prev) ? prev : [];
-      return [
-        ...currentList,
-        {
-          id: Date.now(),
-          // blob, // Dica: evite guardar o blob se já tem a URL, a menos que vá enviar pro servidor
-          url
-        }
-      ];
-    });
-
-
-    setAlteracoesPendentes(false);
-  } catch (err) {
-    console.error('Erro gerando PDF:', err);
-    setErroPdf('Erro ao gerar o PDF no front-end.');
-  } finally {
-    setCarregando(false);
-  }
-};
 
 
 const PdfThumbnail = ({ url }) => {
@@ -394,7 +56,6 @@ const PdfThumbnail = ({ url }) => {
   );
 };
 
-
 export default function PdfEditor() {
   const { auth } = usePage().props;
   const user = auth.user;
@@ -402,6 +63,8 @@ export default function PdfEditor() {
   // Instancia o gerenciador de mensagens
   const { getMsgLocal, podeExibir, silenciar, confirmarComCheck, exibirAvisoCritico } = useMensagens();
 
+  //Instancia o gerenciador de dowloads
+  const { processarDownload } = useDownloadPdf();
 
   // Movi a lógica de limpeza para uma função separada para não repetir código
   const executarLimpeza = () => {
@@ -414,71 +77,6 @@ export default function PdfEditor() {
 
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
-
-
-  // Função para disparar o download de um PDF específico da lista
-  const downloadFromList = async (pdf) => {
-
-   
-    // 1. Identifica o contexto da página para o nome do arquivo
-    const isPosterPage = window.location.pathname.includes('pdf-atividades');
-    const fileNameParam = isPosterPage ? 'atividades.pdf' : 'poster.pdf';
-    const prefixoDownload = isPosterPage ? 'atividades' : 'poster';
-
-    try {
-      // 2. Registra o download no Backend (Apenas uma chamada)
-      // Se o limite for atingido, o Laravel retornará 403 aqui
-      const response = await axios.post(route('user.downloads.store'), {
-        file_name: fileNameParam,
-      });
-
-      // 3. Sucesso: Prepara o arquivo para o usuário
-      const total = response.data.total_downloads;
-      const nomeFinal = `${prefixoDownload}-${total}.pdf`;
-
-      // 4. Executa o download do Blob (O arquivo que já está no navegador)
-      const fileResponse = await axios.get(pdf.url, { responseType: 'blob' });
-      const blobUrl = window.URL.createObjectURL(new Blob([fileResponse.data]));
-
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', nomeFinal);
-      document.body.appendChild(link);
-      link.click();
-
-      // 5. Limpeza de memória
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
-
-    } catch (error) {
-      // Tratamento de Erros Centralizado
-      if (error.response) {
-        const status = error.response.status;
-
-        // ERRO 403: Limite Atingido (Regra de Negócio)
-        if (status === 403) {
-          const configMsg = MENSAGENS_SISTEMA.global.limite_downloads;
-          const result = await exibirAvisoCritico(configMsg);
-
-          if (result.isConfirmed) {
-            router.visit('/pagamentos'); // Redireciona para assinatura
-          }
-        }
-        // ERRO 422: Falha de Validação
-        else if (status === 422) {
-          console.error('Erro de Validação:', error.response.data.errors);
-          alert('Falha nos dados: ' + (error.response.data.message || 'Verifique os campos.'));
-        }
-        // OUTROS ERROS (Ex: 500)
-        else {
-          alert('Ocorreu um erro inesperado no servidor.');
-        }
-      } else {
-        console.error('Erro de conexão ou código:', error);
-      }
-    }
-  };
-
 
 
   // Função para remover do array e liberar memória do navegador
@@ -525,8 +123,6 @@ export default function PdfEditor() {
     // Se já estiver silenciado ou não tiver conteúdo, limpa direto
     executarLimpeza();
   };
-
-
 
   const baixarTodosPdfsUnificados = async () => {
     if (!pdfs || pdfs.length === 0) {
@@ -584,9 +180,41 @@ export default function PdfEditor() {
       setTimeout(() => URL.revokeObjectURL(urlFinal), 100);
 
     } catch (error) {
-      console.error("Erro ao unificar e contabilizar:", error);
+      // DESATIVA o carregamento antes de mostrar qualquer aviso
+      setCarregando(false);
+
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      console.error("Erro ao unificar e contabilizar:", status, data);
+
+      if (status === 403) {
+        if (data?.error === 'limite_atingido') {
+          const configMsg = MENSAGENS_SISTEMA?.global?.limite_downloads;
+
+          if (configMsg) {
+            const result = await exibirAvisoCritico(configMsg);
+            if (result.isConfirmed) {
+              router.visit('/pagamentos');
+            }
+          } else {
+            alert(data.message || 'Limite de créditos insuficiente para baixar o pacote.');
+            router.visit('/pagamentos');
+          }
+        } else {
+          alert(data?.message || 'Ação não permitida.');
+        }
+        return;
+      }
+
+      if (status === 422) {
+        alert('Erro de validação: ' + (data?.message || 'Verifique seus créditos.'));
+        return;
+      }
+
       alert('Erro ao processar o arquivo ou contabilizar o download.');
     } finally {
+      // Garante que o loading saia se o fluxo for de sucesso
       setCarregando(false);
     }
   };
@@ -693,7 +321,6 @@ export default function PdfEditor() {
   }, [ampliacao.colunas, ampliacao.linhas, totalSlots, repeatMode, repeatBorder]);
 
 
-
   const resetarConfiguracoes = () => {
     setPdfUrl(null)
     setAmpliacao({ colunas: 2, linhas: 1 })
@@ -711,32 +338,6 @@ export default function PdfEditor() {
     setCabecalhoModo("ambas");
 
   }
-
-
-  const downloadPDF = async (fileName, pdfUrl) => {
-    if (!pdfUrl) return
-
-    try {
-      const response = await axios.post(route('user.downloads.store'), {
-        file_name: fileName,
-      })
-
-      const total = response.data.total_downloads
-
-      const nomeArquivo = `Atividades-${total}.pdf`
-
-      const a = document.createElement('a')
-      a.href = pdfUrl
-      a.download = nomeArquivo
-      a.click()
-
-    } catch (error) {
-      console.error(error)
-      alert('Erro ao contabilizar o download.')
-    }
-
-  }
-
 
   useEffect(() => {
 
@@ -844,6 +445,44 @@ export default function PdfEditor() {
 
     setResumoTamanho({ imagem, imagemBorda, imagemCabecalho, imagemCompleta });
   }, [ampliacao, orientacao, repeatBorder, espessuraBorda, cabecalhoAtivo, cabecalhoTexto, modoDimensionamento, tamanhoCm]);
+
+
+  /* Função que chama o Gerador de pdf  */
+  const gerarPDF = async () => {
+    // 1. Ativa o loader IMEDIATAMENTE
+    console.log('Iniciando processo de geração de PDF...');
+    try {
+      // 2. Chama o serviço (adicione o 'await' se o serviço for uma Promise)
+      await gerarPDFService(
+        imagens,
+        ampliacao,
+        orientacao,
+        aspecto,
+        setPdfUrl,
+        setPaginaAtual,
+        setAlteracoesPendentes,
+        setErroPdf,
+        repeatBorder,
+        5,
+        5,
+        cabecalhoTexto,
+        cabecalhoAtivo,
+        cabecalhoModo,
+        modoDimensionamento,
+        tamanhoCm,
+        cabecalhoBorder,
+        setPdfs
+      );
+      setAlteracoesPendentes(false)
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      setErroPdf("Falha ao gerar o arquivo.");
+    } finally {
+      // 3. Garante que o loader pare, aconteça o que acontecer
+      setAlteracoesPendentes(false)
+
+    }
+  };
 
 
   return (
@@ -1097,7 +736,6 @@ export default function PdfEditor() {
                             tamanhoCm,
                             cabecalhoBorder,
                             setPdfs,
-
                           );
 
                           setCarregando(false);
@@ -1124,17 +762,11 @@ export default function PdfEditor() {
                 {pdfs.length > 0 && (
                   <div className="sm:hidden w-full">
                     {!showMobileList ? (
-                      <button
-                        onClick={() => setShowMobileList(true)}
-                        className="pro-btn-purple"
-                      >
+                      <button onClick={() => setShowMobileList(true)} className="pro-btn-purple" >
                         Visualizar Atividades Salvas ({pdfs.length})
                       </button>
                     ) : (
-                      <button
-                        onClick={() => setShowMobileList(false)}
-                        className="w-full bg-gray-500 text-white font-bold p-3 rounded-xl shadow-lg flex items-center justify-center"
-                      >
+                      <button onClick={() => setShowMobileList(false)} className="pro-btn-slate" >
                         Voltar / Fechar
                       </button>
                     )}
@@ -1152,16 +784,12 @@ export default function PdfEditor() {
                         </div>
 
                         <div className="mt-4 flex gap-2">
-                          <button
-                            onClick={() => downloadFromList(pdf)}
-                            className="flex-1 bg-green-500 text-white py-3 rounded-lg font-bold text-sm"
+                          <button onClick={() => processarDownload(pdf, 'atividades')}
+                            className="flex-1 pro-btn-green-no-outline text-sm"
                           >
                             Baixar PDF
                           </button>
-                          <button
-                            onClick={() => removerPdf(pdf.id)}
-                            className="bg-red-500 text-white py-3 px-4 rounded-lg"
-                          >
+                          <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline text-sm">
                             Excluir
                           </button>
                         </div>
@@ -1185,14 +813,14 @@ export default function PdfEditor() {
                       </div>
 
                       {/* Overlay Desktop (Hover) */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-lg">
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 rounded-lg">
                         {/* <button onClick={() => setPdfSelecionadoModal(pdf)} className="bg-white text-gray-800 px-3 py-1 rounded-full text-xs font-bold hover:bg-purple-500">
                           Visualizar
                         </button> */}
-                        <button onClick={() => downloadFromList(pdf)} className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold hover:bg-green-600">
+                        <button onClick={() => processarDownload(pdf, 'atividades')} className="pro-btn-green-no-outline">
                           Baixar
                         </button>
-                        <button onClick={() => removerPdf(pdf.id)} className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold hover:bg-red-600">
+                        <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline">
                           Excluir
                         </button>
                       </div>
@@ -1231,7 +859,7 @@ export default function PdfEditor() {
                     {/* Rodapé do Modal */}
                     <div className="p-4 border-t flex justify-end gap-2">
                       <button
-                        onClick={() => downloadFromList(pdfSelecionadoModal)}
+                        onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')}
                         className="pro-btn-green px-4 py-2"
                       >
                         Download
@@ -1352,7 +980,7 @@ export default function PdfEditor() {
                   <>
                     {pdfUrl && !alteracoesPendentes && (
                       <button
-                        onClick={() => downloadPDF('atividades.pdf', pdfUrl)}
+                        onClick={() => processarDownload({ url: pdfUrl }, 'atividades')}
                         className="pro-btn-green mt-2"
                         disabled={!pdfUrl}>
                         Baixar o PDF do Preview
