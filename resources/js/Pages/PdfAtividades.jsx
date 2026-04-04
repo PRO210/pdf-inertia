@@ -14,47 +14,12 @@ import { useMensagens } from '@/hooks/useMensagens'
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
 import { useDownloadPdf } from '@/hooks/useDownloadPdf'
 import { gerarPDFService } from '@/Services/PdfGeneratorService'
+import FolderPlusIcon from '@/Components/svgs/FolderPlusIcon'
+import PlusIcon from '@/Components/svgs/PlusIcon'
+import { usePdfThumbnail } from '@/hooks/usePdfThumbnail'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
-
-const PdfThumbnail = ({ url }) => {
-  const canvasRef = useRef(null);
-  const [thumb, setThumb] = useState(null);
-
-  useEffect(() => {
-    const generateThumb = async () => {
-      try {
-        const loadingTask = pdfjsLib.getDocument(url);
-        const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(1); // Pega a primeira página
-
-        const viewport = page.getViewport({ scale: 0.5 }); // Escala pequena para miniatura
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({ canvasContext: context, viewport }).promise;
-        setThumb(canvas.toDataURL()); // Converte para imagem base64
-      } catch (error) {
-        console.error("Erro ao gerar miniatura:", error);
-      }
-    };
-
-    if (url) generateThumb();
-  }, [url]);
-
-  return (
-    <div className="w-full bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
-      {thumb ? (
-        <img src={thumb} alt="Preview" className="object-cover w-full h-full" />
-      ) : (
-        <span className="text-xs text-gray-400">Carregando...</span>
-      )}
-    </div>
-  );
-};
 
 export default function PdfEditor() {
   const { auth } = usePage().props;
@@ -74,10 +39,8 @@ export default function PdfEditor() {
     setAlteracoesPendentes(false);
   };
 
-
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
-
 
   // Função para remover do array e liberar memória do navegador
   const removerPdf = (id) => {
@@ -243,11 +206,6 @@ export default function PdfEditor() {
   const [repeatBorder, setBorder] = useState("none");
   const espessuraBorda = 22;   // grossura da moldura, em px
   const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
-
-  // const [cabecalhoAtivo, setCabecalhoAtivo] = useState(false);
-  // const [cabecalhoBorder, setCabecalhoBorder] = useState(false);
-  // const [cabecalhoTexto, setCabecalhoTexto] = useState(
-  //   ["ESCOLA ", "PROFESSOR(A):", "ALUNO:__________________________________________________", "TURMA:"]);
 
   const [cabecalhoAtivo, setCabecalhoAtivo] = useLocalStorage("cabecalhoAtivo", false);
   const [cabecalhoBorder, setCabecalhoBorder] = useLocalStorage("cabecalhoBorder", false);
@@ -484,6 +442,21 @@ export default function PdfEditor() {
     }
   };
 
+  /* Hook para gerar as Thumbs */
+  const PdfThumbnail = ({ url }) => {
+    const thumb = usePdfThumbnail(url);
+
+    return (
+      <div className="w-full bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
+        {thumb ? (
+          <img src={thumb} alt="Preview" className="object-cover w-full h-full" />
+        ) : (
+          <span className="text-xs text-gray-400">Carregando...</span>
+        )}
+      </div>
+    );
+  };
+
 
   return (
     <>
@@ -535,7 +508,6 @@ export default function PdfEditor() {
                   <option value="false">Preencher toda a folha</option>
                 </select>
               </div>
-
 
               {/* Ampliacao (colunas / linhas) - mantém igual */}
               <label className="block  pro-label text-xl text-center">Redução:</label>
@@ -766,7 +738,7 @@ export default function PdfEditor() {
                         Visualizar Atividades Salvas ({pdfs.length})
                       </button>
                     ) : (
-                      <button onClick={() => setShowMobileList(false)} className="pro-btn-slate" >
+                      <button onClick={() => setShowMobileList(false)} className="pro-btn-purple" >
                         Voltar / Fechar
                       </button>
                     )}
@@ -849,25 +821,15 @@ export default function PdfEditor() {
                     {/* Corpo do Modal - Aqui usamos o seu componente PdfPreview já existente */}
                     <div className="flex-1 overflow-y-auto p-4 bg-gray-200">
                       <div className="absolute top-0 left-0 w-full h-12 z-10 bg-transparent" />
-                      <iframe
-                        src={pdfSelecionadoModal.url}
-                        className="w-full h-[70vh]"
-                        title="Preview"
-                      />
+                      <iframe src={pdfSelecionadoModal.url}  className="w-full h-[70vh]" title="Preview"                />
                     </div>
 
                     {/* Rodapé do Modal */}
                     <div className="p-4 border-t flex justify-end gap-2">
-                      <button
-                        onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')}
-                        className="pro-btn-green px-4 py-2"
-                      >
+                      <button onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')} className="pro-btn-green px-4 py-2" >
                         Download
                       </button>
-                      <button
-                        onClick={() => setPdfSelecionadoModal(null)}
-                        className="bg-gray-500 text-white px-4 py-2 rounded-full"
-                      >
+                      <button onClick={() => setPdfSelecionadoModal(null)} className="bg-gray-500 text-white px-4 py-2 rounded-full" >
                         Fechar
                       </button>
                     </div>
@@ -876,14 +838,11 @@ export default function PdfEditor() {
               )}
 
               {pdfs.length > 1 && (
-                <div className="w-full flex justify-center">
+                <div className="w-full flex justify-center ">
                   <button
                     onClick={baixarTodosPdfsUnificados}
-                    className="pro-btn-blue flex items-center justify-center gap-2 shadow-xl hover:scale-105 transition-transform" >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                    </svg>
-                    Gerar Arquivo Único ({pdfs.length} atividades)
+                    className="pro-btn-blue flex items-center justify-center  shadow-xl hover:scale-105 transition-transform" >
+                    <FolderPlusIcon> Gerar Arquivo Único ({pdfs.length} atividades)  </FolderPlusIcon>
                   </button>
                 </div>
               )}
@@ -895,14 +854,10 @@ export default function PdfEditor() {
                     onClick={comecarNovaPagina}
                     className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-full border-2 border-dashed border-gray-300 transition-all"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Começar Nova Página
+                    <PlusIcon>Começar Nova Página</PlusIcon>
                   </button>
                 </div>
               )}
-
 
               <div div className='w-full'>
                 <button onClick={resetarConfiguracoes} className="pro-btn-slate">

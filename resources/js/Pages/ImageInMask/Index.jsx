@@ -16,6 +16,7 @@ import FullScreenSpinner from '@/Components/FullScreenSpinner';
 import { getOriginalImageDimensions } from './Partials/getOriginalImageDimensions';
 import { ajustarImagemBic } from './Partials/ajustarImagemBic';
 import { downloadCount } from '@/Services/DownloadsCount';
+import { useDownloadPdfProcessado } from './Partials/useDownloadPdfProcessado';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -821,7 +822,7 @@ export default function Index() {
             finalHeight = Math.round(originalHeight * (finalWidth / originalWidth));
 
             console.log(`📏 Redimensionando (${modoReducao}): ${tamanhoEmMB.toFixed(2)}MB -> Escala ${fatorEscala.toFixed(2)}`);
-            
+
             console.log(`📐 Original: ${originalWidth}x${originalHeight}. Reduzindo para: ${finalWidth}x${finalHeight}`);
 
           }
@@ -831,7 +832,7 @@ export default function Index() {
           // ==========================================================
           // Se a imagem for < 2MB, ela passará com originalWidth/Height (sem perda)
           const { blob: compressedBlob } = await ajustarImagemBic(file, finalWidth, finalHeight);
-          const fileToProcess = compressedBlob;      
+          const fileToProcess = compressedBlob;
 
           // ==========================================================
 
@@ -884,50 +885,12 @@ export default function Index() {
     }
   }, [imagensMask])
 
+
+  const { processarDownload, estaBaixando } = useDownloadPdfProcessado();
+
   const handleDownloadPdf = async () => {
-    if (!pdfUrl) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Aviso',
-        text: 'Nenhum PDF disponível para download.',
-      });
-      return;
-    }
-
-    try {
-      // 🔒 Garante que o blob ainda é válido
-      const response = await fetch(pdfUrl);
-      if (!response.ok) {
-        throw new Error('PDF indisponível');
-      }
-
-      // 📊 Log estatístico
-      const total = await downloadCount('Imagem-em-Formas.pdf');
-
-      const blob = await response.blob();
-
-      const link = document.createElement('a');
-      const blobUrl = URL.createObjectURL(blob);
-
-      link.href = blobUrl;
-      link.download = `Imagem-em-Formas-${total}.pdf`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(blobUrl);
-
-    } catch (err) {
-      console.error('Erro no download do PDF:', err);
-      Swal.fire({
-        icon: 'error',
-        title: 'Erro',
-        text: 'Não foi possível baixar o PDF.',
-      });
-    }
-  };
-
+    processarDownload(pdfUrl, 'mascara.pdf', 'Imagem-em-Formas', 1);
+  }
 
   return (
     <>
@@ -1261,13 +1224,16 @@ export default function Index() {
 
               {/* 2. Quando NÃO há alterações pendentes e já existe PDF */}
               {!alteracoesPendentes && pdfUrl && (
-                <button
-                  onClick={handleDownloadPdf}
-                  className="pro-btn-red my-2"
+                <button onClick={handleDownloadPdf}
+                  className={`pro-btn-red my-2 ${estaBaixando ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={estaBaixando}
                 >
-                  📥 Baixar PDF
+                  {estaBaixando ? (
+                    <span>⏳ Processando...</span>
+                  ) : (
+                    <span>📥 Baixar PDF</span>
+                  )}
                 </button>
-
               )}
             </div>
 

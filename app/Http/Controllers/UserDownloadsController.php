@@ -160,6 +160,7 @@ class UserDownloadsController extends Controller
     {
         $totalPayments = Payment::where('user_id', $userId)
             ->where('status', 'approved')
+            ->where('type', 'extra')
             ->get()
             ->sum(fn($p) => $p->quantity * $p->unit_price);
 
@@ -167,6 +168,7 @@ class UserDownloadsController extends Controller
 
         return round($totalPayments - $totalUsed, 2);
     }
+
 
     public function obterSaldo()
     {

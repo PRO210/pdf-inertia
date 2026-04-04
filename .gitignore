@@ -12,6 +12,8 @@
 
 # Build and Assets
 /public/build
+/public/buildCp
+/public/build.zip
 /public/hot
 
 # Environment

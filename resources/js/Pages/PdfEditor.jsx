@@ -16,6 +16,7 @@ import pica from 'pica';
 import Spinner from '@/Components/Spinner'
 import { calcularRedimensionamentoProporcional } from './Poster/Partials/imagemUtils'
 import { useInitialScreenInfo } from './hooks/useInitialScreenInfo';
+import { useDownloadPdfPoster } from '@/hooks/useDownloadPdfPoster'
 
 export default function PdfEditor() {
   const { props } = usePage()
@@ -55,7 +56,6 @@ export default function PdfEditor() {
       reader.readAsDataURL(file);
     });
   };
-
 
 
   const resetarConfiguracoes = () => {
@@ -810,7 +810,6 @@ export default function PdfEditor() {
     setAlteracoesPendentes(true)
   };
 
-
   /**
    * Função para baixar a imagem processada (imagemBase64)
    */
@@ -1223,30 +1222,7 @@ export default function PdfEditor() {
 
   };
 
-
-  const downloadPDF = async (fileName, pdfUrl) => {
-    if (!pdfUrl) return
-
-    try {
-      const response = await axios.post(route('user.downloads.store'), {
-        file_name: fileName,
-      })
-
-      const total = response.data.total_downloads
-
-      const nomeArquivo = `Poster-${total}.pdf`
-
-      const a = document.createElement('a')
-      a.href = pdfUrl
-      a.download = nomeArquivo
-      a.click()
-
-    } catch (error) {
-      console.error(error)
-      alert('Erro ao contabilizar o download.')
-    }
-
-  }
+  const { processarDownload, estaBaixando } = useDownloadPdfPoster();
 
   useEffect(() => {
     if (!imagemBase64) {
@@ -1378,8 +1354,6 @@ export default function PdfEditor() {
                         " />
                 </div>
               </div>
-
-
 
               {/* Orientação */}
               <div className="w-full">
@@ -1538,12 +1512,9 @@ export default function PdfEditor() {
                     </>
 
                     {pdfDownloadUrl && !alteracoesPendentes && (
-                      <button
-                        onClick={() => downloadPDF('poster.pdf', pdfDownloadUrl)}
-                        className="pro-btn-green mt-2"
-                        disabled={!pdfDownloadUrl}
-                      >
-                        Baixar PDF
+                      <button onClick={() => processarDownload(pdfDownloadUrl, totalPaginas)}
+                        className="pro-btn-green mt-2" disabled={estaBaixando} >
+                        {estaBaixando ? 'Contabilizando páginas...' : `Baixar Poster`}
                       </button>
                     )}
 

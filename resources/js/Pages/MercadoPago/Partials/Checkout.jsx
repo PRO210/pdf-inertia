@@ -11,7 +11,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
       newPrice = 4; // Preço da mensalidade
       newTitle = 'Assinatura Mensal Pro';
     } else {
-      newPrice = 10; // Preço dos créditos
+      newPrice = 5; // Preço dos créditos
       newTitle = 'Créditos Avulsos IA';
     }
 
@@ -57,7 +57,7 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
           >
             <span className="block font-bold">Créditos para IA</span>
             <span className="text-xs text-gray-500 italic">Recarga para uso variável</span>
-            <span className="block mt-2 font-semibold text-blue-600">R$ 10,00</span>
+            <span className="block mt-2 font-semibold text-blue-600">R$ 5,00</span>
           </button>
         </div>
 
