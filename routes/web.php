@@ -166,6 +166,8 @@ Route::post('user-download-debitarCredito', [UserDownloadsController::class, 'de
     ->middleware('auth')
     ->name('user.downloads.debitarCredito');
 
+Route::post('/payments/manual', [CheckoutController::class, 'storeManual'])->name('payments.storeManual');
+
 
 
 

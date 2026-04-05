@@ -365,6 +365,37 @@ class CheckoutController extends Controller
         ]);
     }
 
+
+    public function storeManual(Request $request)
+    {
+        // Validação dos dados vindos do formulário manual
+        $validated = $request->validate([
+            'user_id'    => 'required|exists:users,id',
+            'description' => 'required|string',
+            'quantity'   => 'required|integer|min:1',
+            'unit_price' => 'required|numeric',
+            'type'       => 'required|string', // Ex: 'mensalidade'
+            'status'     => 'required|string',
+        ]);
+
+        // Criação seguindo o seu padrão original
+        $payment = \App\Models\Payment::create([
+            'preference_id'      => 'MANUAL-' . strtoupper(uniqid()),
+            'user_id'            => $validated['user_id'],
+            'description'        => $validated['description'],
+            'quantity'           => (int)$validated['quantity'],
+            'unit_price'         => $validated['unit_price'],
+            'type'               => $validated['type'],
+            'status'             => $validated['status'],
+            'date_created'       => now(),
+            'date_of_expiration' => $validated['type'] === 'mensalidade'
+                ? now()->addMonths((int)$validated['quantity'])
+                : null,
+        ]);
+
+        return back()->with('success', 'Pagamento manual registrado!');
+    }
+
     /* 
     *
      */

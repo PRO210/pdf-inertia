@@ -5,8 +5,43 @@ import { Head, usePage, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { MantineReactTable, useMantineReactTable } from 'mantine-react-table';
 
+import { useForm } from '@inertiajs/react';
+import Modal from '@/Components/Modal';
+import SecondaryButton from '@/Components/SecondaryButton';
+import PrimaryButton from '@/Components/PrimaryButton';
+import TextInput from '@/Components/TextInput';
+import InputLabel from '@/Components/InputLabel';
+
+import { useEffect } from 'react';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
+
 export default function Index() {
-  const { users, filters } = usePage().props;
+  const { users, filters, flash } = usePage().props;
+
+  // Monitora mensagens de sucesso/erro vindas do Laravel
+  useEffect(() => {
+    if (flash.success) {
+      MySwal.fire({
+        title: 'Sucesso!',
+        text: flash.success,
+        icon: 'success',
+        timer: 3000,
+        confirmButtonColor: '#4f46e5', // Indigo-600
+      });
+    }
+
+    if (flash.error) {
+      MySwal.fire({
+        title: 'Erro!',
+        text: flash.error,
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+      });
+    }
+  }, [flash]);
 
   // Estados iniciais vindos do backend
   const [search, setSearch] = useState(filters.search ?? "");
@@ -21,6 +56,17 @@ export default function Index() {
       { accessorKey: "name", header: "Nome" },
       { accessorKey: "email", header: "Email" },
       { accessorKey: "created_at", header: "Criado em" },
+      {
+        accessorKey: "actions", header: "Ações",
+        Cell: ({ row }) => (
+          <button
+            onClick={() => openPaymentModal(row.original)}
+            className="text-indigo-600 hover:text-indigo-900 font-medium"
+          >
+            Adicionar Pagamento
+          </button>
+        ),
+      },
     ],
     []
   );
@@ -152,9 +198,121 @@ export default function Index() {
     isMultiSortEvent: () => true,
   });
 
+  // --- Estado do Modal ---
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  // --- Formulário do Inertia ---
+  const { data, setData, post, processing, reset, errors } = useForm({
+    user_id: '',
+    description: 'Mensalidade Manual', // Descrição padrão
+    unit_price: 4,                  // Preço unitário fixo
+    quantity: 1,                    // Quantidade de meses
+    type: 'mensalidade',            // Tipo para disparar o addMonths no PHP
+    status: 'approved',
+  });
+
+  const openPaymentModal = (user) => {
+    setSelectedUser(user);
+    setData('user_id', user.id);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    reset();
+  };
+
+  const submitPayment = (e) => {
+    e.preventDefault();
+    post(route('payments.storeManual'), {
+      onSuccess: () => {
+        setIsModalOpen(false);
+        reset();
+      },
+    });
+  };
+
   return (
     <>
       <Head title="Usuários" />
+
+      {/* --- MODAL DE PAGAMENTO --- */}
+      <Modal show={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <form onSubmit={submitPayment} className="p-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Novo Pagamento Manual</h2>
+
+          <div className="space-y-4">
+            {/* Selecionar o Usuário */}
+            <div>
+              <InputLabel value="Usuário" />
+              <select
+                className="w-full border-gray-300 rounded-md shadow-sm"
+                value={data.user_id}
+                onChange={e => setData('user_id', e.target.value)}
+                required
+              >
+                <option value="">Selecione um usuário...</option>
+                {users.data.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                ))}
+              </select>
+              {errors.user_id && <p className="text-red-500 text-xs mt-1">{errors.user_id}</p>}
+            </div>
+
+            {/* Selecionar o Type */}
+            <div>
+              <InputLabel value="Tipo" />
+              <select
+                className="w-full border-gray-300 rounded-md shadow-sm"
+                value={data.type}
+                onChange={e => setData('type', e.target.value)}
+                required
+              >
+                <option value="mensalidade" selected>Mensalidade</option>
+                <option value="extra">Créditos em IA</option>
+              </select>
+              {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type}</p>}
+            </div>
+
+            {/* Quantidade de Meses */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <InputLabel value="Qtd. Meses (Expiração)" />
+                <TextInput
+                  type="number"
+                  min="1"
+                  className="w-full"
+                  value={data.quantity}
+                  onChange={e => setData('quantity', e.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <InputLabel value="Preço Unitário" />
+                <TextInput
+                  disabled
+                  className="w-full bg-gray-50 text-gray-500"
+                  value={`R$ ${data.unit_price},00`}
+                />
+              </div>
+            </div>
+
+            {/* Resumo visual */}
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+              <p className="text-sm text-blue-800">
+                <strong>Resumo:</strong> {data.quantity} mês(es) de acesso. <br />
+                <strong>Total:</strong> R$ {data.quantity * data.unit_price},00
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <SecondaryButton onClick={() => setIsModalOpen(false)}>Cancelar</SecondaryButton>
+            <PrimaryButton disabled={processing}>Confirmar e Ativar</PrimaryButton>
+          </div>
+        </form>
+      </Modal>
 
       <div className="min-h-screen">
         <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
@@ -164,7 +322,7 @@ export default function Index() {
           <div className="overflow-hidden bg-white shadow sm:rounded">
             <div className="p-6 bg-white">
 
-              {/* Barra de busca */}           
+              {/* Barra de busca */}
 
               <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center sm:items-stretch">
                 {/* Campo de Busca */}
