@@ -13,8 +13,7 @@ class CreditUsage extends Model
         'user_id',
         'type',
         'cost',
-        'description',
-        'download_id',
+        'description'
     ];
 
     // Relacionamento com o usuário

@@ -137,16 +137,7 @@ class UserDownloadsController extends Controller
         );
 
         $download->increment('count', $quantidade);
-
-        // Se for uso por crédito, registra o gasto na tabela de CreditUsage
-        if ($tipo === 'credito_ia') {
-            CreditUsage::create([
-                'user_id' => $user->id,
-                'cost' => $quantidade,
-                'description' => "Download de pacote: {$fileName}"
-            ]);
-        }
-
+       
         return response()->json([
             'success' => true,
             'total_downloads' => $download->count,
