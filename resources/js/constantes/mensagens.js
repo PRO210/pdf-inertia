@@ -6,6 +6,14 @@ export const MENSAGENS_SISTEMA = {
       texto: "Teremos uma pausa para manutenção às 23:00.",
       tipo: "warning"
     },
+    comunicado_nova_regra: {
+      id: "g_aviso_abr_2026", // Mude o ID quando quiser que o aviso reapareça
+      titulo: "Comunicado Importante",
+      texto: "A partir deste mês, estabelecemos novas diretrizes para os downloads. Para garantir acesso ilimitado e novos recursos, conheça nossos planos Pro.",
+      tipo: "info",
+      botaoConfirmar: "Entendi",
+      botaoSecundario: "Ver Planos",
+    },
     limite_downloads: {
       id: "g_limite_alcançado", // Não usamos checkbox aqui, pois é um aviso crítico
       titulo: "Limite Atingido!",

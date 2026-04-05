@@ -630,6 +630,7 @@ export default function PdfEditor() {
                     <option value="ambas">Todas as páginas</option>
                     <option value="impares">Somente Páginas Ímpares</option>
                     <option value="pares">Somente Páginas Pares</option>
+                    <option value="primeira_pagina">Somente na primeira página</option>
                     <option value="nenhuma">Não mostrar em nenhuma</option>
                   </select>
 
@@ -920,7 +921,7 @@ export default function PdfEditor() {
                     return novas;
                   });
                   setAlteracoesPendentes(true);
-
+                  
                 }}
                 setAlteracoesPendentes={setAlteracoesPendentes}
                 erroPdf={erroPdf}
@@ -928,6 +929,7 @@ export default function PdfEditor() {
                 adicionarPrimeiraImagem={adicionarPrimeiraImagem}
                 repeatMode={repeatMode}
                 cabecalhoBorder={cabecalhoBorder}
+                paginaAtual
               />
 
               <div className="flex flex-col gap-2 w-full">
