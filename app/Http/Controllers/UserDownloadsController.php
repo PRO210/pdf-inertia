@@ -72,7 +72,6 @@ class UserDownloadsController extends Controller
         ]);
     }
       
-
   
     public function storePacote(Request $request)
     {
