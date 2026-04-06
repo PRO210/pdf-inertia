@@ -17,6 +17,7 @@ use Inertia\Inertia;
 class ImageController extends Controller
 {
 
+
     public function index()
     {
         return Inertia::render('TratamentoImagens/Index');
@@ -268,7 +269,10 @@ class ImageController extends Controller
                 'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
                 'Content-Type' => 'application/json',
                 'Prefer' => 'wait',
-            ])->post($endpoint, $payload);
+            ])
+                ->timeout(60) // ⏳ Espera até 120 segundos (2 minutos) pela resposta
+                ->connectTimeout(30) // Tempo máximo para conseguir a conexão inicial
+                ->post($endpoint, $payload);
 
             // 5️⃣ Verifica resposta (Lógica de erro do Replicate)
             if (!$response->successful()) {
@@ -583,60 +587,6 @@ class ImageController extends Controller
             ], 500);
         }
     }
-
-
-    // public function twn39Lama(Request $request)
-    // {
-    //     $userId = Auth::check() ? Auth::id() : 0;
-    //     $token = env('REPLICATE_API_TOKEN');
-
-    //     // 1. VALIDAÇÃO (Agora precisamos de image E mask)
-    //     if (!$request->hasFile('image') || !$request->hasFile('mask')) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Você precisa enviar a imagem original e a máscara (mask).',
-    //         ], 400);
-    //     }
-
-    //     try {
-    //         // 1. O LAMA costuma exigir URLs. Vamos salvar temporariamente no storage público.
-    //         // Certifique-se de rodar 'php artisan storage:link'
-    //         $imagePath = $request->file('image')->store('temp_replicate', 'public');
-    //         $maskPath = $request->file('mask')->store('temp_replicate', 'public');
-
-    //         $imageUrl = asset('storage/' . $imagePath);
-    //         $maskUrl = asset('storage/' . $maskPath);
-
-    //         // 2. Chamada para o endpoint de PREDICTIONS (Genérico para modelos por Hash)
-    //         $response = Http::withHeaders([
-    //             'Authorization' => "Bearer {$token}",
-    //             'Content-Type' => 'application/json',
-    //             'Prefer' => 'wait',
-    //         ])->post('https://api.replicate.com/v1/predictions', [
-    //             'version' => '2b91ca2340801c2a5be745612356fac36a17f698354a07f48a62d564d3b3a7a0',
-    //             'input' => [
-    //                 'image' => $imageUrl,
-    //                 'mask' => $maskUrl,
-    //             ],
-    //         ]);
-
-    //         $data = $response->json();
-
-    //         // 3. Limpeza (Opcional: deletar após enviar, ou criar um Job para limpar depois)
-    //         // Storage::disk('public')->delete([$imagePath, $maskPath]);
-
-    //         if ($response->failed()) {
-    //             return response()->json(['success' => false, 'message' => $data['detail'] ?? 'Erro no Lama'], 500);
-    //         }
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'output_base64_or_url' => $data['output'] ?? null,
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-    //     }
-    // }
 
     public function twn39Lama(Request $request)
     {
