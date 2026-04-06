@@ -302,29 +302,58 @@ export default function Index() {
             <MantineReactTable table={table} />
 
             {/* Paginação do Laravel */}
-            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4">
-              <select
-                className="border-gray-300 rounded-md text-sm"
-                value={perPage}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setPerPage(v);
-                  atualizar({ perPage: v });
-                }}
-              >
-                {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n} por página</option>)}
-              </select>
+            <div className="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4 pb-2">
 
-              <div className="flex gap-1">
-                {downloads.links.map((link, i) => (
-                  <button
-                    key={i}
-                    disabled={!link.url}
-                    onClick={() => link.url && router.visit(link.url, { preserveState: true })}
-                    className={`px-3 py-1 rounded border text-sm ${link.active ? "bg-indigo-600 text-white" : "bg-white hover:bg-gray-50"} ${!link.url ? "opacity-30 cursor-not-allowed" : ""}`}
-                    dangerouslySetInnerHTML={{ __html: link.label }}
-                  />
-                ))}
+              {/* Seletor de Itens por Página */}
+              <div className="flex items-center gap-2 text-sm text-gray-600 order-2 sm:order-1">
+                <span className="hidden sm:inline">Exibir</span>
+                <select
+                  className="border-gray-300 rounded-md px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
+                  value={perPage}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setPerPage(v);
+                    atualizar({ perPage: v });
+                  }}
+                >
+                  {[5, 10, 25, 50].map(n => (
+                    <option key={n} value={n}>
+                      {n} por página
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Controles de Navegação (Links do Laravel) */}
+              <div className="inline-flex shadow-sm rounded-md order-1 sm:order-2 overflow-hidden border border-gray-300">
+                {downloads.links.map((link, i) => {
+                  // Lógica de exibição inteligente:
+                  // Mostra o botão "Anterior", o "Próximo" e a página "Ativa".
+                  // Os demais números só aparecem em telas maiores (md).
+                  const isFirst = i === 0;
+                  const isLast = i === downloads.links.length - 1;
+                  const isActive = link.active;
+
+                  return (
+                    <button
+                      key={i}
+                      disabled={!link.url}
+                      onClick={() => link.url && router.visit(link.url, { preserveState: true })}
+                      className={`
+                        relative inline-flex items-center px-4 py-2 text-sm font-medium transition-colors
+                        border-r last:border-r-0 border-gray-300
+                        ${isActive
+                                      ? "z-10 bg-indigo-600 text-white border-indigo-600"
+                                      : "bg-white text-gray-700 hover:bg-gray-50"
+                                    }
+                        ${!link.url ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "cursor-pointer"}
+                        ${(!isFirst && !isLast && !isActive) ? "hidden md:inline-flex" : "inline-flex"}
+                      `}
+                    >
+                      <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

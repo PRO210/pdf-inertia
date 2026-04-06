@@ -18,8 +18,10 @@ import withReactContent from 'sweetalert2-react-content';
 
 const MySwal = withReactContent(Swal);
 
-export default function Index() {
-  const { users, filters, flash } = usePage().props;
+export default function GetPayments() {
+
+  // 1. Pegue os props corretamente (users agora é uma lista simples para o modal)
+  const { users, payments, filters, flash } = usePage().props;
 
   // Monitora mensagens de sucesso/erro vindas do Laravel
   useEffect(() => {
@@ -49,24 +51,77 @@ export default function Index() {
   const [sortBy, setSortBy] = useState(filters.sortBy ?? null);
   const [sortDir, setSortDir] = useState(filters.sortDir ?? null);
 
-  // Colunas da tabela
+  // Colunas focadas no PAGAMENTO
   const columns = useMemo(
     () => [
-      { accessorKey: "id", header: "ID" },
-      { accessorKey: "name", header: "Nome" },
-      { accessorKey: "email", header: "Email" },
-      { accessorKey: "created_at", header: "Criado em" },
       {
-        accessorKey: "actions", header: "Ações",
-        Cell: ({ row }) => (
-          <button
-            onClick={() => openPaymentModal(row.original)}
-            className="text-indigo-600 hover:text-indigo-900 font-medium"
-          >
-            Adicionar Pagamento
-          </button>
-        ),
+        accessorKey: "preference_id",
+        header: "Preference_id",
       },
+      {
+        accessorKey: "date_created",
+        header: "Data",
+        Cell: ({ cell }) => new Date(cell.getValue()).toLocaleString('pt-BR')
+      },
+      {
+        accessorKey: "user.name", // Acessa o nome do usuário dentro do objeto user
+        header: "Usuário"
+      },
+      { accessorKey: "description", header: "Descrição" },
+      {
+        accessorKey: "unit_price",
+        header: "Valor",
+        Cell: ({ cell }) => `R$ ${cell.getValue()}`
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        Cell: ({ cell }) => {
+          const status = cell.getValue();
+          const colors = {
+            approved: 'bg-green-100 text-green-800',
+            pending: 'bg-yellow-100 text-yellow-800',
+            rejected: 'bg-red-100 text-red-800',
+          };
+          return (
+            <span className={`px-2 py-1 rounded text-xs ${colors[status] || 'bg-gray-100 text-gray-800'}`}>
+              {status || 'Iniciado'}
+            </span>
+          );
+        }
+      },
+      {
+        accessorKey: "actions",
+        header: "Ações",
+        Cell: ({ row }) => {
+          const p = row.original;
+
+          // Mostra botões apenas se não estiver aprovado
+          if (p.status !== 'approved') {
+            return (
+              <div className="flex gap-2">
+                {p.preference_id && !p.preference_id.startsWith('MANUAL') && (
+                  <a
+                    href={`https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=${p.preference_id}`}
+                    target="_blank"
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                  >
+                    Pagar
+                  </a>
+                )}
+                <button
+                  onClick={() => handleCancelPayment(p.id)}
+                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+                >
+                  Apagar
+                </button>
+              </div>
+            );
+          }
+          return <span className="text-gray-400 text-xs italic">Concluído</span>;
+        }
+      }
+
     ],
     []
   );
@@ -182,7 +237,7 @@ export default function Index() {
 
     console.log("➡️ Enviando para o backend:", params);
 
-    router.get(route("users.index"), params, {
+    router.get(route("get.payments"), params, {
       preserveState: true,
       preserveScroll: true,
       replace: true,
@@ -192,140 +247,53 @@ export default function Index() {
   // -------- ⭐ CONFIGURAÇÃO DA TABELA ⭐ --------
   const table = useMantineReactTable({
     columns,
-    data: users.data,
+    data: payments.data || [], // Use .data pois vem de um paginate(),
     localization: localizationPTBR,
     enablePagination: false,
     isMultiSortEvent: () => true,
   });
 
-  // --- Estado do Modal ---
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
 
-  // --- Formulário do Inertia ---
-  const { data, setData, post, processing, reset, errors } = useForm({
-    user_id: '',
-    description: 'Mensalidade Manual', // Descrição padrão
-    unit_price: 4,                  // Preço unitário fixo
-    quantity: 1,                    // Quantidade de meses
-    type: 'mensalidade',            // Tipo para disparar o addMonths no PHP
-    status: 'approved',
-  });
-
-  const openPaymentModal = (user) => {
-    setSelectedUser(user);
-    setData('user_id', user.id);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    reset();
-  };
-
-  const submitPayment = (e) => {
-    e.preventDefault();
-    post(route('payments.storeManual'), {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        reset();
-      },
+  // Função para disparar a exclusão via Inertia
+  const handleCancelPayment = (id) => {
+    MySwal.fire({
+      title: 'Remover Intenção?',
+      text: "Esta ação apagará o registro desta tentativa de pagamento.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Sim, apagar',
+      cancelButtonText: 'Voltar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Chama a rota de delete do Laravel
+        router.delete(route('payments.destroy', id), {
+          onSuccess: () => {
+            // O Laravel enviará o flash 'success' e o useEffect do MySwal mostrará o aviso
+          },
+          onError: () => {
+            // Trata erros caso necessário
+          }
+        });
+      }
     });
   };
 
   return (
     <>
-      <Head title="Usuários" />
-
-      {/* --- MODAL DE PAGAMENTO --- */}
-      <Modal show={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <form onSubmit={submitPayment} className="p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">Novo Pagamento Manual</h2>
-
-          <div className="space-y-4">
-            {/* Selecionar o Usuário */}
-            <div>
-              <InputLabel value="Usuário" />
-              <select
-                className="w-full border-gray-300 rounded-md shadow-sm"
-                value={data.user_id}
-                onChange={e => setData('user_id', e.target.value)}
-                required
-              >
-                <option value="">Selecione um usuário...</option>
-                {users.data.map(u => (
-                  <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
-                ))}
-              </select>
-              {errors.user_id && <p className="text-red-500 text-xs mt-1">{errors.user_id}</p>}
-            </div>
-
-            {/* Selecionar o Type */}
-            <div>
-              <InputLabel value="Tipo" />
-              <select
-                className="w-full border-gray-300 rounded-md shadow-sm"
-                value={data.type}
-                onChange={e => setData('type', e.target.value)}
-                required
-              >
-                <option value="mensalidade" selected>Mensalidade</option>
-                <option value="extra">Créditos em IA</option>
-              </select>
-              {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type}</p>}
-            </div>
-
-            {/* Quantidade de Meses */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <InputLabel value="Qtd. Meses (Expiração)" />
-                <TextInput
-                  type="number"
-                  min="1"
-                  className="w-full"
-                  value={data.quantity}
-                  onChange={e => setData('quantity', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <InputLabel value="Preço Unitário" />
-                <TextInput
-                  disabled
-                  className="w-full bg-gray-50 text-gray-500"
-                  value={`R$ ${data.unit_price},00`}
-                />
-              </div>
-            </div>
-
-            {/* Resumo visual */}
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-              <p className="text-sm text-blue-800">
-                <strong>Resumo:</strong> {data.quantity} mês(es) de acesso. <br />
-                <strong>Total:</strong> R$ {data.quantity * data.unit_price},00
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <SecondaryButton onClick={() => setIsModalOpen(false)}>Cancelar</SecondaryButton>
-            <PrimaryButton disabled={processing}>Confirmar e Ativar</PrimaryButton>
-          </div>
-        </form>
-      </Modal>
+      <Head title="Pagamentos" />
 
       <div className="min-h-screen">
-        <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div className="mx-auto  sm:px-6 lg:px-8">
           <h2 className="text-xl py-4 text-center font-semibold leading-tight text-gray-800">
-            Lista de Usuários
+            Lista de Pagamentos pos Usuários
           </h2>
           <div className="overflow-hidden bg-white shadow sm:rounded">
             <div className="p-6 bg-white">
 
               {/* Barra de busca */}
-
               <div className="flex flex-col sm:flex-row gap-3 mb-4 items-center sm:items-stretch">
-                {/* Campo de Busca */}
                 <input
                   type="text"
                   className="border px-3 py-2 rounded w-full sm:w-64"
@@ -338,9 +306,7 @@ export default function Index() {
                 {/* Container para os Botões - Ajuda a empilhá-los ou alinhá-los */}
                 <div className="flex gap-3 w-full sm:w-auto">
                   {/* Botão Buscar */}
-                  <button
-                    onClick={() => atualizar()}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded w-1/2 sm:w-auto"
+                  <button onClick={() => atualizar()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded w-1/2 sm:w-auto"
                   >
                     Buscar
                   </button>
@@ -353,7 +319,7 @@ export default function Index() {
                       setSortDir(null);
                       setPerPage(5);
                       router.get(
-                        route("users.index"),
+                        route("get.payments"),
                         { perPage: 5 },
                         { preserveState: false, replace: true }
                       );
@@ -369,49 +335,14 @@ export default function Index() {
               {/* Tabela */}
               <MantineReactTable table={table} />
 
-              {/* Paginação Laravel */}
-              {/* <div className="flex justify-between mt-4">
-                <select
-                  className="border px-4 py-1 rounded min-w-40 "
-                  value={perPage}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setPerPage(v);
-                    atualizar({ perPage: v });
-                  }}
-                >
-                  {[5, 10, 25, 50, 100].map((n) => (
-                    <option key={n} value={n}>
-                      {n} por página
-                    </option>
-                  ))}
-                </select>
-
-                <div className="flex gap-1">
-                  {users.links.map((link, i) => (
-                    <button
-                      key={i}
-                      disabled={!link.url}
-                      onClick={() =>
-                        link.url && router.visit(link.url, { preserveState: true })
-                      }
-                      className={`px-3 py-1 rounded border
-                        ${link.active ? "bg-indigo-600 text-white" : ""}
-                        ${!link.url ? "opacity-40 cursor-not-allowed" : ""}
-                      `}
-                      dangerouslySetInnerHTML={{ __html: link.label }}
-                    />
-                  ))}
-                </div>
-              </div> */}
               {/* Paginação Estilo DataTables Responsiva */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pb-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pb-4">
 
-                {/* Seletor de Itens por Página */}
-                <div className="flex items-center gap-2 text-sm text-gray-600 order-2 sm:order-1">
+                {/* Seletor de Itens por Página - Esconde o texto longo no mobile */}
+                <div className="flex items-center gap-2 text-sm text-gray-600">
                   <span className="hidden sm:inline">Exibir</span>
                   <select
-                    className="border-gray-300 rounded-md px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
+                    className="border-gray-300 rounded px-3 py-1 text-sm focus:ring-indigo-500"
                     value={perPage}
                     onChange={(e) => {
                       const v = Number(e.target.value);
@@ -420,22 +351,17 @@ export default function Index() {
                     }}
                   >
                     {[5, 10, 25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
+                      <option key={n} value={n}>{n}</option>
                     ))}
                   </select>
-                  <span>registros por página</span>
+                  <span>por página</span>
                 </div>
 
-                {/* Controles de Navegação (Links do Laravel) */}
-                <div className="inline-flex shadow-sm rounded-md order-1 sm:order-2 overflow-hidden border border-gray-300">
-                  {users.links.map((link, i) => {
-                    // Lógica Responsiva:
-                    // Exibimos sempre o primeiro (Anterior), o último (Próximo) e a página Ativa.
-                    // Os outros números só aparecem em telas médias (md) para cima.
-                    const isFirst = i === 0;
-                    const isLast = i === users.links.length - 1;
+                {/* Controles de Navegação */}
+                <div className="flex items-center shadow-sm rounded-md overflow-hidden">
+                  {payments.links.map((link, i) => {
+                    // Lógica para mostrar apenas "Anterior", "Próximo" e a Página Ativa no Mobile
+                    const isPrevOrNext = i === 0 || i === payments.links.length - 1;
                     const isActive = link.active;
 
                     return (
@@ -444,15 +370,12 @@ export default function Index() {
                         disabled={!link.url}
                         onClick={() => link.url && router.visit(link.url, { preserveState: true })}
                         className={`
-                          relative inline-flex items-center px-4 py-2 text-sm font-medium transition-colors
-                          border-r last:border-r-0 border-gray-300
-                          ${isActive
-                                          ? "z-10 bg-indigo-600 text-white border-indigo-600"
-                                          : "bg-white text-gray-700 hover:bg-gray-50"
-                                        }
-                          ${!link.url ? "bg-gray-50 text-gray-400 cursor-not-allowed" : "cursor-pointer"}
-                          ${(!isFirst && !isLast && !isActive) ? "hidden md:inline-flex" : "inline-flex"}
+                          px-4 py-2 text-sm font-medium border-y border-r first:border-l transition-colors
+                          ${isActive ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-700 hover:bg-gray-50"}
+                          ${!link.url ? "opacity-50 cursor-not-allowed bg-gray-50 text-gray-400" : ""}
+                          ${!isPrevOrNext && !isActive ? "hidden md:inline-block" : "inline-block"} 
                         `}
+                      // No mobile, se for número e não for ativo, usamos a classe 'hidden md:inline-block'
                       >
                         <span dangerouslySetInnerHTML={{ __html: link.label }} />
                       </button>
@@ -460,8 +383,6 @@ export default function Index() {
                   })}
                 </div>
               </div>
-
-
 
             </div>
           </div>
@@ -473,7 +394,7 @@ export default function Index() {
   );
 }
 
-Index.layout = (page) => (
+GetPayments.layout = (page) => (
   <AuthenticatedLayout
     auth={page.props.auth}
   // header={

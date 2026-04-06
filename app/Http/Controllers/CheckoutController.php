@@ -396,6 +396,27 @@ class CheckoutController extends Controller
         return back()->with('success', 'Pagamento manual registrado!');
     }
 
+    /**
+     * Remove uma intenção de compra (pagamento pendente).
+     */
+    public function destroy($id)
+    {
+        try {
+            $payment = Payment::findOrFail($id);
+
+            // Opcional: Impedir de deletar se já estiver aprovado
+            if ($payment->status === 'approved') {
+                return back()->with('error', 'Não é possível apagar um pagamento já aprovado.');
+            }
+
+            $payment->delete();
+
+            return back()->with('success', 'Intenção de compra removida com sucesso!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Erro ao tentar remover o registro.');
+        }
+    }
+
     /* 
     *
      */

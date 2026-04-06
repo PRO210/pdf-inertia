@@ -80,7 +80,44 @@ class UserController extends Controller
         ]);
     }
 
+
+    public function getPayments(Request $request)
+    {
+        $perPage = (int) $request->get('perPage', 10);
+        $search  = $request->get('search', null);
+
+        // Ler sort vindo do frontend — aceita ambos os nomes
+        $sortBy = $request->get('sortBy', null);
+        // aceitar tanto sortDir quanto sortDirection
+        $sortDir = $request->get('sortDir', $request->get('sortDirection', null));
+
+        // Buscamos os pagamentos diretamente
+        $query = Payment::query()
+            ->with('user:id,name,email') // Carrega o dono do pagamento
+            ->orderBy('date_created', 'desc'); // Ordem cronológica
+
+        // Filtro por nome do usuário ou descrição
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($u) use ($search) {
+                    $u->where('name', 'like', "%{$search}%");
+                })->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $payments = $query->paginate($perPage)->withQueryString();
+
+        // Também precisamos da lista de usuários para o Select do Modal
+        $users = User::select('id', 'name', 'email')->get();
+
+        return Inertia::render('Users/getPayments', [
+            'payments' => $payments,
+            'users'    => $users, // Enviamos para o select do modal
+            'filters'  => $request->only(['search', 'perPage',  'sortBy', 'sortDir', 'sortDirection']),
+        ]);
+    }
+
     // No seu Controller (ex: UserDownloadController.php)
 
-   
+
 }

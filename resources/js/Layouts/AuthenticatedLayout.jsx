@@ -16,7 +16,7 @@ export default function AuthenticatedLayout({ header, children }) {
         <div className="min-h-screen bg-gray-100">
 
             <AvisosGlobais />
-            
+
             <nav className="border-b border-gray-100 bg-white">
                 <div className="mx-auto w-full px-4 sm:px-6 lg:px-8">
                     <div className="flex h-16 justify-between">
@@ -140,6 +140,14 @@ export default function AuthenticatedLayout({ header, children }) {
                                                             <span>Downloads</span>
                                                         </Dropdown.Link>
 
+                                                        <Dropdown.Link
+                                                            href={route('get.payments')}
+                                                            className="flex items-center space-x-2 hover:bg-indigo-50 transition-colors"
+                                                        >
+                                                            <span>💰</span>
+                                                            <span>Pagamentos</span>
+                                                        </Dropdown.Link>
+
                                                     </div>
                                                 </div>
 
@@ -147,7 +155,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                         </div>
                                     </div>
                                 )}]
-                               
+
                             </div>
                         </div>
 

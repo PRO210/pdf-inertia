@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { PDFDocument, rgb, StandardFonts, PageSizes } from 'pdf-lib'
 import { usePage } from '@inertiajs/react'
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout'
@@ -20,6 +20,24 @@ import { usePdfThumbnail } from '@/hooks/usePdfThumbnail'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
+
+/* Hook para gerar as Thumbs */
+const PdfThumbnail = memo(({ url }) => {
+  const thumb = usePdfThumbnail(url);
+
+  return (
+    <div className="w-full bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
+      {thumb ? (
+        <img src={thumb} alt="Preview" className="object-cover w-full h-full" />
+      ) : (
+        <span className="text-xs text-gray-400">Carregando...</span>
+      )}
+    </div>
+  );
+});
+
+// Adicione um nome para facilitar o debug
+PdfThumbnail.displayName = "PdfThumbnail";
 
 export default function PdfEditor() {
   const { auth } = usePage().props;
@@ -442,20 +460,7 @@ export default function PdfEditor() {
     }
   };
 
-  /* Hook para gerar as Thumbs */
-  const PdfThumbnail = ({ url }) => {
-    const thumb = usePdfThumbnail(url);
 
-    return (
-      <div className="w-full bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
-        {thumb ? (
-          <img src={thumb} alt="Preview" className="object-cover w-full h-full" />
-        ) : (
-          <span className="text-xs text-gray-400">Carregando...</span>
-        )}
-      </div>
-    );
-  };
 
 
   return (
@@ -630,7 +635,7 @@ export default function PdfEditor() {
                     <option value="ambas">Todas as páginas</option>
                     <option value="impares">Somente Páginas Ímpares</option>
                     <option value="pares">Somente Páginas Pares</option>
-                    <option value="primeira_pagina">Somente na primeira página</option>
+                    <option value="primeira_pagina">Somente na 1º página - Experimental (Layout 2Col x 1Lin)</option>
                     <option value="nenhuma">Não mostrar em nenhuma</option>
                   </select>
 
@@ -652,28 +657,48 @@ export default function PdfEditor() {
               <div className="w-full">
                 {cabecalhoAtivo && ( // Use cabecalhoAtivo para mostrar os inputs
                   <>
-                    {cabecalhoTexto.map((linha, index) => (
-                      <input
-                        key={index}
-                        type="text"
-                        value={linha}
-                        onChange={(e) => {
-                          const valor = e.target.value;
-                          const maxPorLinha = orientacao === "paisagem" ? 60 : 42;
-                          const ajustado = valor.slice(0, maxPorLinha);
-                          const novoTexto = [...cabecalhoTexto];
-                          novoTexto[index] = ajustado;
-                          setCabecalhoTexto(novoTexto);
-                          setAlteracoesPendentes(true);
-                        }}
-                        maxLength={orientacao === "paisagem" ? 60 : 42}
-                        className="w-full border rounded p-2 mt-2 pro-input"
-                        placeholder={`Linha ${index + 1}`}
-                      />
-                    ))}
+                    {cabecalhoTexto.map((linha, index) => {
+                      // Lógica dinâmica de limite de caracteres
+                      const isModoFull = cabecalhoModo === "primeira_pagina";
 
-                    <p className="text-gray-500 mt-1">
-                      Máximo de {orientacao === "paisagem" ? 60 : 42} caracteres por linha.
+                      let maxPorLinha;
+                      if (isModoFull) {
+                        // Limites maiores para o modo que atravessa as duas colunas
+                        maxPorLinha = orientacao === "paisagem" ? 100 : 70;
+                      } else {
+                        // Limites padrão para apenas uma coluna
+                        maxPorLinha = orientacao === "paisagem" ? 52 : 35;
+                      }
+
+                      return (
+                        <div key={index}>
+                          <input
+                            type="text"
+                            value={linha}
+                            onChange={(e) => {
+                              const valor = e.target.value;
+                              const ajustado = valor.slice(0, maxPorLinha);
+                              const novoTexto = [...cabecalhoTexto];
+                              novoTexto[index] = ajustado;
+                              setCabecalhoTexto(novoTexto);
+                              setAlteracoesPendentes(true);
+                            }}
+                            maxLength={maxPorLinha}
+                            className="w-full border rounded p-2 mt-2 pro-input"
+                            placeholder={`Linha ${index + 1}`}
+                          />
+                          <p className="text-gray-500 text-xs mt-1">
+                            {linha.length} / {maxPorLinha} caracteres
+                            {isModoFull && " (Limite estendido para página inteira)"}
+                          </p>
+                        </div>
+                      );
+                    })}
+
+                    {/* Legenda Geral abaixo do loop */}
+                    <p className="text-blue-600 font-medium mt-2 text-sm">
+                      Nota: O limite é de {orientacao === "paisagem" ? 52 : 35} caracteres por coluna,
+                      mas aumenta para {orientacao === "paisagem" ? 100 : 70} no modo de 1º Página.
                     </p>
                   </>
                 )}
@@ -822,7 +847,7 @@ export default function PdfEditor() {
                     {/* Corpo do Modal - Aqui usamos o seu componente PdfPreview já existente */}
                     <div className="flex-1 overflow-y-auto p-4 bg-gray-200">
                       <div className="absolute top-0 left-0 w-full h-12 z-10 bg-transparent" />
-                      <iframe src={pdfSelecionadoModal.url}  className="w-full h-[70vh]" title="Preview"                />
+                      <iframe src={pdfSelecionadoModal.url} className="w-full h-[70vh]" title="Preview" />
                     </div>
 
                     {/* Rodapé do Modal */}
@@ -921,7 +946,7 @@ export default function PdfEditor() {
                     return novas;
                   });
                   setAlteracoesPendentes(true);
-                  
+
                 }}
                 setAlteracoesPendentes={setAlteracoesPendentes}
                 erroPdf={erroPdf}

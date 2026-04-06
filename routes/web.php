@@ -171,6 +171,13 @@ Route::post('user-download-debitarCredito', [UserDownloadsController::class, 'de
 Route::post('/payments/manual', [CheckoutController::class, 'storeManual'])->name('payments.storeManual');
 
 
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('user/payments', [UserController::class, 'getPayments'])->name('get.payments');
+    Route::delete('/payments/{id}', [CheckoutController::class, 'destroy'])->name('payments.destroy');
+});
+
+
 
 
 require __DIR__ . '/auth.php';

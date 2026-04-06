@@ -56,7 +56,7 @@ export default function PdfPreview({
       const ctx = canvas.getContext('2d');
 
       await page.render({ canvasContext: ctx, viewport }).promise;
-      thumbs.push(canvas.toDataURL('image/jpeg', 0.75));
+      thumbs.push(canvas.toDataURL('image/jpeg', 0.8));
     }
 
     return { pdf, thumbs };
@@ -78,7 +78,7 @@ export default function PdfPreview({
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const mime = fileType === 'jpeg' ? 'image/jpeg' : 'image/png';
-    const dataUrl = canvas.toDataURL(mime, 0.75);
+    const dataUrl = canvas.toDataURL(mime, 0.8);
 
     const item = makeItem(dataUrl);
 
@@ -248,10 +248,9 @@ export default function PdfPreview({
         const imgSrc = imgObj ? (typeof imgObj === 'string' ? imgObj : imgObj.src) : null;
         const imgKey = imgObj?.uid ?? imgSrc ?? i;
 
-        // Paginação correta
-        const pageIndex = Math.floor(i + 1 / slotsPerPage);
-        const isOddPage = (pageIndex % 2) === 0;
-        const isEvenPage = (pageIndex % 2) !== 0;
+        const pageIndex = Math.floor(i / slotsPerPage);
+        const isOddPage = (i % slotsPerPage) === 0; // Esquerda
+        const isEvenPage = (i % slotsPerPage) !== 0; // Direita
 
         let shouldDrawHeader = false;
 
@@ -262,6 +261,8 @@ export default function PdfPreview({
             shouldDrawHeader = true;
           } else if (cabecalhoModo === 'pares' && isEvenPage) {
             shouldDrawHeader = true;
+          } else if (cabecalhoModo === 'primeira_pagina') {
+            shouldDrawHeader = true;
           }
         }
 
@@ -271,13 +272,14 @@ export default function PdfPreview({
             className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
           >
             {/* Cabeçalho dinâmico (Renderização Condicional) */}
-            {shouldDrawHeader && (
+            {/* 1. Cabeçalho Real (Lado Esquerdo) ou Cabeçalho Padrão */}
+            {shouldDrawHeader && (cabecalhoModo !== 'primeira_pagina' || isOddPage) && (
               <div
                 className={`
-                  w-full flex flex-col gap-1 p-2 font-bold text-gray-800 text-sm
-                  ${cabecalhoBorder ? 'border-b-2 border-gray-300' : 'border-b-0'} 
-                  bg-gray-50/30
-                `}
+                w-full flex flex-col gap-1 p-2 font-bold text-gray-800 text-sm
+                ${cabecalhoBorder ? 'border-b-2 border-gray-300' : 'border-b-0'} 
+                bg-gray-50/30
+              `}
               >
                 {cabecalhoTexto.map((linha, index) => (
                   <div key={index} className="w-full truncate" title={linha}>
@@ -286,6 +288,25 @@ export default function PdfPreview({
                 ))}
               </div>
             )}
+
+            {/* 2. O Espaçador (Lado Direito no modo primeira_pagina) */}
+            {shouldDrawHeader && cabecalhoModo === 'primeira_pagina' && isEvenPage && (
+              <div
+                className={`
+              w-full flex flex-col gap-1 p-2
+              ${cabecalhoBorder ? 'border-b-2 border-transparent' : 'border-b-0'}
+            `}
+                aria-hidden="true"
+              >
+                {/* Criamos divs vazias com a mesma altura do texto para empurrar a imagem */}
+                {cabecalhoTexto.map((_, index) => (
+                  <div key={index} className="w-full text-sm opacity-0">
+                    &nbsp;
+                  </div>
+                ))}
+              </div>
+            )}
+
 
             {imgSrc && !loadingThumbnails[i] ? (
               <>
