@@ -40,9 +40,14 @@ export default function Index({
     try {
       setLoading(true);
 
+      // Garante que se vier um objeto ou nulo por erro, seja 1
+      const pageNumber = typeof page === 'number' ? page : 1;
+
+      const cleanPage = pageNumber > 100000 ? 1 : pageNumber;
+
       const url = preferenceId
-        ? `/pagamentos/sincronizar/${preferenceId}?page=${page}`
-        : `/pagamentos/sincronizar?page=${page}`;
+        ? `/pagamentos/sincronizar/${preferenceId}?page=${cleanPage}`
+        : `/pagamentos/sincronizar?page=${cleanPage}`;
 
 
       const res = await axios.get(url);
@@ -72,10 +77,10 @@ export default function Index({
   // 🔁 USE EFFECT - SINCRONIZAÇÃO INICIAL + INTERVALO
   // ============================
   useEffect(() => {
-    sincronizar(detalhes?.preference_id || null);
+    sincronizar(1, detalhes?.preference_id || null);
 
     const intervalo = setInterval(() => {
-      sincronizar();
+      sincronizar(1, detalhes?.preference_id || null);
     }, 50000);
 
     return () => clearInterval(intervalo);
@@ -117,7 +122,7 @@ export default function Index({
           </Link>
 
           <button
-            onClick={() => sincronizar(detalhes?.preference_id || null)}
+            onClick={() => sincronizar(1, detalhes?.preference_id || null)}
             className="pro-btn-purple flex-1 w-full"
             disabled={loading}
           >
@@ -228,20 +233,22 @@ export default function Index({
         <div className="flex justify-center mt-4 gap-2">
           <button
             disabled={!wallet?.prev_page_url}
-            onClick={() => sincronizar(wallet.current_page - 1)}
-            className={`${wallet.current_page == 1 ? 'pro-btn-green px-4 rounded-md disabled:opacity-40' : 'pro-btn-green px-4 rounded-md'} `}
+            onClick={() => {
+              const urlParams = new URLSearchParams(wallet.prev_page_url.split('?')[1]);
+              sincronizar(Number(urlParams.get('page')));
+            }}
+            className="pro-btn-green px-4 rounded-md disabled:opacity-40"
           >
             ◀ Anterior
           </button>
 
-          <span className="px-4">
-            Página {wallet?.current_page} / {wallet?.last_page}
-          </span>
-
           <button
             disabled={!wallet?.next_page_url}
-            onClick={() => sincronizar(wallet.current_page + 1)}
-            className={`${wallet?.last_page ? 'pro-btn-green px-4  rounded-md disabled:opacity-40' : 'pro-btn-green px-4  rounded-md'}`}
+            onClick={() => {
+              const urlParams = new URLSearchParams(wallet.next_page_url.split('?')[1]);
+              sincronizar(Number(urlParams.get('page')));
+            }}
+            className="pro-btn-green px-4 rounded-md disabled:opacity-40"
           >
             Próxima ▶
           </button>
