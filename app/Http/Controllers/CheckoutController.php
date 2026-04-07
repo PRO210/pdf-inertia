@@ -73,7 +73,14 @@ class CheckoutController extends Controller
         $client = new PreferenceClient();
 
         try {
-            // 4. Salvando o Item na Tabela 'payments'
+            // 4. Calcular a data de expiração usando a função auxiliar
+            // $expirationDate = $this->calculateExpirationDate(
+            //     $userId,
+            //     $validated['type'],
+            //     $validated['item']['quantity']
+            // );
+
+            // 5. Salvando o Item na Tabela 'payments'
             $payment = Payment::create([
                 'preference_id'      => null,
                 'user_id'            => $userId,
@@ -83,12 +90,13 @@ class CheckoutController extends Controller
                 'type'               => $validated['type'],
                 'status'             => 'pending',
                 'date_created'       => now(),
-                'date_of_expiration' => $validated['type'] === 'mensalidade'
-                    ? now()->addMonths((int)$validated['item']['quantity'])
-                    : null,
+                // 'date_of_expiration' => $validated['type'] === 'mensalidade'
+                //     ? now()->addMonths((int)$validated['item']['quantity'])
+                //     : null,
+                'date_of_expiration' => null,
             ]);
 
-            // 5. Criar a preferência no Mercado Pago
+            // 6. Criar a preferência no Mercado Pago
             $preference = $client->create([
                 "items" => [
                     [
@@ -100,25 +108,25 @@ class CheckoutController extends Controller
                 ],
                 "payer" => $validated['payer'],
                 "external_reference" => (string) $payment->id,
-                // "notification_url" => url('https://31d5-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/webhooks/mercadopago'),
-                "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
+                "notification_url" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/webhooks/mercadopago'),
+                // "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
                 "back_urls" => [
-                    "success" => route('pagamento.retorno'),
-                    "failure" => route('pagamento.retorno'),
-                    "pending" => route('pagamento.retorno'),
-                    //     "success" => url('https://31d5-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
-                    //     "failure" => url('https://31d5-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
-                    //     "pending" => url('https://31d5-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    // "success" => route('pagamento.retorno'),
+                    // "failure" => route('pagamento.retorno'),
+                    // "pending" => route('pagamento.retorno'),
+                    "success" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    "failure" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    "pending" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
                 ],
                 "auto_return" => "approved",
             ]);
 
-            // 6. Atualizar registro local com preference_id
+            // 7. Atualizar registro local com preference_id
             $payment->update([
                 'preference_id' => $preference->id,
             ]);
 
-            // 7. Retorno de Sucesso
+            // 8. Retorno de Sucesso
             return response()->json([
                 'success' => true,
                 'message' => 'Preferência criada e item salvo com sucesso.',
@@ -132,6 +140,34 @@ class CheckoutController extends Controller
                 'status' => $e->getApiResponse()?->getStatusCode() ?? 400,
             ], 400);
         }
+    }
+
+
+    /* 
+    * Calcula a data de expiração do plano para garantir se vai haver soma de tempo ou início
+    */
+    private function calculateExpirationDate($userId, $type, $quantity)
+    {
+        // Se não for mensalidade, não precisa de data de expiração
+        if ($type !== 'mensalidade') {
+            return null;
+        }
+
+        $now = now();
+
+        // Busca o último pagamento que ainda é válido (mensalidade aprovada ou pendente)
+        $lastActivePayment = Payment::where('user_id', $userId)
+            ->where('type', 'mensalidade')
+            ->whereIn('status', ['approved'])
+            ->where('date_of_expiration', '>', $now)
+            ->orderBy('date_of_expiration', 'desc')
+            ->first();
+
+        // Define o ponto de partida: se houver ativo, usa a expiração dele. Se não, usa agora.
+        $startDate = $lastActivePayment ? $lastActivePayment->date_of_expiration : $now;
+
+        // Retorna a nova data somando os meses da quantidade comprada
+        return $startDate->addMonths((int)$quantity);
     }
 
     /**
@@ -192,11 +228,39 @@ class CheckoutController extends Controller
                 $payment = Payment::find($paymentId);
 
                 if ($payment) {
-                    $payment->update([
-                        'status' => $newStatus,
-                        'payment_id' => $resourceId,
-                        'date_approved' => $mpPayment->date_approved ?? null,
-                    ]);
+                    // $payment->update([
+                    //     'status' => $newStatus,
+                    //     'payment_id' => $resourceId,
+                    //     'date_approved' => $mpPayment->date_approved ?? null,
+                    // ]);
+                    // 1. Preparar dados base
+                    $updateData = [
+                        'status'        => $newStatus,
+                        'payment_id'    => (string) $resourceId,
+                        'date_approved' => $mpPayment->date_approved ?? now(),
+                    ];
+
+                    // 2. Lógica de empilhamento (Apenas no momento da aprovação)
+                    if ($newStatus === 'approved' && $payment->status !== 'approved' && $payment->type === 'mensalidade') {
+
+                        // Busca o último aprovado que ainda não expirou
+                        $lastApproved = Payment::where('user_id', $payment->user_id)
+                            ->where('type', 'mensalidade')
+                            ->where('status', 'approved')
+                            ->where('id', '!=', $payment->id)
+                            ->where('date_of_expiration', '>', now())
+                            ->orderBy('date_of_expiration', 'desc')
+                            ->first();
+
+                        // Se existe um plano ativo, a nova data começa onde a outra termina
+                        $startDate = $lastApproved ? $lastApproved->date_of_expiration : now();
+
+                        // Adiciona a quantidade de meses comprada ao ponto de partida
+                        $updateData['date_of_expiration'] = $startDate->addMonths((int)$payment->quantity);
+                    }
+
+                    // 3. Atualiza o banco de dados
+                    $payment->update($updateData);
 
                     $updated = true;
                     Log::info('Pagamento atualizado com sucesso.', [
@@ -314,6 +378,7 @@ class CheckoutController extends Controller
                 'amount' => $p->quantity * $p->unit_price,
                 'description' => $p->description,
                 'created_at' => $p->created_at,
+                'status' => $p->status,
             ])
         );
 

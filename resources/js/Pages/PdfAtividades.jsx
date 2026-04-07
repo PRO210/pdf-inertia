@@ -17,6 +17,7 @@ import { gerarPDFService } from '@/Services/PdfGeneratorService'
 import FolderPlusIcon from '@/Components/svgs/FolderPlusIcon'
 import PlusIcon from '@/Components/svgs/PlusIcon'
 import { usePdfThumbnail } from '@/hooks/usePdfThumbnail'
+import { useLimpezaDados } from '@/hooks/useLimpezaDados'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -39,6 +40,7 @@ const PdfThumbnail = memo(({ url }) => {
 // Adicione um nome para facilitar o debug
 PdfThumbnail.displayName = "PdfThumbnail";
 
+
 export default function PdfEditor() {
   const { auth } = usePage().props;
   const user = auth.user;
@@ -59,6 +61,7 @@ export default function PdfEditor() {
 
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
+  const limiteAtingido = pdfs.length >= 6;
 
   // Função para remover do array e liberar memória do navegador
   const removerPdf = (id) => {
@@ -460,7 +463,17 @@ export default function PdfEditor() {
     }
   };
 
+  const { limparHistoricoPdfs, resetarConfiguracoesGeral } = useLimpezaDados();
 
+  // Handler para o botão de limpar histórico (o que você criou agora pouco)
+  const handleLimparTudo = () => {
+    limparHistoricoPdfs(pdfs, setPdfs, setPdfUrl);
+  };
+
+  // Handler para o botão de resetar configurações (o que já existia)
+  const handleResetConfig = () => {
+    resetarConfiguracoesGeral(resetarConfiguracoes);
+  };
 
 
   return (
@@ -711,6 +724,7 @@ export default function PdfEditor() {
                     {/* Mostrar Aplicar alterações se houver imagens no array OU imagemBase64 (compatibilidade) */}
                     {(imagens.some(Boolean)) && alteracoesPendentes && (
                       <button
+                        disabled={limiteAtingido}
                         onClick={async () => {
                           setCarregando(true);
 
@@ -740,7 +754,7 @@ export default function PdfEditor() {
                         }}
                         className={alteracoesPendentes ? "pro-btn-red" : "pro-btn-blue"}
                       >
-                        Aplicar alterações e Salvar no Histórico
+                        {limiteAtingido ? "Limite de (6 PDFs) atingido" : " Aplicar alterações e Salvar no Histórico"}
                       </button>
                     )}
 
@@ -864,11 +878,27 @@ export default function PdfEditor() {
               )}
 
               {pdfs.length > 1 && (
-                <div className="w-full flex justify-center ">
+                <div className="w-full flex items-center justify-center gap-2 mb-6">
+                  {/* Botão Principal: Gerar Arquivo Único */}
                   <button
                     onClick={baixarTodosPdfsUnificados}
-                    className="pro-btn-blue flex items-center justify-center  shadow-xl hover:scale-105 transition-transform" >
-                    <FolderPlusIcon> Gerar Arquivo Único ({pdfs.length} atividades)  </FolderPlusIcon>
+                    className="pro-btn-blue  max-w-xs flex items-center justify-center text-nowrap shadow-xl hover:scale-105 transition-transform"
+                  >
+                    <FolderPlusIcon className='mr-1' />
+                    Gerar Arquivo Único ({pdfs.length})
+                  </button>
+
+                  {/* Botão Secundário: Limpar Histórico */}
+                  <button
+                    onClick={handleLimparTudo}
+                    title="Limpar todo o histórico"
+                    className="pro-btn-red flex items-center justify-center shadow-md  hover:scale-105 transition-transform"
+                  >
+                    {/* Ícone de Lixeira Simples */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                    Limpar
                   </button>
                 </div>
               )}
@@ -885,11 +915,14 @@ export default function PdfEditor() {
                 </div>
               )}
 
-              <div div className='w-full'>
-                <button onClick={resetarConfiguracoes} className="pro-btn-slate">
-                  Resetar Configurações
-                </button>
-              </div>
+              <button onClick={handleResetConfig} disabled={limiteAtingido}
+                className={`w-full py-2 rounded-full transition ${limiteAtingido
+                  ? "bg-gray-300 cursor-not-allowed opacity-50"
+                  : "pro-btn-blue"
+                  }`}
+              >
+                {limiteAtingido ? "Limite de 6 PDFs atingido" : "Resetar Configurações"}
+              </button>
             </div>
 
             <h3 className='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
@@ -955,6 +988,7 @@ export default function PdfEditor() {
                 repeatMode={repeatMode}
                 cabecalhoBorder={cabecalhoBorder}
                 paginaAtual
+                limiteAtingido={limiteAtingido}
               />
 
               <div className="flex flex-col gap-2 w-full">

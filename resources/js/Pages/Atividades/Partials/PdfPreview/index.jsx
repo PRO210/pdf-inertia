@@ -23,7 +23,9 @@ export default function PdfPreview({
   carregando,
   adicionarPrimeiraImagem,
   repeatMode,
-  cabecalhoBorder
+  cabecalhoBorder,
+  paginaAtual,
+  limiteAtingido
 }) {
   const makeItem = (src) => ({ src, uid: Date.now() + Math.random() });
 
@@ -169,7 +171,6 @@ export default function PdfPreview({
       delete newObj[slotIndex];
       return newObj;
     });
-
 
     setModalVisible(false);
     setModalData(null);
@@ -317,9 +318,13 @@ export default function PdfPreview({
                   className={`w-full h-full rounded-md ${aspecto ? 'object-contain' : 'object-fill'}`}
                 />
                 <button
-                  title="Remover imagem"
+                  title={limiteAtingido ? "Limite de 6 PDFs atingido" : "Remover imagem"}
                   onClick={() => removerImagem(i)}
-                  className="absolute top-2 right-2 z-20 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full p-1 shadow text-xs"
+                  disabled={limiteAtingido}
+                  className={`absolute top-2 right-2 z-20 rounded-full p-1 shadow transition-all ${limiteAtingido
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
+                      : "bg-white bg-opacity-80 hover:bg-opacity-100 text-red-500"
+                    }`}
                 >
                   Remover
                 </button>

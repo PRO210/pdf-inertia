@@ -119,6 +119,7 @@ export default function Index({
               <th className="p-2 border">Descrição</th>
               <th className="p-2 border">Valor</th>
               <th className="p-2 border">Criado em</th>
+              <th className="p-2 border">Status</th>
             </tr>
           </thead>
 

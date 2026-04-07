@@ -172,7 +172,6 @@ Route::post('/payments/manual', [CheckoutController::class, 'storeManual'])->nam
 
 
 Route::middleware(['auth', 'verified'])->group(function () {
-
     Route::get('user/payments', [UserController::class, 'getPayments'])->name('get.payments');
     Route::delete('/payments/{id}', [CheckoutController::class, 'destroy'])->name('payments.destroy');
 });

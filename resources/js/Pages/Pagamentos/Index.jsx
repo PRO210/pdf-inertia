@@ -24,6 +24,15 @@ export default function Index({
     saldo_restante: 0,
   });
 
+  const formatStatus = (status) => {
+    const map = {
+      approved: "Aprovado",
+      pending: "Pendente",
+    };
+
+    return map[status] || status;
+  };
+
   // ============================
   // 🔄 FUNÇÃO: SINCRONIZAR DADOS
   // ============================
@@ -161,6 +170,7 @@ export default function Index({
               <th className="p-3 border">Descrição</th>
               <th className="p-3 border">Valor</th>
               <th className="p-3 border">Criado em</th>
+              <th className="p-3 border">Status</th>
             </tr>
           </thead>
 
@@ -191,6 +201,18 @@ export default function Index({
                     <td className="p-2 border text-sm text-gray-600">
                       {new Date(item.created_at).toLocaleString('pt-BR')}
                     </td>
+
+                    <td
+                      className={`p-2 border ${item.status === "approved"
+                        ? "text-green-600"
+                        : item.status === "pending"
+                          ? "text-yellow-600"
+                          : "text-red-600"
+                        }`}
+                    >
+                      {formatStatus(item.status)}
+                    </td>
+
                   </tr>
                 );
               })
@@ -219,9 +241,9 @@ export default function Index({
           <button
             disabled={!wallet?.next_page_url}
             onClick={() => sincronizar(wallet.current_page + 1)}
-            className={`${wallet?.last_page ? 'pro-btn-green px-4  rounded-md disabled:opacity-40': 'pro-btn-green px-4  rounded-md'}`}
+            className={`${wallet?.last_page ? 'pro-btn-green px-4  rounded-md disabled:opacity-40' : 'pro-btn-green px-4  rounded-md'}`}
           >
-            Próxima ▶ 
+            Próxima ▶
           </button>
         </div>
 
