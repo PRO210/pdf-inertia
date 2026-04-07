@@ -224,6 +224,12 @@ class CheckoutController extends Controller
             $attempt = 0;
             $updated = false;
 
+            $dateApproved = null;
+            if (isset($mpPayment->date_approved)) {
+                $dateApproved = \Carbon\Carbon::parse($mpPayment->date_approved)->format('Y-m-d H:i:s');
+            }
+
+
             while ($attempt < $maxRetries && !$updated) {
                 $payment = Payment::find($paymentId);
 
@@ -237,7 +243,7 @@ class CheckoutController extends Controller
                     $updateData = [
                         'status'        => $newStatus,
                         'payment_id'    => (string) $resourceId,
-                        'date_approved' => $mpPayment->date_approved ?? now(),
+                        'date_approved' => $dateApproved ?? now()->format('Y-m-d H:i:s'),
                     ];
 
                     // 2. Lógica de empilhamento (Apenas no momento da aprovação)
