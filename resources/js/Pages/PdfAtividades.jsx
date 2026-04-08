@@ -609,6 +609,8 @@ export default function PdfEditor() {
                   className="px-2 w-full rounded-full pro-input"
                 >
                   <option value="none">Sem bordas</option>
+                  <option value="numerosColoridos">Números Coloridos</option>
+                  <option value="notasMusicais">Notas Músicais</option>
                   <option value="coracao">Corações</option>
                   <option value="coracaoVazado">Corações (Vazado)</option>
                   <option value="abelhas">Abelhas</option>

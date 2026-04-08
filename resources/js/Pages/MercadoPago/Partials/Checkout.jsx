@@ -19,8 +19,8 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
       ...orderData,
       type: type,
       title: newTitle,
-      price: newPrice,     
-      amount: newPrice * orderData.quantity,        
+      price: newPrice,
+      amount: newPrice * orderData.quantity,
     });
   };
 
@@ -63,7 +63,8 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
 
         <div className="content">
           <div className="row">
-            <div className="col-md-12 col-lg-8">
+
+            {/* <div className="col-md-12 col-lg-8">
               <div className="product-details p-4 bg-white rounded-lg border">
                 <h5 className="text-lg font-bold text-gray-800">{orderData.title}</h5>
                 <div className="product-info mt-3">
@@ -84,16 +85,54 @@ export default function Checkout({ onClick, orderData, setOrderData }) {
                   />
                 </div>
               </div>
+            </div> */}
+
+            <div className="col-md-12 col-lg-8">
+              <div className="product-details p-4 bg-white rounded-lg border shadow-sm">
+                <h5 className="text-lg font-bold text-gray-800">{orderData.title}</h5>
+
+                <div className="product-info mt-3">
+                  <p className="text-gray-600 mb-4">
+                    <b>Preço Unitário: </b>
+                    <span className="text-green-600 font-bold text-xl">R$ {orderData.price},00</span>
+                  </p>
+
+                  <label className="block font-bold text-gray-700 mb-2">
+                    {orderData.type === 'mensalidade' ? 'Duração da assinatura:' : 'Quantidade de pacotes:'}
+                  </label>
+
+                  {/* Container do Slider + Display Numérico */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      {/* O Slider (Dedo amigável) */}
+                      <input
+                        type="range"
+                        min="1"
+                        max="12"
+                        step="1"
+                        value={orderData.quantity}
+                        onChange={updateQuantity}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                      />
+
+                      {/* Display de Valor (Apenas leitura ou pequeno ajuste) */}
+                      <div className="flex-none bg-purple-50 border border-purple-200 text-purple-700 font-bold px-4 py-2 rounded-lg min-w-[80px] text-center">
+                        {orderData.quantity} {orderData.type === 'mensalidade' ? 'mês(es)' : 'unid.'}
+                      </div>
+                    </div>                   
+                  </div>
+                </div>
+              </div>
             </div>
-            
+
             <div className="col-md-12 col-lg-4">
               <div className="summary p-6 bg-gray-100 rounded-lg shadow-md border border-gray-200">
                 <div className="summary-item flex justify-between items-center mb-6">
                   <span className="text-xl font-medium text-gray-700">Total</span>
                   <span className="text-2xl font-black text-blue-700">R$ {orderData.amount},00</span>
                 </div>
-                <button 
-                  className="pro-btn-blue w-full py-4 text-white font-bold rounded-xl bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg" 
+                <button
+                  className="pro-btn-blue w-full py-4 text-white font-bold rounded-xl bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg"
                   onClick={onClick}
                 >
                   Confirmar e Continuar

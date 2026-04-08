@@ -83,7 +83,7 @@ export default function Payment({ preferenceId, orderData }) {
   return (
     <div className={paymentClass}>
       <div className="container_payment">
-        <h2 className="text-xl font-bold mb-4 text-purple-600">Finalizar Pagamento</h2>
+        <h2 className="text-xl font-bold mb-4 text-purple-600 text-center">Finalizar Pagamento</h2>
 
         <div className="products bg-gray-50 p-4 rounded-lg mb-4">
           <h2 className="title font-semibold border-b pb-2 mb-2">Resumo do Pedido</h2>

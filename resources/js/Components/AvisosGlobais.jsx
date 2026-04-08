@@ -1,54 +1,58 @@
+
 import { useEffect } from 'react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
-import { MENSAGENS_SISTEMA } from '@/constantes/mensagens';
 import { router } from '@inertiajs/react';
 
 const MySwal = withReactContent(Swal);
 
-export default function AvisosGlobais() {
-  useEffect(() => {
-    const aviso = MENSAGENS_SISTEMA.global.comunicado_nova_regra;
-    const jaViuAviso = localStorage.getItem(aviso.id);
 
-    if (!jaViuAviso) {
+export default function AvisosGlobais({ alertData }) {
+  useEffect(() => {
+    if (!alertData || !alertData.showAlert) return;
+
+    const storageKey = `hide_alert_${alertData.id}`;
+    const isDismissed = localStorage.getItem(storageKey);
+
+    if (!isDismissed) {
       MySwal.fire({
-        title: aviso.titulo,
+        title: alertData.type === 'expiration' ? '⚠️ Assinatura' : '🚀 Limite',
         html: `
-          <p>${aviso.texto}</p>
-          <div style="margin-top: 20px; font-size: 0.9em; color: #666;">
-            <label style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-              <input type="checkbox" id="check-nao-mostrar" style="cursor: pointer;">
-              Não mostrar este aviso novamente
-            </label>
-          </div>
-        `,
-        icon: 'info',
+                    <p>${alertData.message}</p>
+                    <div style="margin-top: 20px; font-size: 0.85em; color: #666;">
+                        <label style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <input type="checkbox" id="check-na-marcar" style="cursor: pointer;">
+                            Não me avisar novamente sobre isso hoje
+                        </label>
+                    </div>
+                `,
+        icon: alertData.type === 'expiration' ? 'warning' : 'info',
         showCancelButton: true,
-        confirmButtonText: aviso.botaoConfirmar,
-        cancelButtonText: aviso.botaoSecundario,
-        confirmButtonColor: '#3085d6',
-        // O preConfirm permite capturar o estado do checkbox antes de fechar
+        confirmButtonText: 'Ver Planos',
+        cancelButtonText: 'Depois',
+        confirmButtonColor: '#4f46e5',
+        // O segredo: Capturamos o estado ANTES do modal fechar
         preConfirm: () => {
-          const isChecked = document.getElementById('check-nao-mostrar').checked;
-          return { isChecked };
+          return {
+            isChecked: document.getElementById('check-na-marcar').checked
+          };
         }
       }).then((result) => {
-        // A lógica do checkbox: só salva no localStorage se estiver marcado
-        // ou se você quiser que QUALQUER interação (confirmar/cancelar) com o check marcado desative o aviso
-        const naoMostrarNovamente = document.getElementById('check-nao-mostrar')?.checked;
+        // Se o usuário clicou em "Depois", o result.value costuma ser undefined no SweetAlert padrão
+        // Então buscamos o valor diretamente do DOM antes dele sumir completamente ou via lógica de fechamento
+        const checkbox = document.getElementById('check-na-marcar');
+        const wasChecked = checkbox ? checkbox.checked : result.value?.isChecked;
 
-        if (naoMostrarNovamente) {
-          localStorage.setItem(aviso.id, 'true');
+        if (wasChecked) {
+          localStorage.setItem(storageKey, 'true');
         }
 
-        // Lógica de navegação
-        if (result.dismiss === Swal.DismissReason.cancel) {
-          router.visit('/pagamentos');
+        if (result.isConfirmed) {
+          router.visit(route('pagamento.retorno'));
         }
       });
     }
-  }, []);
+  }, [alertData]);
 
   return null;
 }

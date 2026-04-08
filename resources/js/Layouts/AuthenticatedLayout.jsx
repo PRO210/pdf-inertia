@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
+    const { auth } = usePage().props;
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -15,7 +16,8 @@ export default function AuthenticatedLayout({ header, children }) {
     return (
         <div className="min-h-screen bg-gray-100">
 
-            <AvisosGlobais />
+            {/* Só mostra se showAlert for true e Passamos o objeto inteiro como prop */}
+            <AvisosGlobais alertData={auth.alertService} />
 
             <nav className="border-b border-gray-100 bg-white">
                 <div className="mx-auto w-full px-4 sm:px-6 lg:px-8">

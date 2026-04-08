@@ -29,6 +29,7 @@ export default function PdfPreview({
 }) {
   const makeItem = (src) => ({ src, uid: Date.now() + Math.random() });
 
+
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState(null);
@@ -58,7 +59,7 @@ export default function PdfPreview({
       const ctx = canvas.getContext('2d');
 
       await page.render({ canvasContext: ctx, viewport }).promise;
-      thumbs.push(canvas.toDataURL('image/jpeg', 0.8));
+      thumbs.push(canvas.toDataURL('image/jpeg', 0.9));
     }
 
     return { pdf, thumbs };
@@ -80,7 +81,7 @@ export default function PdfPreview({
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const mime = fileType === 'jpeg' ? 'image/jpeg' : 'image/png';
-    const dataUrl = canvas.toDataURL(mime, 0.8);
+    const dataUrl = canvas.toDataURL(mime, 0.9);
 
     const item = makeItem(dataUrl);
 
@@ -267,89 +268,82 @@ export default function PdfPreview({
           }
         }
 
+        // Procure o retorno dentro do map e altere para:
         return (
           <div
             key={i}
-            className="w-full h-full border-2 border-dashed rounded-md flex flex-col items-center justify-center text-xs text-gray-400 relative overflow-hidden"
+            className="w-full h-full border-2 border-dashed rounded-md flex flex-col justify-start text-xs text-gray-400 relative overflow-hidden bg-white"
           >
-            {/* Cabeçalho dinâmico (Renderização Condicional) */}
-            {/* 1. Cabeçalho Real (Lado Esquerdo) ou Cabeçalho Padrão */}
+            {/* 1. Cabeçalho Real */}
             {shouldDrawHeader && (cabecalhoModo !== 'primeira_pagina' || isOddPage) && (
               <div
                 className={`
-                w-full flex flex-col gap-1 p-2 font-bold text-gray-800 text-sm
-                ${cabecalhoBorder ? 'border-b-2 border-gray-300' : 'border-b-0'} 
-                bg-gray-50/30
-              `}
+                  flex-none w-full flex flex-col gap-0.5 p-1 font-bold text-gray-800
+                  ${cabecalhoBorder ? 'border-b border-gray-300' : ''} 
+                  bg-gray-50/50 z-10
+                `}
               >
                 {cabecalhoTexto.map((linha, index) => (
-                  <div key={index} className="w-full truncate" title={linha}>
+                  <div key={index} className="w-full truncate text-[10px] leading-tight" title={linha}>
                     {linha}
                   </div>
                 ))}
               </div>
             )}
 
-            {/* 2. O Espaçador (Lado Direito no modo primeira_pagina) */}
+            {/* 2. O Espaçador (Modo primeira_pagina) */}
             {shouldDrawHeader && cabecalhoModo === 'primeira_pagina' && isEvenPage && (
-              <div
-                className={`
-              w-full flex flex-col gap-1 p-2
-              ${cabecalhoBorder ? 'border-b-2 border-transparent' : 'border-b-0'}
-            `}
-                aria-hidden="true"
-              >
-                {/* Criamos divs vazias com a mesma altura do texto para empurrar a imagem */}
+              <div className={`flex-none w-full flex flex-col gap-0.5 p-1 ${cabecalhoBorder ? 'border-b border-transparent' : ''}`} aria-hidden="true">
                 {cabecalhoTexto.map((_, index) => (
-                  <div key={index} className="w-full text-sm opacity-0">
-                    &nbsp;
-                  </div>
+                  <div key={index} className="w-full text-[10px] opacity-0">&nbsp;</div>
                 ))}
               </div>
             )}
 
-
-            {imgSrc && !loadingThumbnails[i] ? (
-              <>
-                <img
-                  key={imgKey}
-                  src={imgSrc}
-                  alt={`Imagem ${i + 1}`}
-                  className={`w-full h-full rounded-md ${aspecto ? 'object-contain' : 'object-fill'}`}
-                />
-                <button
-                  title={limiteAtingido ? "Limite de 6 PDFs atingido" : "Remover imagem"}
-                  onClick={() => removerImagem(i)}
-                  disabled={limiteAtingido}
-                  className={`absolute top-2 right-2 z-20 rounded-full p-1 shadow transition-all ${limiteAtingido
+            {/* 3. Área da Imagem  */}
+            <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden">
+              {imgSrc && !loadingThumbnails[i] ? (
+                <>
+                  <img
+                    key={imgKey}
+                    src={imgSrc}
+                    alt={`Imagem ${i + 1}`}
+                    className={`rounded-md ${aspecto ? 'max-w-full max-h-full object-contain' : 'w-full h-full object-fill'}`}
+                  />
+                  <button
+                    title={limiteAtingido ? "Limite de 6 PDFs atingido" : "Remover imagem"}
+                    onClick={() => removerImagem(i)}
+                    disabled={limiteAtingido}
+                    className={`absolute top-1 right-1 z-20 rounded-full p-1 shadow transition-all text-[10px] ${limiteAtingido
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
                       : "bg-white bg-opacity-80 hover:bg-opacity-100 text-red-500"
-                    }`}
-                >
-                  Remover
-                </button>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-2 px-2">
-                <p className="text-sm sm:text-base md:text-lg lg:text-xl text-center">Envie imagem ou PDF :)</p>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  onChange={(e) => handleFileChange(e, i)}
-                  className="pro-btn-blue file:mr-2 file:py-2 file:px-2 
+                      }`}
+                  >
+                    Remover
+                  </button>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 px-2">
+                  <p className="text-sm sm:text-base md:text-lg lg:text-xl text-center">Envie Imagem ou PDF :)</p>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => handleFileChange(e, i)}
+                    className="pro-btn-blue file:mr-2 file:py-2 file:px-2 
                             file:rounded-md file:border-0 file:text-sm sm:text-base md:text-lg lg:text-xl 
                             file:font-semibold file:bg-blue-50 
                             file:text-blue-700 hover:file:bg-blue-100 
                             cursor-pointer"
-                />
-              </div>
-            )}
-            {loadingThumbnails[i] && (
-              <div className="flex w-full items-center justify-center py-6">
-                <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-400 border-t-transparent"></div>
-              </div>
-            )}
+                  />
+                </div>
+              )}
 
+              {loadingThumbnails[i] && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/50">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
+                </div>
+              )}
+            </div>
           </div>
         );
       })}

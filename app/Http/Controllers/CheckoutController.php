@@ -72,13 +72,7 @@ class CheckoutController extends Controller
 
         $client = new PreferenceClient();
 
-        try {
-            // 4. Calcular a data de expiração usando a função auxiliar
-            // $expirationDate = $this->calculateExpirationDate(
-            //     $userId,
-            //     $validated['type'],
-            //     $validated['item']['quantity']
-            // );
+        try {           
 
             // 5. Salvando o Item na Tabela 'payments'
             $payment = Payment::create([
@@ -89,10 +83,7 @@ class CheckoutController extends Controller
                 'unit_price'         => $validated['item']['unit_price'],
                 'type'               => $validated['type'],
                 'status'             => 'pending',
-                'date_created'       => now(),
-                // 'date_of_expiration' => $validated['type'] === 'mensalidade'
-                //     ? now()->addMonths((int)$validated['item']['quantity'])
-                //     : null,
+                'date_created'       => now(),              
                 'date_of_expiration' => null,
             ]);
 
@@ -108,15 +99,15 @@ class CheckoutController extends Controller
                 ],
                 "payer" => $validated['payer'],
                 "external_reference" => (string) $payment->id,
-                // "notification_url" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/webhooks/mercadopago'),
-                "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
+                "notification_url" => url('https://0976-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/webhooks/mercadopago'),
+                // "notification_url" => url('https://pdfeditor.proandre.com.br/webhooks/mercadopago'),
                 "back_urls" => [
-                    "success" => route('pagamento.retorno'),
-                    "failure" => route('pagamento.retorno'),
-                    "pending" => route('pagamento.retorno'),
-                    // "success" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
-                    // "failure" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
-                    // "pending" => url('https://d65a-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    // "success" => route('pagamento.retorno'),
+                    // "failure" => route('pagamento.retorno'),
+                    // "pending" => route('pagamento.retorno'),
+                    "success" => url('https://0976-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    "failure" => url('https://0976-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
+                    "pending" => url('https://0976-2804-11ec-2090-7a21-33c6-a3f7-6dba-12dc.ngrok-free.app/pagamento.retorno'),
                 ],
                 "auto_return" => "approved",
             ]);

@@ -34,10 +34,14 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-    
+
     'mercadopago' => [
         'access_token' => env('MERCADOPAGO_ACCESS_TOKEN'),
         'public_key'   => env('MERCADOPAGO_PUBLIC_KEY'),
+    ],
+    
+    'downloads' => [
+        'limite_free' => env('LIMITE_DOWNLOADS_FREE', 50),
     ],
 
 
