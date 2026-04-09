@@ -55,6 +55,105 @@ const desenharCabecalhoNoPDF = (params) => {
   });
 };
 
+
+const precisaCortarMargemBranca = (ctx, width, height, threshold = 240, tolerancia = 0.98) => {
+  const { data } = ctx.getImageData(0, 0, width, height);
+
+  const isWhite = (r, g, b) => r > threshold && g > threshold && b > threshold;
+
+  const checkLinha = (y) => {
+    let whitePixels = 0;
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      if (isWhite(data[i], data[i + 1], data[i + 2])) whitePixels++;
+    }
+    return whitePixels / width;
+  };
+
+  const checkColuna = (x) => {
+    let whitePixels = 0;
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      if (isWhite(data[i], data[i + 1], data[i + 2])) whitePixels++;
+    }
+    return whitePixels / height;
+  };
+
+  // testa bordas
+  const topo = checkLinha(0);
+  const base = checkLinha(height - 1);
+  const esquerda = checkColuna(0);
+  const direita = checkColuna(width - 1);
+
+  return (
+    topo > tolerancia ||
+    base > tolerancia ||
+    esquerda > tolerancia ||
+    direita > tolerancia
+  );
+};
+
+const cortarMargemBranca = (ctx, width, height, threshold = 240) => {
+  const { data } = ctx.getImageData(0, 0, width, height);
+
+  const isWhite = (r, g, b) => r > threshold && g > threshold && b > threshold;
+
+  let top = 0, bottom = height, left = 0, right = width;
+
+  // topo
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      if (!isWhite(data[i], data[i + 1], data[i + 2])) {
+        top = y;
+        y = height;
+        break;
+      }
+    }
+  }
+
+  // base
+  for (let y = height - 1; y >= 0; y--) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      if (!isWhite(data[i], data[i + 1], data[i + 2])) {
+        bottom = y;
+        y = -1;
+        break;
+      }
+    }
+  }
+
+  // esquerda
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      if (!isWhite(data[i], data[i + 1], data[i + 2])) {
+        left = x;
+        x = width;
+        break;
+      }
+    }
+  }
+
+  // direita
+  for (let x = width - 1; x >= 0; x--) {
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4;
+      if (!isWhite(data[i], data[i + 1], data[i + 2])) {
+        right = x;
+        x = -1;
+        break;
+      }
+    }
+  }
+
+  const cropWidth = right - left;
+  const cropHeight = bottom - top;
+
+  return { left, top, cropWidth, cropHeight };
+};
+
 /**
  * Serviço de geração de PDF
  * 
@@ -74,8 +173,8 @@ export const gerarPDFService = async (
   cabecalhoTexto = "",
   cabecalhoAtivo = false,
   cabecalhoModo = "ambas",
-  modoDimensionamento = "grid",
-  tamanhoCm = { largura: 19.0, altura: 27.7 },
+  modoDimensionamento = "a4",
+  tamanhoCm = { largura: 21.0, altura: 29.7 },
   cabecalhoBorder = false,
   setPdfs
 
@@ -103,13 +202,26 @@ export const gerarPDFService = async (
       bordaY = await pdfDoc.embedPng(bytesY);
     }
 
-    const A4_WIDTH = 595.28;
-    const A4_HEIGHT = 841.89;
-    const pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
-    const pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
-
     const CM_TO_POINTS = 28.3465;
     const margin = 0.5 * CM_TO_POINTS;
+
+    let pageWidth;
+    let pageHeight;
+
+    if (modoDimensionamento === "custom") {
+      pageWidth = tamanhoCm.largura * CM_TO_POINTS;
+      pageHeight = tamanhoCm.altura * CM_TO_POINTS;
+
+    } else {
+      // A4 padrão
+      const A4_WIDTH = 595.28;
+      const A4_HEIGHT = 841.89;
+
+      pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+      pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+
+    }
+
     const gap = 3;
 
     const cols = Math.max(ampliacao?.colunas || 1, 1);
@@ -175,6 +287,27 @@ export const gerarPDFService = async (
         else if (cabecalhoModo === "primeira_pagina" && currentPageIndex === 0) shouldDrawHeader = true;
       }
 
+      // const item = imagens[i];
+      // if (!item) continue;
+
+      // const dataUrl = typeof item === "string" ? item : item.src;
+      // if (!dataUrl) continue;
+
+      // const img = new Image();
+      // const loadedImg = await new Promise((resolve) => {
+      //   img.onload = () => resolve(img);
+      //   img.src = dataUrl;
+      // });
+
+      // canvas.width = loadedImg.width;
+      // canvas.height = loadedImg.height;
+      // ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+
+      // const rotatedDataUrl = canvas.toDataURL("image/jpeg", 1);
+      // const base64 = rotatedDataUrl.split(",")[1];
+      // const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+      // const embeddedImg = await pdfDoc.embedJpg(bytes);
       const item = imagens[i];
       if (!item) continue;
 
@@ -187,12 +320,44 @@ export const gerarPDFService = async (
         img.src = dataUrl;
       });
 
+      // desenha imagem original
       canvas.width = loadedImg.width;
       canvas.height = loadedImg.height;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(loadedImg, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(loadedImg, 0, 0);
 
-      const rotatedDataUrl = canvas.toDataURL("image/jpeg", 1);
+      // 🔎 verifica se precisa cortar
+      const precisaCortar = precisaCortarMargemBranca(ctx, canvas.width, canvas.height);
+
+      let finalCanvas = canvas;
+
+      if (precisaCortar) {
+        const { left, top, cropWidth, cropHeight } =
+          cortarMargemBranca(ctx, canvas.width, canvas.height);
+
+        const tempCanvas = document.createElement("canvas");
+        const tempCtx = tempCanvas.getContext("2d");
+
+        tempCanvas.width = cropWidth;
+        tempCanvas.height = cropHeight;
+
+        tempCtx.drawImage(
+          canvas,
+          left,
+          top,
+          cropWidth,
+          cropHeight,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+        );
+
+        finalCanvas = tempCanvas;
+      }
+
+      // 🔥 continua normal (teu fluxo intacto)
+      const rotatedDataUrl = finalCanvas.toDataURL("image/jpeg", 1);
       const base64 = rotatedDataUrl.split(",")[1];
       const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       const embeddedImg = await pdfDoc.embedJpg(bytes);

@@ -238,8 +238,8 @@ export default function PdfEditor() {
   ]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
 
-  const [modoDimensionamento, setModoDimensionamento] = useState('grid');
-  const [tamanhoCm, setTamanhoCm] = useState({ largura: 19.0, altura: 27.7 }); // Tamanho em cm
+  const [modoDimensionamento, setModoDimensionamento] = useState('a4');
+  const [tamanhoCm, setTamanhoCm] = useState({ largura: 21.0, altura: 29.7 }); // Tamanho em cm
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     const makeItem = (img) =>
@@ -475,6 +475,23 @@ export default function PdfEditor() {
     resetarConfiguracoesGeral(resetarConfiguracoes);
   };
 
+  useEffect(() => {
+    if (modoDimensionamento !== "custom") return;
+
+    const { largura, altura } = tamanhoCm;
+
+    if (!largura || !altura) return;
+
+    const novaOrientacao =
+      largura > altura ? "paisagem" : "retrato";
+
+    setOrientacao((prev) => {
+      // evita render desnecessário
+      if (prev === novaOrientacao) return prev;
+      return novaOrientacao;
+    });
+
+  }, [tamanhoCm, modoDimensionamento]);
 
   return (
     <>
@@ -492,12 +509,69 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
-              
+
+              {/* Tamanho do Papel */}
+              <div className="w-full">
+                <label className="block mb-1 pro-label text-center text-xl">
+                  Tamanho do Papel:
+                </label>
+
+                <select
+                  className="px-2 w-full rounded-full pro-input"
+                  value={modoDimensionamento}
+                  onChange={(e) => {
+                    setModoDimensionamento(e.target.value);
+                    setAlteracoesPendentes(true);
+                  }}
+                >
+                  <option value="a4">A4 padrão</option>
+                  <option value="custom">Personalizado (cm)</option>
+                </select>
+              </div>
+
+              {modoDimensionamento === "custom" && (
+                <div className="flex gap-2 w-full">
+                  <div className="flex-1">
+                    <label className="block mb-1 text-center">Largura (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={tamanhoCm.largura}
+                      onChange={(e) => {
+                        setTamanhoCm(prev => ({
+                          ...prev,
+                          largura: parseFloat(e.target.value) || 0
+                        }));
+                        setAlteracoesPendentes(true);
+                      }}
+                      className="pro-input w-full rounded-full px-2"
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="block mb-1 text-center">Altura (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={tamanhoCm.altura}
+                      onChange={(e) => {
+                        setTamanhoCm(prev => ({
+                          ...prev,
+                          altura: parseFloat(e.target.value) || 0
+                        }));
+                        setAlteracoesPendentes(true);
+                      }}
+                      className="pro-input w-full rounded-full px-2"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Orientação e Aspecto (sem alterações) */}
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
                 <select
+                  disabled={modoDimensionamento === "custom"}
                   className="px-2 w-full rounded-full pro-input"
                   name="orientacao"
                   id="orientacao"
