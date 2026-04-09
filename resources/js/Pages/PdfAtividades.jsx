@@ -492,6 +492,8 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
+              
+
               {/* Orientação e Aspecto (sem alterações) */}
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>

@@ -26,7 +26,7 @@ const Pix = () => {
           setButtonTextLoad(false);
           setButtonTextCp(false);
           setButtonText(false);
-        }, 6000);
+        }, 5000);
       });
 
     return copyText;
