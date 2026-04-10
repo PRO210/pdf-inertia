@@ -173,8 +173,8 @@ export const gerarPDFService = async (
   cabecalhoTexto = "",
   cabecalhoAtivo = false,
   cabecalhoModo = "ambas",
-  modoDimensionamento = "a4",
-  tamanhoCm = { largura: 21.0, altura: 29.7 },
+  modoDimensionamento = "grid",
+  tamanhoCm = { largura: 29.7, altura: 21 },
   cabecalhoBorder = false,
   setPdfs
 
@@ -204,37 +204,65 @@ export const gerarPDFService = async (
 
     const CM_TO_POINTS = 28.3465;
     const margin = 0.5 * CM_TO_POINTS;
+    const gap = 3;
 
     let pageWidth;
     let pageHeight;
 
-    if (modoDimensionamento === "custom") {
-      pageWidth = tamanhoCm.largura * CM_TO_POINTS;
-      pageHeight = tamanhoCm.altura * CM_TO_POINTS;
+    // A4 padrão
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
 
-    } else {
-      // A4 padrão
-      const A4_WIDTH = 595.28;
-      const A4_HEIGHT = 841.89;
+    pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
+    pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
 
-      pageWidth = orientacao === 'retrato' ? A4_WIDTH : A4_HEIGHT;
-      pageHeight = orientacao === 'retrato' ? A4_HEIGHT : A4_WIDTH;
+    console.log('Orientação: ' + orientacao);
 
-    }
 
-    const gap = 3;
+    // const cols = Math.max(ampliacao?.colunas || 1, 1);
+    // const rows = Math.max(ampliacao?.linhas || 1, 1);
+    // const slotsPerPage = cols * rows;
 
-    const cols = Math.max(ampliacao?.colunas || 1, 1);
-    const rows = Math.max(ampliacao?.linhas || 1, 1);
-    const slotsPerPage = cols * rows;
-
+    // const usableW = pageWidth - margin * 2;
+    // const usableH = pageHeight - margin * 2;
+    // const cellW = (usableW - (cols - 1) * gap) / cols;
+    // const cellH = (usableH - (rows - 1) * gap) / rows;
     const usableW = pageWidth - margin * 2;
     const usableH = pageHeight - margin * 2;
-    const cellW = (usableW - (cols - 1) * gap) / cols;
-    const cellH = (usableH - (rows - 1) * gap) / rows;
+
+    let cols, rows, cellW, cellH;
+
+    if (modoDimensionamento === "custom") {
+      // 🔥 tamanho fixo vindo do front
+      cellW = tamanhoCm.largura * CM_TO_POINTS;
+      cellH = tamanhoCm.altura * CM_TO_POINTS;
+
+      console.log('cellW: ' + cellW);
+      console.log('cellH: ' + cellH);
+
+      // 🔥 calcula quantos cabem na página
+      cols = Math.max(1, Math.floor((usableW + gap) / (cellW + gap)));
+      rows = Math.max(1, Math.floor((usableH + gap) / (cellH + gap)));
+
+      console.log('cols: ' + cols);
+      console.log('rows: ' + rows);
+
+    } else {
+      // 🔹 comportamento antigo (grid)
+      cols = Math.max(ampliacao?.colunas || 1, 1);
+      rows = Math.max(ampliacao?.linhas || 1, 1);
+
+      cellW = (usableW - (cols - 1) * gap) / cols;
+      cellH = (usableH - (rows - 1) * gap) / rows;
+    }
+
+    const slotsPerPage = cols * rows;
+    console.log('slotsPerPage: ' + slotsPerPage);
 
     const totalSlots = imagens.length;
     let page = null;
+    console.log('totalSlots: ' + totalSlots);
+
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -262,7 +290,11 @@ export const gerarPDFService = async (
 
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    for (let i = 0; i < totalSlots; i++) {
+
+    const totalLoop = (modoDimensionamento === 'grid') ? totalSlots : slotsPerPage;
+
+
+    for (let i = 0; i < totalLoop; i++) {
       const slotIndexInPage = i % slotsPerPage;
       const col = slotIndexInPage % cols;
       const row = Math.floor(slotIndexInPage / cols);
@@ -308,8 +340,10 @@ export const gerarPDFService = async (
       // const base64 = rotatedDataUrl.split(",")[1];
       // const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       // const embeddedImg = await pdfDoc.embedJpg(bytes);
-      const item = imagens[i];
-      if (!item) continue;
+      
+      // const item = imagens[i];
+      // if (!item) continue;
+      const item = imagens[i % imagens.length];
 
       const dataUrl = typeof item === "string" ? item : item.src;
       if (!dataUrl) continue;
@@ -392,6 +426,7 @@ export const gerarPDFService = async (
       }
 
       if (aspecto) {
+
         const scaleW = embeddedW > 0 ? ajustedAvailableW / embeddedW : 1;
         const scaleH = embeddedH > 0 ? availableH / embeddedH : 1;
         const scale = Math.min(scaleW, scaleH, 1.0);
@@ -400,6 +435,7 @@ export const gerarPDFService = async (
         drawH = embeddedH * scale;
         drawX = ajustedDrawX + (ajustedAvailableW - drawW) / 2;
         drawY = cellBottomY + (cellH - drawH) / 2 - (temCabecalho ? cabecalhoAltura / 2 : 0);
+
       } else {
         drawW = ajustedAvailableW;
         drawH = availableH;

@@ -238,8 +238,8 @@ export default function PdfEditor() {
   ]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
 
-  const [modoDimensionamento, setModoDimensionamento] = useState('a4');
-  const [tamanhoCm, setTamanhoCm] = useState({ largura: 21.0, altura: 29.7 }); // Tamanho em cm
+  const [modoDimensionamento, setModoDimensionamento] = useState('grid');
+  const [tamanhoCm, setTamanhoCm] = useState({ largura: 28.7, altura: 21 }); // Tamanho em cm
 
   const adicionarPrimeiraImagem = (novaImagem, modoRepeticao) => {
     const makeItem = (img) =>
@@ -475,23 +475,55 @@ export default function PdfEditor() {
     resetarConfiguracoesGeral(resetarConfiguracoes);
   };
 
+  // useEffect(() => {
+  //   if (modoDimensionamento !== "custom") return;
+
+  //   const { largura, altura } = tamanhoCm;
+
+  //   if (!largura || !altura) return;
+
+  //   const novaOrientacao =
+  //     largura > altura ? "paisagem" : "retrato";
+
+  //   setOrientacao((prev) => {
+  //     // evita render desnecessário
+  //     if (prev === novaOrientacao) return prev;
+  //     return novaOrientacao;
+  //   });
+
+  // }, [tamanhoCm, modoDimensionamento]);
+
   useEffect(() => {
     if (modoDimensionamento !== "custom") return;
 
-    const { largura, altura } = tamanhoCm;
+    const CM_TO_POINTS = 28.3465;
 
-    if (!largura || !altura) return;
+    // A4
+    const A4_WIDTH = 595.28;
+    const A4_HEIGHT = 841.89;
 
-    const novaOrientacao =
-      largura > altura ? "paisagem" : "retrato";
+    const margin = 0.5 * CM_TO_POINTS;
+    const gap = 3;
 
-    setOrientacao((prev) => {
-      // evita render desnecessário
-      if (prev === novaOrientacao) return prev;
-      return novaOrientacao;
-    });
+    const pageWidth = orientacao === "retrato" ? A4_WIDTH : A4_HEIGHT;
+    const pageHeight = orientacao === "retrato" ? A4_HEIGHT : A4_WIDTH;
 
-  }, [tamanhoCm, modoDimensionamento]);
+    const usableW = pageWidth - margin * 2;
+    const usableH = pageHeight - margin * 2;
+
+    const cellW = tamanhoCm.largura * CM_TO_POINTS;
+    const cellH = tamanhoCm.altura * CM_TO_POINTS;
+
+    const cols = Math.max(1, Math.floor((usableW + gap) / (cellW + gap)));
+    const rows = Math.max(1, Math.floor((usableH + gap) / (cellH + gap)));
+
+    setAmpliacao((prev) => ({
+      ...prev,
+      colunas: cols,
+      linhas: rows,
+    }));
+
+  }, [tamanhoCm, orientacao, modoDimensionamento]);
 
   return (
     <>
@@ -513,7 +545,7 @@ export default function PdfEditor() {
               {/* Tamanho do Papel */}
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">
-                  Tamanho do Papel:
+                  Modo de Redução:
                 </label>
 
                 <select
@@ -524,15 +556,15 @@ export default function PdfEditor() {
                     setAlteracoesPendentes(true);
                   }}
                 >
-                  <option value="a4">A4 padrão</option>
-                  <option value="custom">Personalizado (cm)</option>
+                  <option value="grid">A4 padrão Grid</option>
+                  <option value="custom">A4 Personalizado (cm)</option>
                 </select>
               </div>
 
               {modoDimensionamento === "custom" && (
                 <div className="flex gap-2 w-full">
                   <div className="flex-1">
-                    <label className="block mb-1 text-center">Largura (cm)</label>
+                    <label className="block mb-1 text-center">Largura dos slots(cm)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -549,7 +581,7 @@ export default function PdfEditor() {
                   </div>
 
                   <div className="flex-1">
-                    <label className="block mb-1 text-center">Altura (cm)</label>
+                    <label className="block mb-1 text-center">Altura dos slots(cm)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -571,7 +603,6 @@ export default function PdfEditor() {
               <div className="w-full">
                 <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
                 <select
-                  disabled={modoDimensionamento === "custom"}
                   className="px-2 w-full rounded-full pro-input"
                   name="orientacao"
                   id="orientacao"
@@ -586,79 +617,87 @@ export default function PdfEditor() {
                 </select>
               </div>
 
-              <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
-                <select
-                  className="px-2 w-full rounded-full pro-input"
-                  name="aspecto"
-                  id="aspecto"
-                  value={aspecto}
-                  onChange={(e) => {
-                    setAspecto(e.target.value === "true")
-                    setAlteracoesPendentes(true)
-                  }}
-                >
-                  <option value="true">Manter o aspecto original</option>
-                  <option value="false">Preencher toda a folha</option>
-                </select>
-              </div>
+              {/* Aspecto da imagem */}
+              {modoDimensionamento === 'grid' && (
+                <div className="w-full">
+                  <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
+                  <select
+                    className="px-2 w-full rounded-full pro-input"
+                    name="aspecto"
+                    id="aspecto"
+                    value={aspecto}
+                    onChange={(e) => {
+                      setAspecto(e.target.value === "true")
+                      setAlteracoesPendentes(true)
+                    }}
+                  >
+                    <option value="true">Manter o aspecto original</option>
+                    <option value="false">Preencher toda a folha</option>
+                  </select>
+                </div>
+              )}
 
               {/* Ampliacao (colunas / linhas) - mantém igual */}
-              <label className="block  pro-label text-xl text-center">Redução:</label>
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                <div className="flex gap-2 w-full">
-                  <div className="flex-1" id='colunas-input'>
-                    <label className="block mb-2 pro-label text-center">Colunas</label>
-                    <select
-                      className="pro-input rounded-full w-full"
-                      value={ampliacao.colunas}
-                      onChange={(e) => {
-                        setAmpliacao((prev) => ({
-                          ...prev,
-                          colunas: parseInt(e.target.value) || 1,
-                        }));
-                        setAlteracoesPendentes(true);
-                      }}
-                    >
-                      {[...Array(11)].map((_, i) => {
-                        return (
-                          <option key={i} value={i}>
-                            {i}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
+              {modoDimensionamento === 'grid' && (
+                <>
+                  <label className="block  pro-label text-xl text-center">Redução:</label>
 
-                  <div className="flex items-end justify-center px-2">
-                    <span className="text-xl font-bold">×</span>
-                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full">
+                    <div className="flex gap-2 w-full">
+                      <div className="flex-1" id='colunas-input'>
+                        <label className="block mb-2 pro-label text-center">Colunas</label>
+                        <select
+                          className="pro-input rounded-full w-full"
+                          value={ampliacao.colunas}
+                          onChange={(e) => {
+                            setAmpliacao((prev) => ({
+                              ...prev,
+                              colunas: parseInt(e.target.value) || 1,
+                            }));
+                            setAlteracoesPendentes(true);
+                          }}
+                        >
+                          {[...Array(11)].map((_, i) => {
+                            return (
+                              <option key={i} value={i}>
+                                {i}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
 
-                  <div className="flex-1" id='linhas-select'>
-                    <label className="block mb-2 pro-label text-center">Linhas</label>
-                    <select
-                      className="pro-input rounded-full w-full"
-                      value={ampliacao.linhas}
-                      onChange={(e) => {
-                        setAmpliacao((prev) => ({
-                          ...prev,
-                          linhas: parseInt(e.target.value) || 1,
-                        }));
-                        setAlteracoesPendentes(true);
-                      }}
-                    >
-                      {[...Array(11)].map((_, i) => {
-                        return (
-                          <option key={i} value={i}>
-                            {i}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
+                      <div className="flex items-end justify-center px-2">
+                        <span className="text-xl font-bold">×</span>
+                      </div>
 
-                </div>
-              </div>
+                      <div className="flex-1" id='linhas-select'>
+                        <label className="block mb-2 pro-label text-center">Linhas</label>
+                        <select
+                          className="pro-input rounded-full w-full"
+                          value={ampliacao.linhas}
+                          onChange={(e) => {
+                            setAmpliacao((prev) => ({
+                              ...prev,
+                              linhas: parseInt(e.target.value) || 1,
+                            }));
+                            setAlteracoesPendentes(true);
+                          }}
+                        >
+                          {[...Array(11)].map((_, i) => {
+                            return (
+                              <option key={i} value={i}>
+                                {i}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Repetir ou não as imagens */}
               <div className="w-full">
