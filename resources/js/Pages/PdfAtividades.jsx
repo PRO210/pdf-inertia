@@ -233,7 +233,7 @@ export default function PdfEditor() {
   const [cabecalhoTexto, setCabecalhoTexto] = useLocalStorage("cabecalhoTexto", [
     "ESCOLA ",
     "PROFESSOR(A):",
-    "ALUNO:__________________________________________________",
+    "ALUNO:______________________________________________",
     "TURMA:",
   ]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
@@ -794,10 +794,10 @@ export default function PdfEditor() {
                       let maxPorLinha;
                       if (isModoFull) {
                         // Limites maiores para o modo que atravessa as duas colunas
-                        maxPorLinha = orientacao === "paisagem" ? 100 : 70;
+                        maxPorLinha = orientacao === "paisagem" ? 100 : 66;
                       } else {
                         // Limites padrão para apenas uma coluna
-                        maxPorLinha = orientacao === "paisagem" ? 52 : 35;
+                        maxPorLinha = orientacao === "paisagem" ? 50 : 32;
                       }
 
                       return (

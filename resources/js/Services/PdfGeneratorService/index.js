@@ -218,15 +218,6 @@ export const gerarPDFService = async (
 
     console.log('Orientação: ' + orientacao);
 
-
-    // const cols = Math.max(ampliacao?.colunas || 1, 1);
-    // const rows = Math.max(ampliacao?.linhas || 1, 1);
-    // const slotsPerPage = cols * rows;
-
-    // const usableW = pageWidth - margin * 2;
-    // const usableH = pageHeight - margin * 2;
-    // const cellW = (usableW - (cols - 1) * gap) / cols;
-    // const cellH = (usableH - (rows - 1) * gap) / rows;
     const usableW = pageWidth - margin * 2;
     const usableH = pageHeight - margin * 2;
 
@@ -340,7 +331,7 @@ export const gerarPDFService = async (
       // const base64 = rotatedDataUrl.split(",")[1];
       // const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       // const embeddedImg = await pdfDoc.embedJpg(bytes);
-      
+
       // const item = imagens[i];
       // if (!item) continue;
       const item = imagens[i % imagens.length];
@@ -402,10 +393,12 @@ export const gerarPDFService = async (
       const topStartY = pageHeight - margin;
       const cellLeftX = margin + col * (cellW + gap);
       const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
+
       const temCabecalho = shouldDrawHeader && cabecalhoAltura > 0;
+      const gapHcabecalho = temCabecalho ? 8 : 0;
 
       const availableW = Math.max(1, cellW - totalBorderW);
-      const availableH = Math.max(1, cellH - totalBorderH - (temCabecalho ? cabecalhoAltura : 0));
+      const availableH = Math.max(1, cellH - totalBorderH - (temCabecalho ? (cabecalhoAltura + gapHcabecalho) : 0));
 
       let drawW, drawH, drawX, drawY;
 
@@ -434,13 +427,13 @@ export const gerarPDFService = async (
         drawW = embeddedW * scale;
         drawH = embeddedH * scale;
         drawX = ajustedDrawX + (ajustedAvailableW - drawW) / 2;
-        drawY = cellBottomY + (cellH - drawH) / 2 - (temCabecalho ? cabecalhoAltura / 2 : 0);
+        drawY = cellBottomY + (cellH - drawH) / 2 - (temCabecalho ? (cabecalhoAltura + gapHcabecalho) / 2 : 0);
 
       } else {
         drawW = ajustedAvailableW;
         drawH = availableH;
         drawX = ajustedDrawX;
-        drawY = cellBottomY + totalBorderH / 2;
+        drawY = cellBottomY + totalBorderH / 2 - (gapHcabecalho / 2);
       }
 
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });

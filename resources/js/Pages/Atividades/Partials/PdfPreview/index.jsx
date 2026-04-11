@@ -29,7 +29,6 @@ export default function PdfPreview({
 }) {
   const makeItem = (src) => ({ src, uid: Date.now() + Math.random() });
 
-
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [modalData, setModalData] = useState(null);
@@ -39,27 +38,35 @@ export default function PdfPreview({
 
   // Helper: extrai thumbnails de todas as páginas do PDF
   async function extractPdfPages(file) {
-
     const arrayBuffer = await file.arrayBuffer();
     const typedArray = new Uint8Array(arrayBuffer);
+
     const loadingTask = pdfjsLib.getDocument({ data: typedArray });
     const pdf = await loadingTask.promise;
 
     const thumbs = [];
-    const total = pdf.numPages;
 
-    // Cria thumbs em escala reduzida para performance
+    const MAX_PAGES = 25; // 🔥 controle de performance
+    const total = Math.min(pdf.numPages, MAX_PAGES);
+
     for (let i = 1; i <= total; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.5 });
 
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 0.5 });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.ceil(viewport.width);
-      canvas.height = Math.ceil(viewport.height);
-      const ctx = canvas.getContext('2d');
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(viewport.width);
+        canvas.height = Math.ceil(viewport.height);
 
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      thumbs.push(canvas.toDataURL('image/jpeg', 0.9));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) continue;
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+
+        thumbs.push(canvas.toDataURL('image/jpeg', 0.8)); // reduz qualidade pra economizar memória
+      } catch (err) {
+        console.warn(`Erro na página ${i}`, err);
+      }
     }
 
     return { pdf, thumbs };
@@ -118,8 +125,14 @@ export default function PdfPreview({
         const { pdf, thumbs } = await extractPdfPages(file);
 
         setModalData({ pdf, thumbs, slotIndex: index, file });
+
+        // 🔥 guarda o input pra limpar depois
+        e.target.dataset.index = index;
+
         setModalVisible(true);
       } catch (err) {
+        // 🔥 limpa em caso de erro
+        e.target.value = '';
         console.error('Erro ao processar PDF:', err);
       }
 
@@ -178,6 +191,21 @@ export default function PdfPreview({
   };
 
   const handleModalClose = () => {
+
+    // Remove loading
+    if (modalData?.slotIndex !== undefined) {
+      setLoadingThumbnails(prev => {
+        const newObj = { ...prev };
+        delete newObj[modalData.slotIndex];
+        return newObj;
+      });
+
+      // 🔥 limpa todos os inputs (mais simples sem ref)
+      document.querySelectorAll('input[type="file"]').forEach(input => {
+        input.value = '';
+      });
+    }
+
     setModalVisible(false);
     setModalData(null);
   };
@@ -347,6 +375,38 @@ export default function PdfPreview({
           </div>
         );
       })}
+
+      {/* 1. Criar linhas verticais (entre colunas) */}
+      {Array.from({ length: ampliacao.colunas - 1 }).map((_, col) => (
+        <div
+          key={`v-${col}`}
+          className="absolute top-0 bottom-0 pointer-events-none"
+          style={{
+            left: `${((col + 1) / ampliacao.colunas) * 100}%`,
+            width: espessuraBorda,
+            transform: 'translateX(-50%)',
+            backgroundImage: `url(/imagens/bordas/${repeatBorder}Y.png)`,
+            backgroundRepeat: 'repeat-y',
+            backgroundSize: `auto ${tamanhoTile}px`,
+          }}
+        />
+      ))}
+      
+      {/* 2. Criar linhas horizontais (entre linhas) */}
+      {Array.from({ length: ampliacao.linhas - 1 }).map((_, row) => (
+        <div
+          key={`h-${row}`}
+          className="absolute left-0 right-0 pointer-events-none"
+          style={{
+            top: `${((row + 1) / ampliacao.linhas) * 100}%`,
+            height: espessuraBorda,
+            transform: 'translateY(-50%)',
+            backgroundImage: `url(/imagens/bordas/${repeatBorder}.png)`,
+            backgroundRepeat: 'repeat-x',
+            backgroundSize: `${tamanhoTile}px auto`,
+          }}
+        />
+      ))}
 
       {/* Modal de seleção de página */}
       <PdfPageSelector
