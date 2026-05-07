@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Payment;
 use App\Models\UserDownload;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class UserAlertService
 {
@@ -41,30 +42,48 @@ class UserAlertService
   {
     $debug = app()->environment('local');
 
-    if ($debug) {
-      Log::info('UserAlertService iniciado', [
-        'user_id' => $user->id ?? null
-      ]);
-    }
-
     if (!$user) {
-      if ($debug) {
-        Log::info('Usuário inválido');
-      }
+      if ($debug) Log::info('UserAlertService: Nenhum usuário autenticado.');
       return ['showAlert' => false];
     }
 
-    // 🔹 Limite de downloads do plano gratuito (config)
-    $limitFree = (int) config('services.downloads.limite_free', 50);
+    if ($debug) {
+      Log::info('UserAlertService: Iniciando verificação', ['user_id' => $user->id]);
+    }
+
+    // 1. Verificar se o usuário possui assinatura PRO ativa (não vencida)
+    $activeSubscription = Payment::where('user_id', $user->id)
+      ->where('type', 'mensalidade')
+      ->where('status', 'approved')
+      ->whereDate('date_of_expiration', '>', now())
+      ->orderBy('date_of_expiration', 'desc')
+      ->first();
+
+    $isPro = (bool) $activeSubscription;
+
+    // 2. Verificar se a assinatura vence HOJE (exatamente hoje)
+    $expiresToday = false;
+    if ($isPro) {
+      $expiresToday = Carbon::parse($activeSubscription->date_of_expiration)->isToday();
+    }
 
     if ($debug) {
-      Log::info('Limite carregado', [
-        'limitFree' => $limitFree
+      Log::info('UserAlertService: Status da assinatura', [
+        'is_pro' => $isPro,
+        'expires_today' => $expiresToday,
+        'expiration_date' => $activeSubscription->date_of_expiration ?? 'N/A'
       ]);
     }
 
-    // 🔹 Total de downloads relevantes do usuário
-    $currentUsage = UserDownload::where('user_id', $user->id)
+    // 3. Se o usuário é PRO e NÃO vence hoje, não há motivo para alerta.
+    if ($isPro && !$expiresToday) {
+      if ($debug) Log::info('UserAlertService: Usuário PRO com assinatura em dia. Sem alertas.');
+      return ['showAlert' => false];
+    }
+
+    // 4. Se chegou aqui e NÃO é PRO, verificamos o limite do plano FREE
+    $limitFree = (int) config('services.downloads.limite_free', 50);
+    $currentUsage = (int) UserDownload::where('user_id', $user->id)
       ->where(function ($query) {
         $query->where('file_name', 'LIKE', '%poster.pdf%')
           ->orWhere('file_name', 'LIKE', '%atividades.pdf%')
@@ -72,64 +91,46 @@ class UserAlertService
       })
       ->sum('count');
 
-    if ($debug) {
-      Log::info('Uso atual calculado', [
-        'currentUsage' => $currentUsage
-      ]);
-    }
-
-    // 🔹 Verifica se a assinatura vence hoje
-    $expiresToday = Payment::where('user_id', $user->id)
-      ->where('type', 'mensalidade')
-      ->where('status', 'approved')
-      ->whereDate('date_of_expiration', now()->toDateString())
-      ->exists();
-
-    if ($debug) {
-      Log::info('Verificação de expiração', [
-        'expiresToday' => $expiresToday
-      ]);
-    }
-
-    // 🔹 Define limite de alerta (90%)
     $threshold = $limitFree * 0.9;
+    $hasReachedLimit = ($currentUsage >= $limitFree);
     $isLimitNear = ($currentUsage >= $threshold);
 
     if ($debug) {
-      Log::info('Verificação de limite', [
-        'threshold_90_percent' => $threshold,
-        'isLimitNear' => $isLimitNear
+      Log::info('UserAlertService: Verificação de uso Free', [
+        'usage' => $currentUsage,
+        'limit' => $limitFree,
+        'is_limit_near' => $isLimitNear,
+        'has_reached_limit' => $hasReachedLimit
       ]);
     }
 
-    // 🔹 Se não há risco nem expiração → não mostra alerta
-    if (!$expiresToday && !$isLimitNear) {
-      if ($debug) {
-        Log::info('Nenhum alerta será exibido');
-      }
-      return ['showAlert' => false];
+    // --- LÓGICA DE RETORNO DOS ALERTAS ---
+
+    // Caso A: Assinatura PRO vence hoje
+    if ($expiresToday) {
+      return [
+        'showAlert' => true,
+        'type'      => 'expiration',
+        'message'   => 'Sua assinatura vence hoje! Renove para continuar com acesso total.',
+        'id'        => 'exp_' . now()->format('Y-m-d')
+      ];
     }
 
-    // 🔹 Define tipo de alerta
-    $type = $expiresToday ? 'expiration' : 'limit';
-
-    if ($debug) {
-      Log::info('Alerta ativado', [
-        'type' => $type
-      ]);
+    // Caso B: Usuário FREE atingiu ou está perto do limite
+    if (!$isPro && $isLimitNear) {
+      return [
+        'showAlert' => true,
+        'type'      => 'limit',
+        'usage'     => $currentUsage,
+        'limit'     => $limitFree,
+        'isBlocked' => $hasReachedLimit, // Útil para você bloquear o botão de download no front
+        'message'   => $hasReachedLimit
+          ? "Você atingiu seu limite de $limitFree criações. Assine o plano PRO para continuar!"
+          : "Atenção: você já realizou $currentUsage de $limitFree criações permitidas no plano grátis.",
+        'id'        => 'limit_' . ($hasReachedLimit ? 'blocked' : 'near')
+      ];
     }
 
-    return [
-      'showAlert' => true,
-      'type'      => $type,
-      'usage'     => (int) $currentUsage,
-      'limit'     => $limitFree,
-      'message'   => $expiresToday
-        ? 'Sua assinatura vence hoje! Renove para continuar com acesso total.'
-        : ($currentUsage >= $limitFree
-          ? "Você atingiu seu limite de $limitFree criações. Assine o plano PRO para continuar gerando arquivos!"
-          : "Atenção: você já realizou $currentUsage de $limitFree criações permitidas no plano grátis."),
-      'id'        => $type . '_' . ($expiresToday ? now()->format('Y-m-d') : 'reached')
-    ];
+    return ['showAlert' => false];
   }
 }

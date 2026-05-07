@@ -45,6 +45,10 @@ export default function PdfEditor() {
   const { auth } = usePage().props;
   const user = auth.user;
 
+  console.log(auth.alertService);
+  console.log(auth.alertService.isBlocked);
+  console.log("Verificando isBlocked:", auth.alertService?.isBlocked);
+
   // Instancia o gerenciador de mensagens
   const { getMsgLocal, podeExibir, silenciar, confirmarComCheck, exibirAvisoCritico } = useMensagens();
 
@@ -453,6 +457,15 @@ export default function PdfEditor() {
         setPdfs
       );
       setAlteracoesPendentes(false)
+
+      // Após o sucesso da geração do arquivo ou salvamento:
+      router.reload({
+        only: ['auth'], // Pede ao Laravel para reenviar apenas os dados de auth (onde está o alerta)
+        onSuccess: () => {
+          console.log("Contagem de downloads atualizada!");
+        }
+      });
+
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       setErroPdf("Falha ao gerar o arquivo.");
@@ -913,11 +926,15 @@ export default function PdfEditor() {
                         </div>
 
                         <div className="mt-4 flex gap-2">
-                          <button onClick={() => processarDownload(pdf, 'atividades')}
-                            className="flex-1 pro-btn-green-no-outline text-sm"
-                          >
-                            Baixar PDF
-                          </button>
+                          
+                          {!auth.alertService.isBlocked && (
+                            <button onClick={() => processarDownload(pdf, 'atividades')}
+                              className="flex-1 pro-btn-green-no-outline text-sm"
+                            >
+                              Baixar PDF
+                            </button>
+                          )}
+
                           <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline text-sm">
                             Excluir
                           </button>
@@ -946,9 +963,11 @@ export default function PdfEditor() {
                         {/* <button onClick={() => setPdfSelecionadoModal(pdf)} className="bg-white text-gray-800 px-3 py-1 rounded-full text-xs font-bold hover:bg-purple-500">
                           Visualizar
                         </button> */}
-                        <button onClick={() => processarDownload(pdf, 'atividades')} className="pro-btn-green-no-outline">
-                          Baixar
-                        </button>
+                        {!auth.alertService.isBlocked && (
+                          <button onClick={() => processarDownload(pdf, 'atividades')} className="pro-btn-green-no-outline">
+                            Baixar
+                          </button>
+                        )}
                         <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline">
                           Excluir
                         </button>
@@ -983,9 +1002,13 @@ export default function PdfEditor() {
 
                     {/* Rodapé do Modal */}
                     <div className="p-4 border-t flex justify-end gap-2">
-                      <button onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')} className="pro-btn-green px-4 py-2" >
-                        Download
-                      </button>
+
+                      {!auth.alertService.isBlocked && (
+                        <button onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')} className="pro-btn-green px-4 py-2" >
+                          Download
+                        </button>
+                      )}
+
                       <button onClick={() => setPdfSelecionadoModal(null)} className="bg-gray-500 text-white px-4 py-2 rounded-full" >
                         Fechar
                       </button>
@@ -994,7 +1017,7 @@ export default function PdfEditor() {
                 </div>
               )}
 
-              {pdfs.length > 1 && (
+              {pdfs.length > 1 && !auth.alertService.isBlocked && (
                 <div className="w-full flex items-center justify-center gap-2 mb-6">
                   {/* Botão Principal: Gerar Arquivo Único */}
                   <button
@@ -1111,20 +1134,49 @@ export default function PdfEditor() {
               <div className="flex flex-col gap-2 w-full">
                 {user && (
                   <>
-                    {pdfUrl && !alteracoesPendentes && (
+                    {/* CONDIÇÃO DE DOWNLOAD: 
+                    Só mostra o botão de download se:
+                    1. Tiver a URL do PDF
+                    2. Não houver alterações pendentes
+                    3. O usuário NÃO estiver bloqueado (isBlocked === false)
+                */}
+                    {pdfUrl && !alteracoesPendentes && !auth.alertService.isBlocked && (
                       <button
                         onClick={() => processarDownload({ url: pdfUrl }, 'atividades')}
                         className="pro-btn-green mt-2"
-                        disabled={!pdfUrl}>
+                        disabled={!pdfUrl}
+                      >
                         Baixar o PDF do Preview
+                        {/* {auth.alertService.isBlocked && ` (Limite de ${auth.alertService.usage} PDFs atingido)`} */}
                       </button>
                     )}
 
-                    {carregando && (
-                      <FullScreenSpinner />
-                    )}
-
+                    {carregando && <FullScreenSpinner />}
                   </>
+                )}
+
+                {/* BANNER DE BLOQUEIO:
+                  Aparece apenas quando o limite free acaba e o usuário não é PRO.
+              */}
+                {auth.alertService.isBlocked && (
+                  <div className="bg-red-50 border-l-4 border-red-500 text-red-800 px-4 py-4 rounded shadow-sm mt-4 flex flex-col sm:flex-row items-center justify-between gap-4" role="alert">
+                    <div className="flex items-center">
+                      <svg className="w-6 h-6 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="font-bold">Limite Atingido</p>
+                        <p className="text-sm opacity-90">{auth.alertService.message}</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => router.visit(route('pagamento.retorno'))}
+                      className="w-full sm:w-auto bg-red-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-md"
+                    >
+                      Assinar Plano PRO
+                    </button>
+                  </div>
                 )}
               </div>
 
