@@ -53,11 +53,14 @@ class ImageController extends Controller
                 'Authorization' => "Bearer {$token}",
                 'Content-Type' => 'application/json',
                 'Prefer' => 'wait',
-            ])->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
-                'input' => [
-                    'image' => $base64Image,
-                ],
-            ]);
+            ])
+                ->timeout(60) // ⏳ Espera até 60 segundos (1 minuto) pela resposta
+                ->connectTimeout(30) // Tempo máximo para conseguir a conexão inicial
+                ->post('https://api.replicate.com/v1/models/recraft-ai/recraft-remove-background/predictions', [
+                    'input' => [
+                        'image' => $base64Image,
+                    ],
+                ]);
 
             $data = $response->json();
 
@@ -160,8 +163,11 @@ class ImageController extends Controller
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
                 'Content-Type' => 'application/json',
-                'Prefer' => 'wait', // Espera pela resposta síncrona
-            ])->post($endpoint, $payload);
+                // 'Prefer' => 'wait', // Espera pela resposta síncrona
+            ])
+                ->timeout(60) // ⏳ Espera até 60 segundos (1 minuto) pela resposta
+                ->connectTimeout(30) // Tempo máximo para conseguir a conexão inicial
+                ->post($endpoint, $payload);
 
             // 5️⃣ Verifica resposta
             if (!$response->successful()) {
@@ -180,7 +186,7 @@ class ImageController extends Controller
             }
 
             $result = $response->json();
-            $outputValue = $result['output'] ?? null;
+            // $outputValue = $result['output'] ?? null;
 
             // // --- 2. IMAGEM DE RETORNO (OUTPUT) ---
             // $returnSuffix = '_upscale_return';
@@ -209,13 +215,20 @@ class ImageController extends Controller
             //     }
             // }
 
-
-            // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
+            // 6️⃣ Retorna JSON com o resultado starting)
             return response()->json([
                 'success' => true,
-                'output_base64_or_url' => $outputValue,
-                'replicate_id' => $result['id'] ?? null
+                'replicate_id' => $result['id'] ?? null,
+                'status' => $result['status'] ?? null
             ]);
+
+
+            // 6️⃣ Retorna JSON com o resultado (o Base64 upscalado)
+            // return response()->json([
+            //     'success' => true,
+            //     'output_base64_or_url' => $outputValue,
+            //     'replicate_id' => $result['id'] ?? null
+            // ]);
         } catch (\Exception $e) {
             // ... (Lógica de tratamento de exceção) ...
             Log::error('💥 Erro inesperado no upscale()', [
@@ -234,6 +247,7 @@ class ImageController extends Controller
      */
     public function melhoramento(Request $request)
     {
+        // Log::info('Entrei no melhoramente');
         // ⚠️ 1. OBTENÇÃO DOS DADOS (Pode ficar fora se for totalmente seguro)
         $userId = Auth::check() ? Auth::id() : 0;
 
@@ -259,7 +273,7 @@ class ImageController extends Controller
                     'upscale' => 2,
                     'face_upsample' => true,
                     'background_enhance' => true,
-                    'codeformer_fidelity' => 1,
+                    'codeformer_fidelity' => 0,98,
                 ],
             ];
 
@@ -268,9 +282,9 @@ class ImageController extends Controller
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
                 'Content-Type' => 'application/json',
-                'Prefer' => 'wait',
+                // 'Prefer' => 'wait',
             ])
-                ->timeout(60) // ⏳ Espera até 120 segundos (2 minutos) pela resposta
+                ->timeout(30) // ⏳ Espera até 30 segundos (1 minuto) pela resposta
                 ->connectTimeout(30) // Tempo máximo para conseguir a conexão inicial
                 ->post($endpoint, $payload);
 
@@ -291,12 +305,14 @@ class ImageController extends Controller
             $result = $response->json();
             $outputValue = $result['output'] ?? null;
 
+
             // 6️⃣ Retorna JSON com o resultado
             return response()->json([
                 'success' => true,
-                'output_base64_or_url' => $outputValue,
-                'replicate_id' => $result['id'] ?? null
+                'replicate_id' => $result['id'] ?? null,
+                'status' => $result['status'] ?? null
             ]);
+       
         } catch (\Exception $e) {
             // 🚨 Bloco de captura para erros INESPERADOS (rede, configuração, etc.)
             Log::error('💥 Erro inesperado no melhoramento()', [
@@ -308,6 +324,7 @@ class ImageController extends Controller
             return response()->json(['error' => 'Erro interno do servidor: ' . $e->getMessage()], 500);
         }
     }
+
 
     public function saveFinalImage(Request $request, SaveImageFromSource $saveImage, CleanUserUpscaleFiles $cleanFiles)
     {
@@ -658,6 +675,38 @@ class ImageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    public function replicateStatus(string $id)
+    {
+        try {
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . env('REPLICATE_API_TOKEN'),
+            ])->get("https://api.replicate.com/v1/predictions/{$id}");
+
+            if (!$response->successful()) {
+
+                return response()->json([
+                    'success' => false
+                ], 500);
+            }
+
+            $result = $response->json();
+
+            return response()->json([
+                'success' => true,
+                'status' => $result['status'] ?? null,
+                'output' => $result['output'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
             ], 500);
         }
     }

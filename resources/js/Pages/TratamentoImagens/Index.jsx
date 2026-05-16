@@ -30,6 +30,9 @@ export default function TratamentoImagens() {
   const [bgRemovedImageUrl, setBgRemovedImageUrl] = useState(null);
   const [lastSavedImageId, setLastSavedImageId] = useState(null);
 
+  const [replicateId, setReplicateId] = useState(null);
+  const [currentOperation, setCurrentOperation] = useState(null);
+
   // Mapeamento dos modelos
   const MODELS = {
     REMOVE_BG: 'remover-fundo',
@@ -175,6 +178,53 @@ export default function TratamentoImagens() {
 
   // Isso garante que o Pica seja carregado antes de qualquer processamento.
 
+
+  // Recuperar imagem do localStorage ao carregar a página
+  // Recuperar o ID do Replicate e checar status ao dar F5 ou mudar de página
+
+
+  useEffect(() => {
+    const savedId = localStorage.getItem('pending_replicate_id');
+    const savedType = localStorage.getItem('pending_replicate_type');
+
+
+    async function recuperarPrevisaoPendente() {
+      if (savedId && savedType) {
+        console.log(`🔄 Encontrado ID pendente no localStorage: ${savedId}. Verificando disponibilidade...`);
+        setLoading(true);
+        setLastOperationType(savedType);
+
+        // Executa o seu próprio método de pooling para buscar o resultado
+        const finalUrl = await waitForReplicateResult(savedId);
+        console.log("✅ [TESTE] Todos os estados de imagem foram alimentados com:", finalUrl);
+
+        if (finalUrl) {
+          // 🚀 CORREÇÃO: Alimenta o estado principal 'result' que a interface precisa para renderizar
+          setResult(finalUrl);
+
+          // Alimenta os estados secundários de histórico por compatibilidade
+          if (savedType === MODELS.REMOVE_BG) {
+            setBgRemovedImageUrl(finalUrl);
+          } else if (savedType === MODELS.UPSCALER_ESRGAN) {
+            setUpscaledImageUrl(finalUrl);
+          } else if (savedType === MODELS.NAFNet) {
+            setUpscaledImageUrl(finalUrl);
+          }
+          console.log("✅ Imagem recuperada com sucesso após recarregamento!");
+        } else {
+          // Se a imagem sumiu do Replicate (passou de 1 hora) ou deu erro, limpa o cache
+          console.log("⚠️ A imagem expirou no servidor do Replicate ou não está mais disponível.");
+          localStorage.removeItem('pending_replicate_id');
+          localStorage.removeItem('pending_replicate_type');
+        }
+        setLoading(false);
+      }
+    }
+
+    // Certifique-se de só rodar se o componente não estiver carregando o Pica (opcional, dependendo do seu fluxo)
+    recuperarPrevisaoPendente();
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -209,10 +259,49 @@ export default function TratamentoImagens() {
     if (file) {
       setImage(file);
       setImagePreview(URL.createObjectURL(file));
+
       // Limpa todos os resultados ao carregar uma nova imagem    
       setResult(null);
+      setOriginalImageUrlToBgRemov(null);
+      setBgRemovedImageUrl(null);
+      setUpscaledImageUrl(null);
+
+      // Limpa o localStorage para a nova sessão de tratamento
+      localStorage.removeItem('pending_replicate_id');
+      localStorage.removeItem('pending_replicate_type');
+
       console.log(`Tudo começa aqui: handleUpload`, file);
     }
+  };
+
+  const waitForReplicateResult = async (predictionId) => {
+    let tentativas = 0;
+    const maxTentativas = 30; // Aumentei um pouco pois o upscale pode demorar
+
+    while (tentativas < maxTentativas) {
+      try {
+        // Garanta a barra "/" no início da URL
+        const response = await axios.get(`/imagens/replicate-status/${predictionId}`);
+        const data = response.data;
+
+        console.log(`🔄 Status atual (${tentativas + 1}):`, data.status);
+
+        if (data.status === 'succeeded') {
+          // Trata se o output vier como array ["url"] ou string "url"
+          return Array.isArray(data.output) ? data.output[0] : data.output;
+        }
+
+        if (data.status === 'failed') {
+          return null;
+        }
+      } catch (err) {
+        console.error("Erro no polling:", err);
+      }
+
+      tentativas++;
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3 seg
+    }
+    return null;
   };
 
   /**
@@ -416,7 +505,7 @@ export default function TratamentoImagens() {
       } else if (type === MODELS.NAFNet) {
 
         console.log(`Aqui MODELS.NAFNet`, MODELS.NAFNet);
-        
+
         const price = MODELS.NAFNet_PRICE;
         const fileName = "nafnet-denoise";
 
@@ -454,12 +543,40 @@ export default function TratamentoImagens() {
       }
 
       console.log("Novo saldo:", usarCarteira.new_balance);
-      console.log("🛰️ Retorno completo do backend:", res.data);
 
-      const outputUrlOrBase64 =
-        res.data?.output_base64_or_url ||
-        res.data?.replicate_id ||
-        null;
+      // 1. Pegamos os dados de forma segura
+      const data = res.data;
+      const replicatePredictionId = data?.replicate_id;
+      let outputUrlOrBase64 = data?.output_base64_or_url;
+
+      // console.log("Retorno do PHP:", data);
+      console.log("ID do Replicate capturado:", replicatePredictionId);
+      // console.log("Output imediato capturado:", outputUrlOrBase64);
+
+      // 2. Verificação simplificada: Se não veio a imagem, mas veio o ID, precisamos esperar.
+      if (replicatePredictionId) {
+
+        console.log("🚀 Condição aceita: Iniciando espera pelo resultado...");
+
+        // Salva os metadados e o ID imediatamente no localStorage antes do polling
+        localStorage.setItem('pending_replicate_id', replicatePredictionId);
+        localStorage.setItem('pending_replicate_type', type);
+
+        const finalUrl = await waitForReplicateResult(replicatePredictionId);
+
+        if (finalUrl) {
+          outputUrlOrBase64 = finalUrl; // Atualiza a variável local para o Pica usar
+          setResult(finalUrl);          // Atualiza o estado para mostrar na tela
+          console.log("✅ URL da imagem obtida com sucesso:", finalUrl);
+        } else {
+          console.error("❌ O polling falhou ou retornou vazio.");
+          // Se falhou, limpa o ID do localStorage
+          localStorage.removeItem('pending_replicate_id');
+          localStorage.removeItem('pending_replicate_type');
+          setLoading(false);
+          return;
+        }
+      }
 
       if (!outputUrlOrBase64) {
         Swal.fire({
@@ -474,6 +591,14 @@ export default function TratamentoImagens() {
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
         setResult(outputUrlOrBase64);
+
+        // Guardar no localStorage
+        try {
+          localStorage.setItem('last_replicate_result', finalBase64);
+          localStorage.setItem('last_replicate_type', type);
+        } catch (e) {
+          console.warn("localStorage cheio! A imagem é muito grande para o cache do navegador.");
+        }
 
         try {
           // 'remover-fundo' é um bom nome para o 'file_name' no contexto do seu backend
@@ -573,7 +698,6 @@ export default function TratamentoImagens() {
 
       // 🔹 Lógica de Pós-Processamento e Contagem
       if (type === MODELS.NAFNet) {
-                
         // NAFNet e RemoveBG simplesmente retornam o resultado processado
         setResult(outputUrlOrBase64);
 
@@ -588,20 +712,18 @@ export default function TratamentoImagens() {
         }
 
         Swal.fire({
-            icon: 'success',
-            title: 'Imagem pronta!',
-            text: `Processamento de ${type} concluído.`,
-            timer: 2000,
-            showConfirmButton: false
+          icon: 'success',
+          title: 'Imagem pronta!',
+          text: `Processamento de ${type} concluído.`,
+          timer: 2000,
+          showConfirmButton: false
         });
 
       }
 
 
     } catch (err) {
-
       console.error("Erro ao processar imagem:", err);
-
       Swal.fire({
         icon: 'error',
         title: 'Erro!',
@@ -612,6 +734,8 @@ export default function TratamentoImagens() {
       setLoading(false);
     }
   };
+
+
 
 
   /**
@@ -708,6 +832,262 @@ export default function TratamentoImagens() {
     return finalBase64;
   }
 
+  // return (
+  //   <AuthenticatedLayout>
+  //     <Head title="Tratamento de Imagens" />
+  //     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
+
+  //       <h2 className="text-4xl font-extrabold text-gray-800 mb-6 border-b pb-2 text-center">
+  //         🪄 Tratamento de Imagens com IA.
+  //       </h2>
+
+  //       {/* Upload e Configurações */}
+  //       <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 space-y-5">
+  //         <label className="block text-lg font-bold text-gray-700">
+  //           1. Carregar Imagem e Configurar
+  //         </label>
+  //         <input
+  //           type="file"
+  //           accept="image/*"
+  //           onChange={handleUpload}
+  //           className="block w-full text-sm text-gray-500
+  //                      file:mr-4 file:py-2 file:px-4
+  //                      file:rounded-full file:border-0
+  //                      file:text-sm file:font-semibold
+  //                      file:bg-indigo-50 file:text-indigo-700
+  //                      hover:file:bg-indigo-100"
+  //         />
+  //         <div className="pt-4 border-t border-gray-100">
+  //           <label htmlFor="scale-factor" className="block text-sm font-medium text-gray-700 mb-2">
+  //             Fator de Escala (para Aumentar Qualidade)
+  //           </label>
+
+  //           {/* Campo de Entrada Numérico (Oculto em Telas Pequenas) */}
+  //           <input
+  //             id="scale-factor"
+  //             type="number"
+  //             min="4"
+  //             max="10"
+  //             step="1"
+  //             value={scaleFactor}
+  //             onChange={(e) => setScaleFactor(Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
+  //             // Em telas pequenas, ocupa a largura total, mas é oculto.
+  //             // Em telas grandes (sm:), ocupa 1/4 da largura e é visível.
+  //             className="w-full sm:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 **hidden sm:inline-block**"
+  //           />
+
+  //           {/* Barra Deslizante (Slider) (Visível Apenas em Telas Pequenas) */}
+  //           <input
+  //             id="scale-factor-slider"
+  //             type="range"
+  //             min="4"
+  //             max="10"
+  //             step="1"
+  //             value={scaleFactor}
+  //             onChange={(e) => setScaleFactor(parseFloat(e.target.value))}
+  //             // Ocupa a largura total.
+  //             // **A classe `sm: hidden` garante que a barra deslizante seja ocultada em telas grandes.**
+  //             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none **sm:hidden**"
+  //           />
+
+  //           {/* Exibe o valor atual para a barra deslizante em telas pequenas */}
+  //           <div className="text-sm font-semibold text-gray-900 mt-2 **sm:hidden**">
+  //             Valor Atual: {scaleFactor}x
+  //           </div>
+
+  //           <p className="text-xs text-gray-500 mt-1">
+  //             Defina o multiplicador de resolução. O nosso modelo suporta até 9000px.
+  //           </p>
+  //         </div>
+
+
+  //       </div>
+
+  //       {/* Botões de Ação */}
+  //       <div className="flex flex-col sm:flex-row gap-4 mt-6">
+  //         <button
+  //           onClick={() => processImage(MODELS.REMOVE_BG)}
+  //           className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md btn-base bg-purple-600 text-white hover:bg-purple-700 flex-1"
+  //           disabled={loading || !image}
+  //         >
+  //           {loading && MODELS.REMOVE_BG === 'remover-fundo' ? 'Removendo Fundo...' : '🗑️ Remover Fundo'}
+  //         </button>
+
+  //         <button
+  //           onClick={() => processImage(MODELS.UPSCALER_ESRGAN)}
+  //           className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-emerald-600 text-white hover:bg-emerald-700 flex-1"
+  //           disabled={loading || !image}
+  //         >
+  //           {loading && MODELS.UPSCALER_ESRGAN === 'aumentar-qualidade' ? 'Aumentando Tamanho...' : '⏫ Aumentar Tamanho'}
+  //         </button>
+
+  //         <button
+  //           onClick={() => processImage(MODELS.NAFNet)}
+  //           className="px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-md bg-blue-600 text-white hover:bg-blue-700 flex-1"
+  //           disabled={loading || !image}
+  //         >
+  //           {loading && MODELS.NAFNet === 'remoção-de-ruído-desfoque' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
+  //         </button>
+
+  //       </div>
+
+  //       {loading && <p className="mt-4 text-center text-indigo-600 font-medium">⏳ Processando imagem... Esta etapa pode levar alguns segundos.</p>}
+  //       {erroPica && <p className="mt-4 text-center text-red-600 font-medium">❌ {erroPica}</p>}
+
+  //       {/* Preview das Imagens - Layout de 3 Colunas */}
+  //       {imagePreview && (
+  //         <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+  //           <h3 className="text-xl font-bold mb-4 text-gray-800">Comparação de Resultados</h3>
+  //           <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+
+  //             {/* 1. Original */}
+  //             <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
+  //               <p className="font-semibold mb-3 text-gray-700">1. Original</p>
+  //               <img
+  //                 src={imagePreview}
+  //                 alt="Original"
+  //                 className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
+  //                 style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //               />
+  //             </div>
+
+  //             {/* 3. Resultado Final Corrigido */}
+  //             {result ? (
+  //               <div className="relative text-center bg-green-50 p-4 rounded-lg shadow-xl border-4 border-green-500 flex flex-col items-center">
+  //                 <p className="font-semibold mb-3 text-green-700">3. Resultado Final Corrigido ({scaleFactor}x)</p>
+
+  //                 {/* Botão de Download Adicionado - Apenas no resultado final */}
+  //                 <button
+  //                   onClick={() => handleDownload(lastOperationType, result)}
+  //                   className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
+  //                   title="Baixar Imagem Processada"
+  //                 >
+  //                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+  //                   </svg>
+
+  //                 </button>
+
+  //                 <img
+  //                   src={result}
+  //                   alt="Final Corrigido"
+  //                   className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
+  //                   style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //                   onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+  //                 />
+  //               </div>
+  //             ) : (
+  //               <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center min-h-[250px]">
+  //                 <p className="text-gray-500">Aguardando correção . . .</p>
+  //               </div>
+  //             )}
+
+  //           </div>
+  //         </div>
+  //       )}
+
+  //       {/* Preview das Imagens Salvas do RmBg */}
+  //       {originalImageUrlToBgRemov && (
+  //         <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+  //           <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores da Remoção de Fundo</h3>
+  //           <div className={`grid grid-cols - 1 md:grid-cols-2 gap-6`}>
+
+  //             {/* 3. Original */}
+  //             <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
+  //               <p className="font-semibold mb-3 text-gray-700">3. Original</p>
+  //               <img
+  //                 src={originalImageUrlToBgRemov}
+  //                 alt="Original"
+  //                 className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
+  //                 style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //               />
+  //             </div>
+
+  //             {/* 4. Resultado Final Corrigido */}
+  //             {bgRemovedImageUrl && (
+  //               <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-xl border-4 border-yellow-500 flex flex-col items-center">
+  //                 <p className="font-semibold mb-3 text-yellow-700">4. Resultado Final</p>
+
+  //                 {/* Botão de Download Adicionado - Apenas no resultado final */}
+  //                 <button
+  //                   onClick={() => handleDownload(MODELS.REMOVE_BG, bgRemovedImageUrl)}
+  //                   className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
+  //                   title="Baixar Imagem Processada"
+  //                 >
+  //                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+  //                   </svg>
+  //                 </button>
+
+  //                 <img
+  //                   src={bgRemovedImageUrl}
+  //                   alt="Final Corrigido"
+  //                   className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
+  //                   style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //                   onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+  //                 />
+  //               </div>
+  //             )}
+
+  //           </div>
+  //         </div>
+  //       )}
+
+
+  //       {/* Preview das Imagens Salvas de Upscale */}
+  //       {originalImageUrl && (
+  //         <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+  //           <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores de Upscale</h3>
+  //           <div className={`grid grid-cols - 1 md: grid-cols - 2 gap - 6`}>
+
+  //             {/* 3. Original */}
+  //             <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
+  //               <p className="font-semibold mb-3 text-gray-700">3. Original</p>
+  //               <img
+  //                 src={originalImageUrl}
+  //                 alt="Original"
+  //                 className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
+  //                 style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //               />
+  //             </div>
+
+  //             {/* 4. Resultado Final Corrigido (AI + Pica) */}
+  //             {upscaledImageUrl && (
+  //               <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-xl border-4 border-yellow-500 flex flex-col items-center">
+  //                 <p className="font-semibold mb-3 text-yellow-700">4. Resultado Final</p>
+
+  //                 {/* Botão de Download Adicionado - Apenas no resultado final */}
+  //                 <button
+  //                   onClick={() => handleDownload(MODELS.UPSCALE, upscaledImageUrl)}
+  //                   className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
+  //                   title="Baixar Imagem Processada"
+  //                 >
+  //                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  //                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+  //                   </svg>
+  //                 </button>
+
+  //                 <img
+  //                   src={upscaledImageUrl}
+  //                   alt="Final Corrigido"
+  //                   className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
+  //                   style={{ maxHeight: '600px', objectFit: 'contain' }}
+  //                   onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+  //                 />
+  //               </div>
+  //             )}
+
+  //           </div>
+  //         </div>
+  //       )}
+
+
+  //     </div>
+  //     <Footer ano={2025} />
+  //   </AuthenticatedLayout>
+  // );
+
+
   return (
     <AuthenticatedLayout>
       <Head title="Tratamento de Imagens" />
@@ -727,18 +1107,18 @@ export default function TratamentoImagens() {
             accept="image/*"
             onChange={handleUpload}
             className="block w-full text-sm text-gray-500
-                       file:mr-4 file:py-2 file:px-4
-                       file:rounded-full file:border-0
-                       file:text-sm file:font-semibold
-                       file:bg-indigo-50 file:text-indigo-700
-                       hover:file:bg-indigo-100"
+                     file:mr-4 file:py-2 file:px-4
+                     file:rounded-full file:border-0
+                     file:text-sm file:font-semibold
+                     file:bg-indigo-50 file:text-indigo-700
+                     hover:file:bg-indigo-100"
           />
           <div className="pt-4 border-t border-gray-100">
             <label htmlFor="scale-factor" className="block text-sm font-medium text-gray-700 mb-2">
               Fator de Escala (para Aumentar Qualidade)
             </label>
 
-            {/* Campo de Entrada Numérico (Oculto em Telas Pequenas) */}
+            {/* Campo de Entrada Numérico */}
             <input
               id="scale-factor"
               type="number"
@@ -747,12 +1127,10 @@ export default function TratamentoImagens() {
               step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(Math.min(10, Math.max(1, parseFloat(e.target.value) || 1)))}
-              // Em telas pequenas, ocupa a largura total, mas é oculto.
-              // Em telas grandes (sm:), ocupa 1/4 da largura e é visível.
-              className="w-full sm:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 **hidden sm:inline-block**"
+              className="w-full sm:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 hidden sm:inline-block"
             />
 
-            {/* Barra Deslizante (Slider) (Visível Apenas em Telas Pequenas) */}
+            {/* Barra Deslizante (Slider) */}
             <input
               id="scale-factor-slider"
               type="range"
@@ -761,13 +1139,11 @@ export default function TratamentoImagens() {
               step="1"
               value={scaleFactor}
               onChange={(e) => setScaleFactor(parseFloat(e.target.value))}
-              // Ocupa a largura total.
-              // **A classe `sm: hidden` garante que a barra deslizante seja ocultada em telas grandes.**
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none **sm:hidden**"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg focus:outline-none sm:hidden"
             />
 
-            {/* Exibe o valor atual para a barra deslizante em telas pequenas */}
-            <div className="text-sm font-semibold text-gray-900 mt-2 **sm:hidden**">
+            {/* Exibe o valor atual para a barra deslizante */}
+            <div className="text-sm font-semibold text-gray-900 mt-2 sm:hidden">
               Valor Atual: {scaleFactor}x
             </div>
 
@@ -775,8 +1151,6 @@ export default function TratamentoImagens() {
               Defina o multiplicador de resolução. O nosso modelo suporta até 9000px.
             </p>
           </div>
-
-
         </div>
 
         {/* Botões de Ação */}
@@ -804,163 +1178,175 @@ export default function TratamentoImagens() {
           >
             {loading && MODELS.NAFNet === 'remoção-de-ruído-desfoque' ? 'Aumentando Qualidade...' : '💎 Aumentar Qualidade'}
           </button>
-
         </div>
 
-        {loading && <p className="mt-4 text-center text-indigo-600 font-medium">⏳ Processando imagem... Esta etapa pode levar alguns segundos.</p>}
+        {loading && <p className="mt-4 text-center text-indigo-600 font-medium animate-pulse">⏳ Processando imagem... Esta etapa pode levar alguns segundos.</p>}
         {erroPica && <p className="mt-4 text-center text-red-600 font-medium">❌ {erroPica}</p>}
 
-        {/* Preview das Imagens - Layout de 3 Colunas */}
-        {imagePreview && (
-          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">Comparação de Resultados</h3>
-            <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+        {/* Preview Principal Adaptativo */}
+        {/* ================= SEÇÃO 1: RESULTADO DO PROCESSAMENTO ================= */}
+        {result && (
+          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200 animate-fade-in">
+            <div className="flex items-center justify-between mb-4 border-b pb-2">
+              <h3 className="text-xl font-bold text-gray-800">
+                Resultado do Processamento
+              </h3>
+              {!image && (
+                <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full uppercase tracking-wider">
+                  Imagem Recuperada do Histórico
+                </span>
+              )}
+            </div>
 
-              {/* 1. Original */}
-              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
-                <p className="font-semibold mb-3 text-gray-700">1. Original</p>
-                <img
-                  src={imagePreview}
-                  alt="Original"
-                  className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                  style={{ maxHeight: '600px', objectFit: 'contain' }}
-                />
-              </div>
+            {/* Layout adaptativo: se por acaso ainda houver o preview original na memória, mostra lado a lado, senão centraliza */}
+            <div className={`grid grid-cols-1 ${imagePreview ? 'md:grid-cols-2' : 'max-w-2xl mx-auto'} gap-6`}>
 
-              {/* 3. Resultado Final Corrigido */}
-              {result ? (
-                <div className="relative text-center bg-green-50 p-4 rounded-lg shadow-xl border-4 border-green-500 flex flex-col items-center">
-                  <p className="font-semibold mb-3 text-green-700">3. Resultado Final Corrigido ({scaleFactor}x)</p>
-
-                  {/* Botão de Download Adicionado - Apenas no resultado final */}
-                  <button
-                    onClick={() => handleDownload(lastOperationType, result)}
-                    className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
-                    title="Baixar Imagem Processada"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-                    </svg>
-
-                  </button>
-
+              {/* Imagem Original (Opcional - só aparece se ainda estiver no estado) */}
+              {imagePreview && (
+                <div className="text-center bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+                  <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-bold rounded mb-3">1. Imagem Original</span>
                   <img
-                    src={result}
-                    alt="Final Corrigido"
-                    className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
-                    style={{ maxHeight: '600px', objectFit: 'contain' }}
-                    onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+                    src={imagePreview}
+                    alt="Original"
+                    className="w-full h-auto rounded-lg shadow-sm border border-gray-300 mx-auto"
+                    style={{ maxHeight: '500px', objectFit: 'contain' }}
                   />
-                </div>
-              ) : (
-                <div className="text-center p-4 rounded-lg shadow-inner bg-gray-100 flex items-center justify-center min-h-[250px]">
-                  <p className="text-gray-500">Aguardando correção . . .</p>
                 </div>
               )}
 
+              {/* Card do Resultado Final Processado */}
+              <div className="relative text-center bg-indigo-50/50 p-4 rounded-xl border-2 border-indigo-500 flex flex-col items-center shadow-md">
+                <span className="px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded mb-3">
+                  {image ? `Resultado Corrigido (${scaleFactor}x)` : 'Imagem Processada'}
+                </span>
+
+                {/* Botão de Download flutuante */}
+                <button
+                  onClick={() => handleDownload(lastOperationType, result)}
+                  className="absolute top-3 right-3 p-2.5 bg-gray-900 bg-opacity-70 hover:bg-opacity-90 text-white rounded-xl transition duration-200 shadow-md z-10 hover:scale-105 active:scale-95"
+                  title="Baixar Imagem Processada"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                  </svg>
+                </button>
+
+                <img
+                  src={result}
+                  alt="Final Corrigido"
+                  className="w-full h-auto rounded-lg shadow-lg border border-indigo-200 mx-auto"
+                  style={{ maxHeight: '550px', objectFit: 'contain' }}
+                  onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Preview das Imagens Salvas do RmBg */}
+        {/* ================= SEÇÃO 2: PREVIEW DA IMAGEM CARREGADA ================= */}
+        {/* Só renderiza se houver preview E NÃO houver um resultado processado ainda */}
+        {!result && imagePreview && (
+          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200 max-w-2xl mx-auto animate-fade-in">
+            <div className="flex items-center justify-between mb-4 border-b pb-2">
+              <h3 className="text-xl font-bold text-gray-800">
+                Visualização da Imagem Carregada
+              </h3>
+            </div>
+
+            <div className="text-center bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+              <span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs font-bold rounded mb-3">Aguardando Processamento</span>
+              <img
+                src={imagePreview}
+                alt="Preview Original"
+                className="w-full h-auto rounded-lg shadow-sm border border-gray-300 mx-auto"
+                style={{ maxHeight: '500px', objectFit: 'contain' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Histórico Secundário: Remoção de Fundo (Corrigido erros de string da classe grid) */}
         {originalImageUrlToBgRemov && (
           <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores da Remoção de Fundo</h3>
-            <div className={`grid grid-cols - 1 md:grid-cols-2 gap-6`}>
-
-              {/* 3. Original */}
-              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
-                <p className="font-semibold mb-3 text-gray-700">3. Original</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="text-center bg-gray-100 p-4 rounded-lg flex flex-col items-center">
+                <p className="font-semibold mb-3 text-gray-700">Original de Origem</p>
                 <img
                   src={originalImageUrlToBgRemov}
                   alt="Original"
                   className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                  style={{ maxHeight: '600px', objectFit: 'contain' }}
+                  style={{ maxHeight: '400px', objectFit: 'contain' }}
                 />
               </div>
 
-              {/* 4. Resultado Final Corrigido */}
               {bgRemovedImageUrl && (
-                <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-xl border-4 border-yellow-500 flex flex-col items-center">
-                  <p className="font-semibold mb-3 text-yellow-700">4. Resultado Final</p>
-
-                  {/* Botão de Download Adicionado - Apenas no resultado final */}
+                <div className="relative text-center bg-amber-50/50 p-4 rounded-lg border-2 border-amber-400 flex flex-col items-center">
+                  <p className="font-semibold mb-3 text-amber-800">Resultado Final Sem Fundo</p>
                   <button
                     onClick={() => handleDownload(MODELS.REMOVE_BG, bgRemovedImageUrl)}
-                    className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
-                    title="Baixar Imagem Processada"
+                    className="absolute top-3 right-3 p-2 bg-gray-950 bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition duration-200 shadow-md z-10"
+                    title="Baixar Imagem"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                   </button>
-
                   <img
                     src={bgRemovedImageUrl}
-                    alt="Final Corrigido"
-                    className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
-                    style={{ maxHeight: '600px', objectFit: 'contain' }}
-                    onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+                    alt="Final Fundo Removido"
+                    className="w-full h-auto rounded-lg shadow-md border border-amber-200 mx-auto"
+                    style={{ maxHeight: '400px', objectFit: 'contain' }}
                   />
                 </div>
               )}
-
             </div>
           </div>
         )}
 
-
-        {/* Preview das Imagens Salvas de Upscale */}
+        {/* Histórico Secundário: Upscale */}
         {originalImageUrl && (
           <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
             <h3 className="text-xl font-bold mb-4 text-gray-800 text-center">Resultados Anteriores de Upscale</h3>
-            <div className={`grid grid-cols - 1 md: grid-cols - 2 gap - 6`}>
-
-              {/* 3. Original */}
-              <div className="text-center bg-gray-100 p-4 rounded-lg shadow-inner flex flex-col items-center">
-                <p className="font-semibold mb-3 text-gray-700">3. Original</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="text-center bg-gray-100 p-4 rounded-lg flex flex-col items-center">
+                <p className="font-semibold mb-3 text-gray-700">Original de Origem</p>
                 <img
                   src={originalImageUrl}
                   alt="Original"
                   className="w-full h-auto rounded-lg shadow-md border border-gray-300 mx-auto"
-                  style={{ maxHeight: '600px', objectFit: 'contain' }}
+                  style={{ maxHeight: '400px', objectFit: 'contain' }}
                 />
               </div>
 
-              {/* 4. Resultado Final Corrigido (AI + Pica) */}
               {upscaledImageUrl && (
-                <div className="relative text-center bg-yellow-50 p-4 rounded-lg shadow-xl border-4 border-yellow-500 flex flex-col items-center">
-                  <p className="font-semibold mb-3 text-yellow-700">4. Resultado Final</p>
-
-                  {/* Botão de Download Adicionado - Apenas no resultado final */}
+                <div className="relative text-center bg-amber-50/50 p-4 rounded-lg border-2 border-amber-400 flex flex-col items-center">
+                  <p className="font-semibold mb-3 text-amber-800">Resultado Final Upscale</p>
                   <button
                     onClick={() => handleDownload(MODELS.UPSCALE, upscaledImageUrl)}
-                    className="absolute top-3 right-3 p-2 bg-black bg-opacity-30 hover:bg-opacity-50 text-white rounded-full transition duration-200 shadow-lg z-10"
-                    title="Baixar Imagem Processada"
+                    className="absolute top-3 right-3 p-2 bg-gray-950 bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition duration-200 shadow-md z-10"
+                    title="Baixar Imagem"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                     </svg>
                   </button>
-
                   <img
                     src={upscaledImageUrl}
-                    alt="Final Corrigido"
-                    className="w-full h-auto rounded-lg shadow-xl border border-green-400 mx-auto"
-                    style={{ maxHeight: '600px', objectFit: 'contain' }}
-                    onError={(e) => console.error("🚨 Erro ao carregar imagem final:", e)}
+                    alt="Final Upscale"
+                    className="w-full h-auto rounded-lg shadow-md border border-amber-200 mx-auto"
+                    style={{ maxHeight: '400px', objectFit: 'contain' }}
                   />
                 </div>
               )}
-
             </div>
           </div>
         )}
 
-
       </div>
-      <Footer ano={2025} />
+      <Footer ano={2026} />
     </AuthenticatedLayout>
   );
+
 
 }
