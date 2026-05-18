@@ -273,7 +273,7 @@ class ImageController extends Controller
                     'upscale' => 2,
                     'face_upsample' => true,
                     'background_enhance' => true,
-                    'codeformer_fidelity' => 0,98,
+                    'codeformer_fidelity' => 1
                 ],
             ];
 

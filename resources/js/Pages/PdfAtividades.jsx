@@ -10,14 +10,14 @@ import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import PdfPreview from './Atividades/Partials/PdfPreview'
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import { useMensagens } from '@/hooks/useMensagens'
+import { useMensagens } from '@/Hooks/useMensagens'
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
-import { useDownloadPdf } from '@/hooks/useDownloadPdf'
+import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
 import { gerarPDFService } from '@/Services/PdfGeneratorService'
 import FolderPlusIcon from '@/Components/svgs/FolderPlusIcon'
 import PlusIcon from '@/Components/svgs/PlusIcon'
-import { usePdfThumbnail } from '@/hooks/usePdfThumbnail'
-import { useLimpezaDados } from '@/hooks/useLimpezaDados'
+import { usePdfThumbnail } from '@/Hooks/usePdfThumbnail'
+import { useLimpezaDados } from '@/Hooks/useLimpezaDados'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 

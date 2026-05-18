@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { router } from '@inertiajs/react';
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens';
-import { useMensagens } from '@/hooks/useMensagens';
+import { useMensagens } from '@/Hooks/useMensagens';
 import { useState } from 'react';
 
 export const useDownloadPdfProcessado = () => {

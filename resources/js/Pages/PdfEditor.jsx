@@ -16,7 +16,7 @@ import pica from 'pica';
 import Spinner from '@/Components/Spinner'
 import { calcularRedimensionamentoProporcional } from './Poster/Partials/imagemUtils'
 import { useInitialScreenInfo } from './hooks/useInitialScreenInfo';
-import { useDownloadPdfPoster } from '@/hooks/useDownloadPdfPoster'
+import { useDownloadPdfPoster } from '@/Hooks/useDownloadPdfPoster'
 
 export default function PdfEditor() {
   const { props } = usePage()
