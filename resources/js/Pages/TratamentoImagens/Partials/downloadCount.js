@@ -2,7 +2,6 @@
 
 import axios from 'axios';
 
-
 /**
  * Contabiliza o uso de uma funcionalidade específica no backend.
  *

@@ -6,13 +6,16 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
 import imageCompression from 'browser-image-compression';
 import { wallet } from './Partials/usarCarteira';
-import { downloadCount } from './Partials/downloadCount';
-import { downloadImageFromReplicate } from '@/Services/DownloadReplicate';
+// import { downloadCount } from './Partials/downloadCount';
+// import { downloadImageFromReplicate } from '@/Services/DownloadReplicate';
 import usePica from '@/Hooks/usePica';
 import { ajustarImagemPica } from '@/Services/PicaService';
 
 import usePendingReplicate from '@/Hooks/usePendingReplicate';
 import { waitForReplicateResult } from '@/Services/ReplicateApi';
+
+import { ImageDownsizeCompression } from '@/Services/ImageDownsizeCompression';
+import { executarDownloadComLog } from '@/Services/DownloadService';
 
 // 🔥 CORREÇÃO 1: Mapeamento de modelos movido para fora do componente
 // Isso impede erros de inicialização e economiza memória no React
@@ -136,7 +139,7 @@ export default function TratamentoImagens() {
         expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
         console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide} px`);
 
-        const base64Image = await downsizeParaReplicate(image);
+        const base64Image = await ImageDownsizeCompression(image);
         dataToSend.image = base64Image;
         dataToSend.scale = scaleFactor;
 
@@ -157,10 +160,20 @@ export default function TratamentoImagens() {
     } else if (type === MODELS.NAFNet) {
       // 🆕 Lógica Específica para NAFNet (Remoção de Ruído/Desfoque)
       try {
-        // O NAFNet espera apenas o Base64 da imagem (sem downsize complexo)
-        const base64Image = await imageCompression.getDataUrlFromFile(image);
+        // 🔹 Calcula tamanho original para referência
+        const originalBitmap = await createImageBitmap(image);
+        originalWidth = originalBitmap.width;
+        originalHeight = originalBitmap.height;
+        originalMaxSide = Math.max(originalWidth, originalHeight);
 
+        // 🔹 Calcula o tamanho esperado
+        expectedMaxSide = Math.min(originalMaxSide * scaleFactor, 9000); // Teto de 9k
+        console.log(`📏 Original: ${originalWidth}x${originalHeight} → Esperado: ${expectedMaxSide} px`);
+
+        // O NAFNet espera apenas o Base64 da imagem (sem downsize complexo)
+        const base64Image = await ImageDownsizeCompression(image);
         dataToSend.image = base64Image;
+        dataToSend.scale = scaleFactor;
 
         console.log(`🧼 NAFNet: Imagem Base64 pronta para envio.`);
 
@@ -251,7 +264,6 @@ export default function TratamentoImagens() {
       // console.log("Retorno do PHP:", data);
       console.log("ID do Replicate capturado:", replicatePredictionId);
       // console.log("Output imediato capturado:", outputUrlOrBase64);
-
       // 2. Verificação simplificada: Se não veio a imagem, mas veio o ID, precisamos esperar.
       if (replicatePredictionId) {
 
@@ -290,18 +302,8 @@ export default function TratamentoImagens() {
 
       // Se for apenas remoção de fundo, salva o resultado direto em 'result'
       if (type === MODELS.REMOVE_BG) {
-        setResult(outputUrlOrBase64);
 
-        try {
-          // 'remover-fundo' é um bom nome para o 'file_name' no contexto do seu backend
-          await axios.post(route('user.downloads.store'), {
-            file_name: 'remover-fundo', // Nome da ação/download que você quer contar
-          });
-          console.log("✅ Uso do remover-fundo contabilizado com sucesso!");
-        } catch (error) {
-          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
-          console.error("⚠️ Erro ao contabilizar uso do remover-fundo:", error);
-        }
+        setResult(outputUrlOrBase64);
 
         Swal.fire({
           icon: 'success',
@@ -361,23 +363,11 @@ export default function TratamentoImagens() {
           console.log(`✅ Pica Concluído.Tamanho Final: ${finalWidth}x${finalHeight} `);
 
         } else {
-          console.log("✅ Aumento da IA já suficiente ou Pica não disponível — Sem correção Pica.");
+          console.log("✅ Aumento da IA já suficiente — sem correção Pica.");
         }
 
         // 3. Salva o resultado FINAL (AI + Pica)
         setResult(finalBase64);
-
-        // 💡 LÓGICA PARA CONTABILIZAR O USO DO UPSCALER 💡
-        try {
-          // 'upscaler' é um bom nome para o 'file_name' no contexto do seu backend
-          await axios.post(route('user.downloads.store'), {
-            file_name: 'recraft-crisp-upscale', // Nome da ação/download que você quer contar
-          });
-          console.log("✅ Uso do Upscaler contabilizado com sucesso!");
-        } catch (error) {
-          // Se der erro na contagem, apenas logamos e não impedimos o usuário de ver a imagem
-          console.error("⚠️ Erro ao contabilizar uso do Upscaler:", error);
-        }
 
         Swal.fire({
           icon: 'success',
@@ -393,16 +383,6 @@ export default function TratamentoImagens() {
         // NAFNet e RemoveBG simplesmente retornam o resultado processado
         setResult(outputUrlOrBase64);
 
-        // Contabiliza o uso
-        const downloadFileName = 'codeformer';
-
-        try {
-          await axios.post(route('user.downloads.store'), { file_name: downloadFileName });
-          console.log(`✅ Uso do ${downloadFileName} contabilizado com sucesso!`);
-        } catch (error) {
-          console.error(`⚠️ Erro ao contabilizar uso do ${downloadFileName}:`, error);
-        }
-
         Swal.fire({
           icon: 'success',
           title: 'Imagem pronta!',
@@ -412,7 +392,6 @@ export default function TratamentoImagens() {
         });
 
       }
-
 
     } catch (err) {
       console.error("Erro ao processar imagem:", err);
@@ -427,98 +406,6 @@ export default function TratamentoImagens() {
     }
   };
 
-
-  /**
-   * Função para iniciar o download da imagem salva, logando o uso.
-   *
-   * @param {string} type - O tipo de operação (ex: MODELS.REMOVE_BG).
-   * @param {string} resultUrl - A URL específica da imagem a ser baixada (upscaledImageUrl ou bgRemovedImageUrl).
-   */
-  const handleDownload = async (type, resultUrl) => {
-    // ⚠️ Verifica se a URL específica foi fornecida
-    if (!resultUrl) {
-      console.warn(`URL de download não fornecida para o tipo: ${type} `);
-      return;
-    }
-
-    const urlToDownload = resultUrl;
-    let defaultExt = 'webp'; // Padrão
-
-    // 1. Determina a extensão padrão com base no tipo
-    if (type === MODELS.REMOVE_BG) {
-      // Se for remoção de fundo, o PNG é preferível para manter a transparência.
-      defaultExt = 'png';
-    }
-
-    // 2. CHAMA A FUNÇÃO REUTILIZÁVEL DE DOWNLOAD
-    await downloadImageFromReplicate(urlToDownload, 'resultado_final_corrigido', defaultExt);
-
-    // 3. Lógica de Contagem de Uso (API Call)
-    try {
-      let fileName = (type === MODELS.REMOVE_BG)
-        ? 'recraft-remove-background'
-        : 'recraft-crisp-upscale';
-
-      // Assumindo que downloadCount() é uma função de chamada de API
-      await downloadCount(fileName);
-      console.log(`Download logado para: ${fileName} `);
-
-    } catch (err) {
-      console.error('Erro ao logar download:', err);
-    }
-  };
-
-
-  /**
-   * Ajusta o tamanho da imagem de entrada para garantir que ela não exceda o limite de pixels
-   * da GPU do Replicate (aprox. 2.1MP), mantendo a proporção original.  
-   */
-  async function downsizeParaReplicate(file) {
-
-    const MAX_PIXELS = 2096704;
-    const img = new Image();
-    const tempUrl = URL.createObjectURL(file);
-    img.src = tempUrl;
-
-    await new Promise((resolve) => {
-      img.onload = () => {
-        URL.revokeObjectURL(tempUrl);
-        resolve();
-      };
-    });
-
-    const originalWidth = img.naturalWidth;
-    const originalHeight = img.naturalHeight;
-    const originalPixels = originalWidth * originalHeight;
-
-    let targetMaxWidthOrHeight = Math.max(originalWidth, originalHeight);
-
-    if (originalPixels > MAX_PIXELS) {
-      const reductionFactor = Math.sqrt(originalPixels / MAX_PIXELS);
-      targetMaxWidthOrHeight = Math.floor(Math.max(originalWidth, originalHeight) / reductionFactor);
-
-      console.warn(`⚠️ Imagem original será reduzida.Novo max size: ${targetMaxWidthOrHeight} px`);
-    } else {
-      console.log(`✅ Imagem original está no limite.Não será redimensionada.`);
-    }
-
-    const options = {
-      maxWidthOrHeight: targetMaxWidthOrHeight,
-      useWebWorker: true,
-      maxSizeMB: 2,
-      initialQuality: 1.0,
-      fileType: 'image/jpeg',
-      alwaysKeepResolution: true,
-    };
-
-    const compressedBlob = await imageCompression(file, options);
-    const finalBase64 = await imageCompression.getDataUrlFromFile(compressedBlob);
-
-    console.log(`-- - AJUSTE CONCLUÍDO-- - `);
-    console.log(`Tamanho final do Base64: ${(finalBase64.length / (1024 * 1024)).toFixed(2)} MB`);
-
-    return finalBase64;
-  }
 
   return (
     <AuthenticatedLayout>
@@ -654,7 +541,7 @@ export default function TratamentoImagens() {
 
                 {/* Botão de Download flutuante */}
                 <button
-                  onClick={() => handleDownload(lastOperationType, result)}
+                  onClick={() => executarDownloadComLog(lastOperationType, result, MODELS)}
                   className="absolute top-3 right-3 p-2.5 bg-gray-900 bg-opacity-70 hover:bg-opacity-90 text-white rounded-xl transition duration-200 shadow-md z-10 hover:scale-105 active:scale-95"
                   title="Baixar Imagem Processada"
                 >
@@ -716,7 +603,7 @@ export default function TratamentoImagens() {
                 <div className="relative text-center bg-amber-50/50 p-4 rounded-lg border-2 border-amber-400 flex flex-col items-center">
                   <p className="font-semibold mb-3 text-amber-800">Resultado Final Sem Fundo</p>
                   <button
-                    onClick={() => handleDownload(MODELS.REMOVE_BG, bgRemovedImageUrl)}
+                    onClick={() => executarDownloadComLog(MODELS.REMOVE_BG, bgRemovedImageUrl, MODELS)}
                     className="absolute top-3 right-3 p-2 bg-gray-950 bg-opacity-60 hover:bg-opacity-80 text-white rounded-lg transition duration-200 shadow-md z-10"
                     title="Baixar Imagem"
                   >
