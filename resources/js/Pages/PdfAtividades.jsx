@@ -14,31 +14,15 @@ import { useMensagens } from '@/Hooks/useMensagens'
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
 import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
 import { gerarPDFService } from '@/Services/PdfGeneratorService'
-import FolderPlusIcon from '@/Components/svgs/FolderPlusIcon'
-import PlusIcon from '@/Components/svgs/PlusIcon'
-import { usePdfThumbnail } from '@/Hooks/usePdfThumbnail'
 import { useLimpezaDados } from '@/Hooks/useLimpezaDados'
+import HeaderConfig from '@/Components/PdfEditor/HeaderConfig'
+import PageSettings from '@/Components/PdfEditor/PageSettings'
+import ResumoAtividade from '@/Components/PdfEditor/ResumoAtividade'
+import PdfActions from '@/Components/PdfEditor/PdfActions'
+import PdfHistory from '@/Components/PdfEditor/PdfHistory'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
-
-/* Hook para gerar as Thumbs */
-const PdfThumbnail = memo(({ url }) => {
-  const thumb = usePdfThumbnail(url);
-
-  return (
-    <div className="w-full bg-gray-100 rounded flex items-center justify-center overflow-hidden border">
-      {thumb ? (
-        <img src={thumb} alt="Preview" className="object-cover w-full h-full" />
-      ) : (
-        <span className="text-xs text-gray-400">Carregando...</span>
-      )}
-    </div>
-  );
-});
-
-// Adicione um nome para facilitar o debug
-PdfThumbnail.displayName = "PdfThumbnail";
 
 
 export default function PdfEditor() {
@@ -241,6 +225,9 @@ export default function PdfEditor() {
     "TURMA:",
   ]);
   const [cabecalhoModo, setCabecalhoModo] = useState("ambas"); // 'ambas', 'impares', 'pares', 'nenhuma'
+  const [cabecalhoTipo, setCabecalhoTipo] = useState("texto"); // texto | imagem | ambos
+
+  const [cabecalhoImagem, setCabecalhoImagem] = useState(null);
 
   const [modoDimensionamento, setModoDimensionamento] = useState('grid');
   const [tamanhoCm, setTamanhoCm] = useState({ largura: 28.7, altura: 21 }); // Tamanho em cm
@@ -278,6 +265,12 @@ export default function PdfEditor() {
     setAlteracoesPendentes(true);
   };
 
+  const [resumoTamanho, setResumoTamanho] = useState({
+    imagem: null,
+    imagemBorda: null,
+    imagemCabecalho: null,
+    imagemCompleta: null,
+  });
 
   useEffect(() => {
     setImagens((prev) => {
@@ -359,12 +352,6 @@ export default function PdfEditor() {
   }, [pdfUrl, paginaAtual, zoom]);
 
 
-  const [resumoTamanho, setResumoTamanho] = useState({
-    imagem: null,
-    imagemBorda: null,
-    imagemCabecalho: null,
-    imagemCompleta: null,
-  });
 
   {/* Resuma da atividads */ }
   useEffect(() => {
@@ -454,7 +441,9 @@ export default function PdfEditor() {
         modoDimensionamento,
         tamanhoCm,
         cabecalhoBorder,
-        setPdfs
+        setPdfs,
+        cabecalhoTipo,
+        cabecalhoImagem,
       );
       setAlteracoesPendentes(false)
 
@@ -488,23 +477,6 @@ export default function PdfEditor() {
     resetarConfiguracoesGeral(resetarConfiguracoes);
   };
 
-  // useEffect(() => {
-  //   if (modoDimensionamento !== "custom") return;
-
-  //   const { largura, altura } = tamanhoCm;
-
-  //   if (!largura || !altura) return;
-
-  //   const novaOrientacao =
-  //     largura > altura ? "paisagem" : "retrato";
-
-  //   setOrientacao((prev) => {
-  //     // evita render desnecessário
-  //     if (prev === novaOrientacao) return prev;
-  //     return novaOrientacao;
-  //   });
-
-  // }, [tamanhoCm, modoDimensionamento]);
 
   useEffect(() => {
     if (modoDimensionamento !== "custom") return;
@@ -554,534 +526,92 @@ export default function PdfEditor() {
                 <h1>Opções</h1>
               </div>
 
+              {/* Configurações Gerais do PDF */}
+              <PageSettings
+                modoDimensionamento={modoDimensionamento}
+                setModoDimensionamento={setModoDimensionamento}
 
-              {/* Tamanho do Papel */}
-              <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">
-                  Modo de Redução:
-                </label>
+                tamanhoCm={tamanhoCm}
+                setTamanhoCm={setTamanhoCm}
 
-                <select
-                  className="px-2 w-full rounded-full pro-input"
-                  value={modoDimensionamento}
-                  onChange={(e) => {
-                    setModoDimensionamento(e.target.value);
-                    setAlteracoesPendentes(true);
-                  }}
-                >
-                  <option value="grid">A4 padrão Grid</option>
-                  <option value="custom">A4 Personalizado (cm)</option>
-                </select>
-              </div>
+                orientacao={orientacao}
+                setOrientacao={setOrientacao}
 
-              {modoDimensionamento === "custom" && (
-                <div className="flex gap-2 w-full">
-                  <div className="flex-1">
-                    <label className="block mb-1 text-center">Largura dos slots(cm)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={tamanhoCm.largura}
-                      onChange={(e) => {
-                        setTamanhoCm(prev => ({
-                          ...prev,
-                          largura: parseFloat(e.target.value) || 0
-                        }));
-                        setAlteracoesPendentes(true);
-                      }}
-                      className="pro-input w-full rounded-full px-2"
-                    />
-                  </div>
+                aspecto={aspecto}
+                setAspecto={setAspecto}
 
-                  <div className="flex-1">
-                    <label className="block mb-1 text-center">Altura dos slots(cm)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={tamanhoCm.altura}
-                      onChange={(e) => {
-                        setTamanhoCm(prev => ({
-                          ...prev,
-                          altura: parseFloat(e.target.value) || 0
-                        }));
-                        setAlteracoesPendentes(true);
-                      }}
-                      className="pro-input w-full rounded-full px-2"
-                    />
-                  </div>
-                </div>
-              )}
+                ampliacao={ampliacao}
+                setAmpliacao={setAmpliacao}
 
-              {/* Orientação e Aspecto (sem alterações) */}
-              <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Orientação:</label>
-                <select
-                  className="px-2 w-full rounded-full pro-input"
-                  name="orientacao"
-                  id="orientacao"
-                  value={orientacao}
-                  onChange={(e) => {
-                    setOrientacao(e.target.value)
-                    setAlteracoesPendentes(true)
-                  }}
-                >
-                  <option value="retrato">Retrato</option>
-                  <option value="paisagem">Paisagem</option>
-                </select>
-              </div>
+                repeatMode={repeatMode}
+                setRepeatMode={setRepeatMode}
 
-              {/* Aspecto da imagem */}
-              {modoDimensionamento === 'grid' && (
-                <div className="w-full">
-                  <label className="block mb-1 pro-label text-center text-xl">Aspecto:</label>
-                  <select
-                    className="px-2 w-full rounded-full pro-input"
-                    name="aspecto"
-                    id="aspecto"
-                    value={aspecto}
-                    onChange={(e) => {
-                      setAspecto(e.target.value === "true")
-                      setAlteracoesPendentes(true)
-                    }}
-                  >
-                    <option value="true">Manter o aspecto original</option>
-                    <option value="false">Preencher toda a folha</option>
-                  </select>
-                </div>
-              )}
+                repeatBorder={repeatBorder}
+                setBorder={setBorder}
 
-              {/* Ampliacao (colunas / linhas) - mantém igual */}
-              {modoDimensionamento === 'grid' && (
-                <>
-                  <label className="block  pro-label text-xl text-center">Redução:</label>
-
-                  <div className="flex flex-col sm:flex-row gap-2 w-full">
-                    <div className="flex gap-2 w-full">
-                      <div className="flex-1" id='colunas-input'>
-                        <label className="block mb-2 pro-label text-center">Colunas</label>
-                        <select
-                          className="pro-input rounded-full w-full"
-                          value={ampliacao.colunas}
-                          onChange={(e) => {
-                            setAmpliacao((prev) => ({
-                              ...prev,
-                              colunas: parseInt(e.target.value) || 1,
-                            }));
-                            setAlteracoesPendentes(true);
-                          }}
-                        >
-                          {[...Array(11)].map((_, i) => {
-                            return (
-                              <option key={i} value={i}>
-                                {i}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      <div className="flex items-end justify-center px-2">
-                        <span className="text-xl font-bold">×</span>
-                      </div>
-
-                      <div className="flex-1" id='linhas-select'>
-                        <label className="block mb-2 pro-label text-center">Linhas</label>
-                        <select
-                          className="pro-input rounded-full w-full"
-                          value={ampliacao.linhas}
-                          onChange={(e) => {
-                            setAmpliacao((prev) => ({
-                              ...prev,
-                              linhas: parseInt(e.target.value) || 1,
-                            }));
-                            setAlteracoesPendentes(true);
-                          }}
-                        >
-                          {[...Array(11)].map((_, i) => {
-                            return (
-                              <option key={i} value={i}>
-                                {i}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Repetir ou não as imagens */}
-              <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Ativar Repetição:</label>
-                <select
-                  value={repeatMode}
-                  onChange={(e) => {
-                    setRepeatMode(e.target.value);
-                    setAlteracoesPendentes(true);
-                  }}
-                  className="px-2 w-full rounded-full pro-input"
-                >
-                  <option value="none">Não repetir</option>
-                  <option value="all">Repetir em todas as páginas</option>
-                </select>
-              </div>
-
-              {/* Bordas com imagens */}
-              <div className="w-full">
-                <label className="block mb-1 pro-label text-center text-xl">Bordas:</label>
-                <select
-                  value={repeatBorder}
-                  onChange={(e) => { setBorder(e.target.value); setAlteracoesPendentes(true); }}
-                  className="px-2 w-full rounded-full pro-input"
-                >
-                  <option value="none">Sem bordas</option>
-                  <option value="numerosColoridos">Números Coloridos</option>
-                  <option value="notasMusicais">Notas Músicais</option>
-                  <option value="coracao">Corações</option>
-                  <option value="coracaoVazado">Corações (Vazado)</option>
-                  <option value="abelhas">Abelhas</option>
-                  <option value="lapis">Lápis</option>
-                  <option value="baloes">Balões</option>
-                  <option value="baloesVazado">Balões (Vazado)</option>
-                  <option value="fogueira">Fogueirinha</option>
-                </select>
-              </div>
+                setAlteracoesPendentes={setAlteracoesPendentes}
+              />
 
               {/* Cabeçalho */}
-              <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={cabecalhoAtivo}
-                  onChange={(e) => {
-                    setCabecalhoAtivo(e.target.checked);
-                    setAlteracoesPendentes(true);
-                  }}
-                />
-                Mostrar Cabeçalho:
-              </label>
+              <HeaderConfig
+                cabecalhoAtivo={cabecalhoAtivo}
+                setCabecalhoAtivo={setCabecalhoAtivo}
 
-              {cabecalhoAtivo && (
-                <div className="w-full mt-2">
-                  <label className="block mb-1 pro-label text-center text-xl">
-                    Modo de Exibição:
-                  </label>
-                  <select
-                    value={cabecalhoModo}
-                    onChange={(e) => {
-                      setCabecalhoModo(e.target.value);
-                      setAlteracoesPendentes(true);
-                    }}
-                    className="px-2 w-full rounded-full pro-input"
-                  >
-                    <option value="ambas">Todas as páginas</option>
-                    <option value="impares">Somente Páginas Ímpares</option>
-                    <option value="pares">Somente Páginas Pares</option>
-                    <option value="primeira_pagina">Somente na 1º página - Experimental (Layout 2Col x 1Lin)</option>
-                    <option value="nenhuma">Não mostrar em nenhuma</option>
-                  </select>
+                cabecalhoModo={cabecalhoModo}
+                setCabecalhoModo={setCabecalhoModo}
 
-                  <label className="flex items-center gap-2 pro-label text-xl cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={cabecalhoBorder}
-                      onChange={(e) => {
-                        setCabecalhoBorder(e.target.checked);
-                        setAlteracoesPendentes(true);
-                      }}
-                    />
-                    Bordas no Cabeçalho
-                  </label>
-                </div>
-              )}
+                cabecalhoTipo={cabecalhoTipo}
+                setCabecalhoTipo={setCabecalhoTipo}
 
+                cabecalhoImagem={cabecalhoImagem}
+                setCabecalhoImagem={setCabecalhoImagem}
 
-              <div className="w-full">
-                {cabecalhoAtivo && ( // Use cabecalhoAtivo para mostrar os inputs
-                  <>
-                    {cabecalhoTexto.map((linha, index) => {
-                      // Lógica dinâmica de limite de caracteres
-                      const isModoFull = cabecalhoModo === "primeira_pagina";
+                cabecalhoBorder={cabecalhoBorder}
+                setCabecalhoBorder={setCabecalhoBorder}
 
-                      let maxPorLinha;
-                      if (isModoFull) {
-                        // Limites maiores para o modo que atravessa as duas colunas
-                        maxPorLinha = orientacao === "paisagem" ? 100 : 66;
-                      } else {
-                        // Limites padrão para apenas uma coluna
-                        maxPorLinha = orientacao === "paisagem" ? 50 : 32;
-                      }
+                cabecalhoTexto={cabecalhoTexto}
+                setCabecalhoTexto={setCabecalhoTexto}
 
-                      return (
-                        <div key={index}>
-                          <input
-                            type="text"
-                            value={linha}
-                            onChange={(e) => {
-                              const valor = e.target.value;
-                              const ajustado = valor.slice(0, maxPorLinha);
-                              const novoTexto = [...cabecalhoTexto];
-                              novoTexto[index] = ajustado;
-                              setCabecalhoTexto(novoTexto);
-                              setAlteracoesPendentes(true);
-                            }}
-                            maxLength={maxPorLinha}
-                            className="w-full border rounded p-2 mt-2 pro-input"
-                            placeholder={`Linha ${index + 1}`}
-                          />
-                          <p className="text-gray-500 text-xs mt-1">
-                            {linha.length} / {maxPorLinha} caracteres
-                            {isModoFull && " (Limite estendido para página inteira)"}
-                          </p>
-                        </div>
-                      );
-                    })}
+                orientacao={orientacao}
 
-                    {/* Legenda Geral abaixo do loop */}
-                    <p className="text-blue-600 font-medium mt-2 text-sm">
-                      Nota: O limite é de {orientacao === "paisagem" ? 52 : 35} caracteres por coluna,
-                      mas aumenta para {orientacao === "paisagem" ? 100 : 70} no modo de 1º Página.
-                    </p>
-                  </>
-                )}
-              </div>
+                setAlteracoesPendentes={setAlteracoesPendentes}
+              />
 
               {/* Botões */}
-              <div className="flex flex-col gap-2 w-full">
-                {user && (
-                  <>
-                    {/* Mostrar Aplicar alterações se houver imagens no array OU imagemBase64 (compatibilidade) */}
-                    {(imagens.some(Boolean)) && alteracoesPendentes && (
-                      <button
-                        disabled={limiteAtingido}
-                        onClick={async () => {
-                          setCarregando(true);
-
-                          await gerarPDF(
-                            imagens,
-                            ampliacao,
-                            orientacao,
-                            aspecto,
-                            setCarregando,
-                            setPdfUrl,
-                            setPaginaAtual,
-                            setAlteracoesPendentes,
-                            setErroPdf,
-                            repeatBorder,
-                            5,
-                            5,
-                            cabecalhoTexto,
-                            cabecalhoAtivo,
-                            cabecalhoModo,
-                            modoDimensionamento,
-                            tamanhoCm,
-                            cabecalhoBorder,
-                            setPdfs,
-                          );
-
-                          setCarregando(false);
-                        }}
-                        className={alteracoesPendentes ? "pro-btn-red" : "pro-btn-blue"}
-                      >
-                        {limiteAtingido ? "Limite de (6 PDFs) atingido" : " Aplicar alterações e Salvar no Histórico"}
-                      </button>
-                    )}
-
-                    {carregando && (
-                      <FullScreenSpinner />
-                    )}
-
-                  </>
-                )}
-              </div>
+              <PdfActions
+                imagens={imagens}
+                alteracoesPendentes={alteracoesPendentes}
+                carregando={carregando}
+                limiteAtingido={limiteAtingido}
+                gerarPDF={gerarPDF}
+                pdfUrl={pdfUrl}
+                processarDownload={processarDownload}
+                auth={auth}
+                handleResetConfig={handleResetConfig}
+              />
 
               {/* Seção de Histórico com Miniaturas */}
-
-              <div className='w-full'>
-                {/* --- BOTÃO MOBILE --- */}
-
-                {pdfs.length > 0 && (
-                  <div className="sm:hidden w-full">
-                    {!showMobileList ? (
-                      <button onClick={() => setShowMobileList(true)} className="pro-btn-purple" >
-                        Visualizar Atividades Salvas ({pdfs.length})
-                      </button>
-                    ) : (
-                      <button onClick={() => setShowMobileList(false)} className="pro-btn-purple" >
-                        Voltar / Fechar
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* --- LISTA EXPANDIDA MOBILE (Imagens Grandes) --- */}
-                {showMobileList && (
-                  <div className="sm:hidden flex flex-col gap-8 p-4 bg-gray-50">
-                    {pdfs.map((pdf) => (
-                      <div key={pdf.id} className="bg-white rounded-xl shadow-md border p-2">
-                        {/* Imagem ocupando largura total, altura automática */}
-                        <div className="w-full">
-                          <PdfThumbnail url={pdf.url} className="w-full h-auto rounded-lg" />
-                        </div>
-
-                        <div className="mt-4 flex gap-2">
-                          
-                          {!auth.alertService.isBlocked && (
-                            <button onClick={() => processarDownload(pdf, 'atividades')}
-                              className="flex-1 pro-btn-green-no-outline text-sm"
-                            >
-                              Baixar PDF
-                            </button>
-                          )}
-
-                          <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline text-sm">
-                            Excluir
-                          </button>
-                        </div>
-                        <p className="text-center text-[10px] text-gray-400 mt-2 uppercase">
-                          Gerado às {new Date(pdf.id).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* --- GRID DESKTOP (Inalterado) --- */}
-                <div className="hidden sm:grid grid-cols-2  md:grid-cols-3 gap-4">
-                  {pdfs.map((pdf) => (
-                    <div key={pdf.id} className="group relative bg-white p-2 rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-                      <PdfThumbnail url={pdf.url} />
-                      <div className="mt-2 text-center">
-                        <p className="text-[10px] text-gray-500 uppercase font-bold">
-                          {new Date(pdf.id).toLocaleTimeString()}
-                        </p>
-                      </div>
-
-                      {/* Overlay Desktop (Hover) */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 rounded-lg">
-                        {/* <button onClick={() => setPdfSelecionadoModal(pdf)} className="bg-white text-gray-800 px-3 py-1 rounded-full text-xs font-bold hover:bg-purple-500">
-                          Visualizar
-                        </button> */}
-                        {!auth.alertService.isBlocked && (
-                          <button onClick={() => processarDownload(pdf, 'atividades')} className="pro-btn-green-no-outline">
-                            Baixar
-                          </button>
-                        )}
-                        <button onClick={() => removerPdf(pdf.id)} className="pro-btn-red-no-outline">
-                          Excluir
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <PdfHistory
+                pdfs={pdfs}
+                showMobileList={showMobileList}
+                setShowMobileList={setShowMobileList}
+                pdfSelecionadoModal={pdfSelecionadoModal}
+                setPdfSelecionadoModal={setPdfSelecionadoModal}
+                processarDownload={processarDownload}
+                removerPdf={removerPdf}
+                baixarTodosPdfsUnificados={baixarTodosPdfsUnificados}
+                handleLimparTudo={handleLimparTudo}
+                comecarNovaPagina={comecarNovaPagina}
+                auth={auth}
+              />
 
 
-              {/* Modal de Visualização */}
-              {pdfSelecionadoModal && (
-                <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 p-4">
-                  <div className="relative bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-
-                    {/* Cabeçalho do Modal */}
-                    <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                      <h3 className="font-bold">Visualizando PDF Antigo</h3>
-                      <button
-                        onClick={() => setPdfSelecionadoModal(null)}
-                        className="text-2xl font-bold hover:text-red-500"
-                      >
-                        &times;
-                      </button>
-                    </div>
-
-                    {/* Corpo do Modal - Aqui usamos o seu componente PdfPreview já existente */}
-                    <div className="flex-1 overflow-y-auto p-4 bg-gray-200">
-                      <div className="absolute top-0 left-0 w-full h-12 z-10 bg-transparent" />
-                      <iframe src={pdfSelecionadoModal.url} className="w-full h-[70vh]" title="Preview" />
-                    </div>
-
-                    {/* Rodapé do Modal */}
-                    <div className="p-4 border-t flex justify-end gap-2">
-
-                      {!auth.alertService.isBlocked && (
-                        <button onClick={() => processarDownload(pdfSelecionadoModal, 'atividades')} className="pro-btn-green px-4 py-2" >
-                          Download
-                        </button>
-                      )}
-
-                      <button onClick={() => setPdfSelecionadoModal(null)} className="bg-gray-500 text-white px-4 py-2 rounded-full" >
-                        Fechar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {pdfs.length > 1 && !auth.alertService.isBlocked && (
-                <div className="w-full flex items-center justify-center gap-2 mb-6">
-                  {/* Botão Principal: Gerar Arquivo Único */}
-                  <button
-                    onClick={baixarTodosPdfsUnificados}
-                    className="pro-btn-blue  max-w-xs flex items-center justify-center text-nowrap shadow-xl hover:scale-105 transition-transform"
-                  >
-                    <FolderPlusIcon className='mr-1' />
-                    Gerar Arquivo Único ({pdfs.length})
-                  </button>
-
-                  {/* Botão Secundário: Limpar Histórico */}
-                  <button
-                    onClick={handleLimparTudo}
-                    title="Limpar todo o histórico"
-                    className="pro-btn-red flex items-center justify-center shadow-md  hover:scale-105 transition-transform"
-                  >
-                    {/* Ícone de Lixeira Simples */}
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                    Limpar
-                  </button>
-                </div>
-              )}
-
-              {/* BOTÃO DE NOVA PÁGINA */}
-              {pdfs.length > 0 && pdfs.length <= 5 && (
-                <div className="w-full flex justify-center">
-                  <button
-                    onClick={comecarNovaPagina}
-                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 px-4 rounded-full border-2 border-dashed border-gray-300 transition-all"
-                  >
-                    <PlusIcon>Começar Nova Página</PlusIcon>
-                  </button>
-                </div>
-              )}
-
-              <button onClick={handleResetConfig} disabled={limiteAtingido}
-                className={`w-full py-2 rounded-full transition ${limiteAtingido
-                  ? "bg-gray-300 cursor-not-allowed opacity-50"
-                  : "pro-btn-blue"
-                  }`}
-              >
-                {limiteAtingido ? "Limite de 6 PDFs atingido" : "Resetar Configurações"}
-              </button>
             </div>
 
-            <h3 className='p-2 text-center font-bold sm:text-xl'>Resumo das atividades:</h3>
-            <div className="p-3 mb-3 border rounded text-center bg-gray-50 sm:text-lg">
-              <p>
-                {resumoTamanho.imagemCompleta ? (
-                  <>✨ <b>Imagem + Bordas + Cabeçalho:</b> {resumoTamanho.imagemCompleta.largura} × {resumoTamanho.imagemCompleta.altura} cm aproximadamente</>
-                ) : resumoTamanho.imagemCabecalho ? (
-                  <>➕ <b>Imagem + Cabeçalho:</b> {resumoTamanho.imagemCabecalho.largura} × {resumoTamanho.imagemCabecalho.altura} cm aproximadamente</>
-                ) : resumoTamanho.imagemBorda ? (
-                  <>➕ <b>Imagem + Bordas:</b> {resumoTamanho.imagemBorda.largura} × {resumoTamanho.imagemBorda.altura} cm aproximadamente</>
-                ) : resumoTamanho.imagem ? (
-                  <>📐 <b>Imagem:</b> {resumoTamanho.imagem.largura} × {resumoTamanho.imagem.altura} cm aproximadamente</>
-                ) : (
-                  <>Nenhuma imagem disponível</>
-                )}
-              </p>
-
-            </div>
+            {/* Resumo das atividades(Tamanhos) */}
+            <ResumoAtividade
+              resumoTamanho={resumoTamanho}
+            />
 
           </div>
 
@@ -1128,7 +658,9 @@ export default function PdfEditor() {
                 repeatMode={repeatMode}
                 cabecalhoBorder={cabecalhoBorder}
                 paginaAtual
-                limiteAtingido={limiteAtingido}
+                limiteAtingido={limiteAtingido}             
+                cabecalhoTipo={cabecalhoTipo}
+                cabecalhoImagem={cabecalhoImagem}
               />
 
               <div className="flex flex-col gap-2 w-full">

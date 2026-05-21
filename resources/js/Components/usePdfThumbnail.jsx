@@ -37,10 +37,7 @@ const PdfThumbnail = ({ url }) => {
 
         if (cancelado) return;
 
-        const viewport =
-          page.getViewport({
-            scale: 0.3
-          });
+        const viewport = page.getViewport({ scale: 1 });
 
         const canvas =
           document.createElement("canvas");
@@ -48,11 +45,9 @@ const PdfThumbnail = ({ url }) => {
         const context =
           canvas.getContext("2d");
 
-        canvas.height =
-          viewport.height;
+        canvas.height = viewport.height;
 
-        canvas.width =
-          viewport.width;
+        canvas.width = viewport.width;
 
         await page.render({
           canvasContext: context,
@@ -61,11 +56,7 @@ const PdfThumbnail = ({ url }) => {
 
         if (cancelado) return;
 
-        const data =
-          canvas.toDataURL(
-            "image/jpeg",
-            0.7
-          );
+        const data = canvas.toDataURL("image/jpeg", 0.8);
 
         // salva cache
         thumbCache.set(
@@ -96,8 +87,7 @@ const PdfThumbnail = ({ url }) => {
   }, [url]);
 
   return (
-    <div
-      className="
+    <div className="
         w-full
         h-40
         bg-gray-100
@@ -114,7 +104,7 @@ const PdfThumbnail = ({ url }) => {
           src={thumb}
           alt="Preview"
           className="
-            object-cover
+            object-fill
             w-full
             h-full
           "

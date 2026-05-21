@@ -4,10 +4,8 @@ import Swal from 'sweetalert2';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import Footer from '@/Components/Footer';
-import imageCompression from 'browser-image-compression';
 import { wallet } from './Partials/usarCarteira';
-// import { downloadCount } from './Partials/downloadCount';
-// import { downloadImageFromReplicate } from '@/Services/DownloadReplicate';
+
 import usePica from '@/Hooks/usePica';
 import { ajustarImagemPica } from '@/Services/PicaService';
 
