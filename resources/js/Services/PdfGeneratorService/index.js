@@ -1091,7 +1091,7 @@ export const gerarPDFService = async (
     if (cabecalhoAtivo) {
       // Modificado de 80 para 90 pontos para garantir mais de 3cm de altura mínima disponível
       if (cabecalhoTipo === "imagem" || cabecalhoTipo === "ambos" || cabecalhoTipo === "banner") {
-        cabecalhoAltura = 90; 
+        cabecalhoAltura = 90;
       } else {
         const linhasCab = Array.isArray(cabecalhoTexto)
           ? cabecalhoTexto.filter(t => t.trim()).length
@@ -1131,7 +1131,7 @@ export const gerarPDFService = async (
         if (cabecalhoModo === "ambas") shouldDrawHeader = true;
         else if (cabecalhoModo === "impares" && isOddPage) shouldDrawHeader = true;
         else if (cabecalhoModo === "pares" && isEvenPage) shouldDrawHeader = true;
-        else if (cabecalhoModo === "primeira_pagina" && currentPageIndex === 0) shouldDrawHeader = true;
+        else if (cabecalhoModo === "primeira_pagina" && slotIndexInPage === 0) shouldDrawHeader = true;
       }
 
       const item = imagens[i % imagens.length];
@@ -1179,6 +1179,7 @@ export const gerarPDFService = async (
       const gapHcabecalho = 0;
 
       const availableW = Math.max(1, cellW - totalBorderW);
+
       const availableH = Math.max(1, cellH - totalBorderH - (temCabecalho ? (cabecalhoAltura + gapHcabecalho) : 0));
 
       let drawW, drawH, drawX, drawY;
@@ -1206,7 +1207,7 @@ export const gerarPDFService = async (
       }
 
       page.drawImage(embeddedImg, { x: drawX, y: drawY, width: drawW, height: drawH });
-
+     
       if (bordaX) {
         const larguraAlvo = (cabecalhoModo === "primeira_pagina") ? cellW : drawW;
         const xInicial = (cabecalhoModo === "primeira_pagina") ? cellLeftX : drawX;
@@ -1230,7 +1231,7 @@ export const gerarPDFService = async (
         const tilesY = Math.max(1, Math.ceil(cellH / tileHeight));
         const scaleY = Math.max(0.01, cellH / (tilesY * tileHeight));
 
-        const éColunaEsquerda = (cellLeftX <= margin + 1); 
+        const éColunaEsquerda = (cellLeftX <= margin + 1);
         const éColunaDireita = (cellLeftX + cellW >= pageWidth - margin - 1);
 
         for (let yi = 0; yi < tilesY; yi++) {

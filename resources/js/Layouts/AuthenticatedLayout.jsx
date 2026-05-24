@@ -42,6 +42,11 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </NavLink>
 
 
+                                <NavLink href={route('editor.pdf.canvas')} active={route().current('editor.pdf.canvas')} >
+                                    Editor PDF Canvas
+                                </NavLink>
+
+
                                 <div className="hidden sm:flex sm:items-center sm:ms-6">
 
                                     <div className="ms-3 relative group">

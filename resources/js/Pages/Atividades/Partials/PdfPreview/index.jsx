@@ -276,141 +276,183 @@ export default function PdfPreview({
 
       {/* Slots do grid */}
       {Array.from({ length: totalSlots }).map((_, i) => {
-        const imgObj = imagens[i] || null;
-        const imgSrc = imgObj ? (typeof imgObj === 'string' ? imgObj : imgObj.src) : null;
-        const imgKey = imgObj?.uid ?? imgSrc ?? i;
+        const imgObj = imagens[i] ?? null;
+        const imgSrc =
+          typeof imgObj === 'string'
+            ? imgObj
+            : imgObj?.src ?? null;
 
-        const pageIndex = Math.floor(i / slotsPerPage);
-        const isOddPage = (i % slotsPerPage) === 0; // Esquerda
-        const isEvenPage = (i % slotsPerPage) !== 0; // Direita
+        const imgKey =
+          imgObj?.uid ??
+          imgSrc ??
+          i;
 
-        let shouldDrawHeader = false;
+        /*
+         * Página real (começa em 1)
+         */
+        const pageNumber = i + 1;
 
-        const temTextoValido = cabecalhoTexto && cabecalhoTexto.some((t) => t.trim() !== '');
-        const temImagemValida = cabecalhoImagem !== null;
+        /*
+         * Validação do conteúdo do cabeçalho
+         */
+        const temTextoValido =
+          Array.isArray(cabecalhoTexto) &&
+          cabecalhoTexto.some(
+            linha => linha?.trim()
+          );
 
-        if (cabecalhoAtivo && (temTextoValido || temImagemValida)) {
-          if (cabecalhoModo === 'ambas') {
-            shouldDrawHeader = true;
-          } else if (cabecalhoModo === 'impares' && isOddPage) {
-            shouldDrawHeader = true;
-          } else if (cabecalhoModo === 'pares' && isEvenPage) {
-            shouldDrawHeader = true;
-          } else if (cabecalhoModo === 'primeira_pagina') {
-            shouldDrawHeader = true;
-          }
-        }
+        const temImagemValida = !!cabecalhoImagem;
 
-        // Identifica os modos de layout baseados no tipo de cabeçalho escolhido
-        const layoutLadoALado = cabecalhoTipo === 'ambos' && cabecalhoImagem;
-        const layoutBanner = cabecalhoTipo === 'banner' && cabecalhoImagem;
+        /*
+         * Decide se desenha cabeçalho
+         */
+        const shouldDrawHeader =
+          cabecalhoAtivo &&
+          (temTextoValido || temImagemValida) &&
+          (
+            cabecalhoModo === 'ambas' ||
+
+            (cabecalhoModo === 'impares' &&
+              pageNumber % 2 !== 0) ||
+
+            (cabecalhoModo === 'pares' &&
+              pageNumber % 2 === 0) ||
+
+            (cabecalhoModo === 'primeira_pagina' &&
+              pageNumber === 1)
+          );
+
+        /*
+         * Layout
+         */
+        const layoutLadoALado = cabecalhoTipo === 'ambos' && !!cabecalhoImagem;
+
+        const layoutBanner = cabecalhoTipo === 'banner' && !!cabecalhoImagem;
 
         return (
-          <div
-            key={i}
-            className="w-full h-full border-2 border-dashed rounded-md flex flex-col justify-start text-xs text-gray-400 relative overflow-hidden bg-white"
+          <div key={i}
+            className="w-full  h-full  border-2 border-dashed  rounded-md flex  flex-col relative overflow-hidden bg-white "
           >
-            {/* 1. Cabeçalho Real */}
-            {shouldDrawHeader && (cabecalhoModo !== 'primeira_pagina' || isOddPage) && (
+
+            {/* CABEÇALHO */}
+            {shouldDrawHeader && (
               <div
                 className={`
-            flex-none w-full flex font-bold text-gray-800 bg-gray-50/50 z-10 items-center
-            ${cabecalhoBorder ? 'border-b border-gray-300' : ''} 
-            ${layoutBanner ? 'p-0 flex-col' : 'p-1'} 
+            flex-none
+            w-full
+            font-bold
+            text-gray-800
+            bg-gray-50/50
+            z-10
+            flex
+            items-center
+            ${cabecalhoBorder ? 'border-b border-gray-300' : ''}
+            ${layoutBanner ? 'flex-col p-0' : 'p-1'}
             ${layoutLadoALado ? 'flex-row gap-1' : 'flex-col gap-0.5'}
           `}
               >
-                {/* MODO BANNER: Ocupa toda a largura da folha */}
+
                 {layoutBanner && (
                   <img
                     src={cabecalhoImagem}
-                    alt="Banner do Cabeçalho"
-                    className="w-full h-auto max-h-20 object-cover"
+                    alt=""
+                    className="
+                w-full
+                max-h-20
+                object-cover
+              "
                   />
                 )}
 
-                {/* MODOS TRADICIONAIS: Imagem comum (centralizada ou do lado esquerdo do texto) */}
-                {!layoutBanner && (cabecalhoTipo === 'imagem' || cabecalhoTipo === 'ambos') && cabecalhoImagem && (
-                  <div className={`flex-none flex justify-center ${layoutLadoALado ? 'w-1/5' : 'w-full mb-1'}`}>
-                    <img
-                      src={cabecalhoImagem}
-                      alt="Imagem do Cabeçalho"
-                      className="max-h-12 w-full object-contain"
-                    />
-                  </div>
-                )}
+                {!layoutBanner &&
+                  (cabecalhoTipo === 'imagem' ||
+                    cabecalhoTipo === 'ambos') &&
+                  cabecalhoImagem && (
+                    <div
+                      className={`
+                  flex-none
+                  flex
+                  justify-center
+                  ${layoutLadoALado
+                          ? 'w-1/5'
+                          : 'w-full mb-1'
+                        }
+                `}
+                    >
+                      <img
+                        src={cabecalhoImagem}
+                        alt=""
+                        className="
+                    max-h-12
+                    w-full
+                    object-contain
+                  "
+                      />
+                    </div>
+                  )}
 
-                {/* Seção de Texto do Cabeçalho */}
-                {!layoutBanner && (cabecalhoTipo === 'texto' || cabecalhoTipo === 'ambos') && (
-                  <div className={`flex-1 flex flex-col gap-0.5 ${layoutLadoALado ? 'w-4/5' : 'w-full'}`}>
-                    {cabecalhoTexto.map((linha, index) => (
-                      <div key={index} className="w-full truncate text-[10px] leading-tight" title={linha}>
-                        {linha}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {!layoutBanner &&
+                  (cabecalhoTipo === 'texto' ||
+                    cabecalhoTipo === 'ambos') && (
+                    <div
+                      className={`
+                  flex-1
+                  flex
+                  flex-col
+                  gap-0.5
+                  ${layoutLadoALado
+                          ? 'w-4/5'
+                          : 'w-full'
+                        }
+                `}
+                    >
+                      {cabecalhoTexto?.map(
+                        (linha, index) => (
+                          <div
+                            key={index}
+                            className="
+                        truncate
+                        text-[10px]
+                        leading-tight
+                      "
+                          >
+                            {linha}
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
               </div>
             )}
 
-            {/* 2. O Espaçador (Modo primeira_pagina) */}
-            {shouldDrawHeader && cabecalhoModo === 'primeira_pagina' && isEvenPage && (
-              <div
-                className={`
-            flex-none w-full flex items-center
-            ${cabecalhoBorder ? 'border-b border-transparent' : ''}
-            ${layoutBanner ? 'p-0 flex-col' : 'p-1'}
-            ${layoutLadoALado ? 'flex-row gap-1' : 'flex-col gap-0.5'}
-          `}
-                aria-hidden="true"
-              >
-                {/* Espaçador invisível do Modo Banner */}
-                {layoutBanner && (
-                  <div className="w-full max-h-20 opacity-0 select-none">&nbsp;</div>
-                )}
-
-                {/* Espaçador invisível da Imagem Tradicional */}
-                {!layoutBanner && (cabecalhoTipo === 'imagem' || cabecalhoTipo === 'ambos') && cabecalhoImagem && (
-                  <div className={`flex-none ${layoutLadoALado ? 'w-1/5' : 'w-full'}`}>
-                    <div className="max-h-12 w-full opacity-0">&nbsp;</div>
-                  </div>
-                )}
-
-                {/* Espaçador invisível do Texto */}
-                {!layoutBanner && (cabecalhoTipo === 'texto' || cabecalhoTipo === 'ambos') && (
-                  <div className={`flex-1 flex flex-col gap-0.5 ${layoutLadoALado ? 'w-4/5' : 'w-full'}`}>
-                    {cabecalhoTexto.map((_, index) => (
-                      <div key={index} className="w-full text-[10px] opacity-0">&nbsp;</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 3. Área da Imagem Principal da Atividade */}
-            <div className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden">
+            {/* IMAGEM */}
+            <div className="flex-1 relative overflow-hidden">
               {imgSrc && !loadingThumbnails[i] ? (
                 <>
                   <img
                     key={imgKey}
                     src={imgSrc}
-                    alt={`Imagem ${i + 1}`}
-                    className={`rounded-md ${aspecto ? 'max-w-full max-h-full object-contain' : 'w-full h-full object-fill'}`}
+                    alt={`Imagem ${pageNumber}`}
+                    className={
+                      aspecto
+                        ? 'w-full h-full object-contain'
+                        : 'w-full h-full object-fill'
+                    }
                   />
-                  <button
-                    title={limiteAtingido ? "Limite de 6 PDFs atingido" : "Remover imagem"}
-                    onClick={() => removerImagem(i)}
-                    disabled={limiteAtingido}
-                    className={`absolute top-1 right-1 z-20 rounded-full p-1 shadow transition-all text-[10px] ${limiteAtingido
+
+                  <button title={limiteAtingido ? "Limite de 6 PDFs atingido" : "Remover imagem"}
+                    onClick={() => removerImagem(i)} disabled={limiteAtingido}
+                    className={`absolute top-1 right-1 z-20 rounded-full p-1 px-2 shadow transition-all  ${limiteAtingido
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed opacity-50"
                       : "bg-white bg-opacity-80 hover:bg-opacity-100 text-red-500"
                       }`}
                   >
-                    Remover
+                    ❌
                   </button>
                 </>
               ) : (
-                <div className="flex flex-col items-center justify-center gap-2 px-2">
+                <div className="flex flex-col items-center justify-center gap-2 px-2 h-full">
                   <p className="text-sm sm:text-base md:text-lg lg:text-xl text-center">Envie Imagem ou PDF :)</p>
                   <input
                     type="file"
@@ -424,19 +466,11 @@ export default function PdfPreview({
                   />
                 </div>
               )}
-
-              {loadingThumbnails[i] && (
-                <div className="absolute inset-0 flex items-center justify-center bg-white/50">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
-                </div>
-              )}
             </div>
+
           </div>
         );
       })}
-
-
-
 
       {/* 1. Criar linhas verticais (entre colunas) */}
       {Array.from({ length: ampliacao.colunas - 1 }).map((_, col) => (

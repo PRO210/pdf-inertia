@@ -1,4 +1,4 @@
-export default function HeaderConfig({
+export default function PdfHeaderConfig({
   cabecalhoAtivo,
   setCabecalhoAtivo,
 
@@ -19,6 +19,9 @@ export default function HeaderConfig({
 
   orientacao,
   setAlteracoesPendentes,
+
+  cabecalhoLayout,
+  setCabecalhoLayout
 }) {
 
   return (
@@ -54,7 +57,8 @@ export default function HeaderConfig({
             <option value="ambas">Todas as páginas</option>
             <option value="impares">Somente Páginas Ímpares</option>
             <option value="pares">Somente Páginas Pares</option>
-            <option value="primeira_pagina">Somente na 1º página - Experimental (Layout 2Col x 1Lin)</option>
+            <option value="algumas">Só em algumas</option>
+            <option value="primeira_pagina">Somente na 1º página</option>
             <option value="nenhuma">Não mostrar em nenhuma</option>
           </select>
 
@@ -69,6 +73,24 @@ export default function HeaderConfig({
             />
             Bordas no Cabeçalho
           </label>
+
+          {/* NOVO CAMPO: Comportamento do Layout */}
+          <label className="block mb-1 pro-label text-center text-xl mt-4">
+            Ajuste do Conteúdo:
+          </label>
+          <select
+            value={cabecalhoLayout}
+            onChange={(e) => {
+              setCabecalhoLayout(e.target.value);
+              setAlteracoesPendentes(true);
+            }}
+            className="px-2 w-full rounded-full pro-input"
+          >
+            <option value="sobreposto">Sobrepor (Escrever por cima do PDF)</option>
+            <option value="encolhido">Encolher PDF (Reservar espaço no topo)</option>
+          </select>
+
+
 
         </div>
       )}
@@ -187,7 +209,7 @@ export default function HeaderConfig({
 
                           const ajustado = valor.slice(0, maxPorLinha);
 
-                          const novoTexto =  [...cabecalhoTexto];
+                          const novoTexto = [...cabecalhoTexto];
 
                           novoTexto[index] = ajustado;
 

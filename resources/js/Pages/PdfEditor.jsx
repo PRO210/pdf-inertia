@@ -22,6 +22,14 @@ export default function PdfEditor() {
   const { props } = usePage()
   const user = props.auth.user
 
+  const { auth } = usePage().props;
+
+  console.log(auth.alertService);
+  console.log(auth.alertService.isBlocked);
+  console.log("Verificando isBlocked:", auth.alertService?.isBlocked);
+
+
+
   const [pdfUrl, setPdfUrl] = useState(null)
   const [pdfDownloadUrl, setPdfDownloadUrl] = useState(null);
   const [imagemBase64, setImagemBase64] = useState(null)
@@ -1512,10 +1520,110 @@ export default function PdfEditor() {
                     </>
 
                     {pdfDownloadUrl && !alteracoesPendentes && (
-                      <button onClick={() => processarDownload(pdfDownloadUrl, totalPaginas)}
-                        className="pro-btn-green mt-2" disabled={estaBaixando} >
-                        {estaBaixando ? 'Contabilizando páginas...' : `Baixar Poster`}
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            if (!auth.alertService?.isBlocked) {
+                              processarDownload(pdfDownloadUrl, totalPaginas);
+                            }
+                          }}
+                          disabled={
+                            estaBaixando ||
+                            auth.alertService?.isBlocked
+                          }
+                          className={`
+        mt-2
+        ${auth.alertService?.isBlocked
+                              ? `
+            bg-gray-300
+            text-gray-500
+            cursor-not-allowed
+            py-2
+            rounded-full
+            opacity-70
+          `
+                              : `pro-btn-green`
+                            }
+      `}
+                        >
+                          {estaBaixando
+                            ? 'Contabilizando páginas...'
+                            : auth.alertService?.isBlocked
+                              ? 'Download bloqueado'
+                              : 'Baixar Poster'}
+                        </button>
+
+                        {/* =======================================================
+         ALERTA PRO
+      ======================================================= */}
+                        {auth.alertService?.isBlocked && (
+                          <div
+                            className="
+          bg-red-50
+          border-l-4
+          border-red-500
+          text-red-800
+          px-4
+          py-4
+          rounded
+          shadow-sm
+          mt-4
+          flex
+          flex-col
+          sm:flex-row
+          items-center
+          justify-between
+          gap-4
+        "
+                            role="alert"
+                          >
+                            <div className="flex items-center">
+
+                              <svg
+                                className="w-6 h-6 text-red-500 mr-3"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+
+                              <div>
+                                <p className="font-bold">
+                                  Download Bloqueado
+                                </p>
+
+                                <p className="text-sm opacity-90">
+                                  {auth.alertService.message}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => router.visit(route('pdf.pagamentos'))}
+                              className="
+            w-full
+            sm:w-auto
+            bg-red-600
+            text-white
+            font-bold
+            px-6
+            py-2
+            rounded-lg
+            hover:bg-red-700
+            transition-colors
+            shadow-md
+          "
+                            >
+                              Assinar Plano PRO
+                            </button>
+
+                          </div>
+                        )}
+                      </>
                     )}
 
 

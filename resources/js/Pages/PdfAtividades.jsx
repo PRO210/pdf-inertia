@@ -18,11 +18,11 @@ import { useLimpezaDados } from '@/Hooks/useLimpezaDados'
 import HeaderConfig from '@/Components/PdfEditor/HeaderConfig'
 import PageSettings from '@/Components/PdfEditor/PageSettings'
 import ResumoAtividade from '@/Components/PdfEditor/ResumoAtividade'
+
 import PdfActions from '@/Components/PdfEditor/PdfActions'
 import PdfHistory from '@/Components/PdfEditor/PdfHistory'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
-
 
 
 export default function PdfEditor() {

@@ -44,6 +44,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/pdf-editor', [PdfEditorController::class, 'store'])->name('pdf.editor.store');
 
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
+    
+    Route::get('/dashboard/editor-pdf-canvas', [PdfEditorController::class, 'editorPdfCanvas'])->name('editor.pdf.canvas');
+    Route::post('/dashboard/editor-pdf-canvas', [PdfEditorController::class, 'gerarPdfCanvas'])->name('gerar.pdf.canvas');
+
 
     Route::get('/dashboard/tratamento-imagens', [ImageController::class, 'index'])->name('tratamento.imagens');
 

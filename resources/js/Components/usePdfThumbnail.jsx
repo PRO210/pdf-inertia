@@ -24,26 +24,21 @@ const PdfThumbnail = ({ url }) => {
     const generateThumb = async () => {
       try {
 
-        const loadingTask =
-          pdfjsLib.getDocument(url);
+        const loadingTask = pdfjsLib.getDocument(url);
 
-        const pdf =
-          await loadingTask.promise;
+        const pdf = await loadingTask.promise;
 
         if (cancelado) return;
 
-        const page =
-          await pdf.getPage(1);
+        const page = await pdf.getPage(1);
 
         if (cancelado) return;
 
         const viewport = page.getViewport({ scale: 1 });
 
-        const canvas =
-          document.createElement("canvas");
+        const canvas = document.createElement("canvas");
 
-        const context =
-          canvas.getContext("2d");
+        const context = canvas.getContext("2d");
 
         canvas.height = viewport.height;
 
@@ -59,10 +54,7 @@ const PdfThumbnail = ({ url }) => {
         const data = canvas.toDataURL("image/jpeg", 0.8);
 
         // salva cache
-        thumbCache.set(
-          url,
-          data
-        );
+        thumbCache.set(url, data);
 
         setThumb(data);
 
@@ -86,35 +78,23 @@ const PdfThumbnail = ({ url }) => {
 
   }, [url]);
 
-  return (
-    <div className="
-        w-full
-        h-40
-        bg-gray-100
-        rounded
-        flex
-        items-center
-        justify-center
-        overflow-hidden
-        border
-      "
-    >
-      {thumb ? (
-        <img
-          src={thumb}
-          alt="Preview"
-          className="
+  return (<div className=" w-full h-40 bg-gray-100  rounded flex items-center justify-center overflow-hidden border ">
+    {thumb ? (
+      <img
+        src={thumb}
+        alt="Preview"
+        className="
             object-fill
             w-full
             h-full
           "
-        />
-      ) : (
-        <span className="text-xs text-gray-400">
-          Carregando...
-        </span>
-      )}
-    </div>
+      />
+    ) : (
+      <span className="text-xs text-gray-400">
+        Carregando...
+      </span>
+    )}
+  </div>
   );
 };
 

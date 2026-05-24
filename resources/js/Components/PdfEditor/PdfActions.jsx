@@ -119,9 +119,7 @@ export default function PdfActions({
           </div>
 
           <button
-            onClick={() =>
-              router.visit(route('pagamento.retorno'))
-            }
+            onClick={() => router.visit(route('pagamento.retorno'))}
             className="
                             w-full
                             sm:w-auto
