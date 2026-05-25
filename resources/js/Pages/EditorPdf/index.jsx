@@ -11,15 +11,15 @@ import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useMensagens } from '@/Hooks/useMensagens'
 import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
-import { gerarPDFService } from '@/Services/PdfGeneratorService'
 import { useLimpezaDados } from '@/Hooks/useLimpezaDados'
-import HeaderConfig from '@/Components/PdfEditor/HeaderConfig'
-import PageSettings from '@/Components/PdfEditor/PageSettings'
 import ResumoAtividade from '@/Components/PdfEditor/ResumoAtividade'
-import PdfActions from '@/Components/PdfEditor/PdfActions'
-import PdfHistory from '@/Components/PdfEditor/PdfHistory'
 import PdfPageThumbnail from '@/Components/EditorPdf/PdfPageThumbnail'
 import PdfHeaderConfig from '@/Components/EditorPdf/PdfHeaderConfig'
+import Modal from '@/Components/Modal';
+import * as fabric from 'fabric';
+import PdfHistoryEditor from '@/Components/EditorPdf/PdfHistoryEditor'
+import PdfActionsEditor from '@/Components/EditorPdf/PdfActionsEditor'
+
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -47,7 +47,6 @@ export default function EditorPdf() {
 
   const [pdfs, setPdfs] = useState([])
   const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
-  const limiteAtingido = pdfs.length >= 6;
 
   // Função para remover do array e liberar memória do navegador
   const removerPdf = (id) => {
@@ -66,7 +65,7 @@ export default function EditorPdf() {
       return (pdfExcluido && pdfExcluido.url === currentUrl) ? null : currentUrl;
     });
 
-    // setAlteracoesPendentes(true)
+    setAlteracoesPendentes(true)
   };
 
   const comecarNovaPagina = async () => {
@@ -192,11 +191,21 @@ export default function EditorPdf() {
   };
 
 
-  const [totalPages, setTotalPages] = useState(0);
   const [pagesConfig, setPagesConfig] = useState([]);
-  const [arquivoRaw, setArquivoRaw] = useState(null);
+  const [arquivosRaw, setArquivosRaw] = useState([]);
   const [pdfModificadoUrl, setPdfModificadoUrl] = useState(null);
   const [cabecalhoLayout, setCabecalhoLayout] = useState('sobreposto');
+
+
+
+  // NOVO: Estado para a Edição Livre com Fabric.js
+  // Controla qual página está aberta no editor em tela cheia. Se null, o editor está fechado.
+  const [paginaEmEdicaoTotal, setPaginaEmEdicaoTotal] = useState(null); // Ex: { pageNumber: 2, url: 'blob...' }
+  // Um objeto onde a CHAVE é o número da página (ex: "2") e o VALOR é o JSON completo do Fabric.js para aquela página.
+  // Usamos string JSON para facilitar o armazenamento e o envio para o backend.
+  const [edicoesFabricPaginas, setEdicoesFabricPaginas] = useState({}); // Ex: { "1": "{}", "2": '{"objects":[...]}' }
+  // NOVO: Referência para controlar o ciclo de vida do Canvas do Fabric.js
+  const fabricCanvasRef = useRef(null);
 
 
 
@@ -205,7 +214,7 @@ export default function EditorPdf() {
 
 
   const [showMobileList, setShowMobileList] = useState(false);
-
+  const [totalPages, setTotalPages] = useState(0);
 
   const [pdfUrl, setPdfUrl] = useState(null)
   const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 1 })
@@ -216,16 +225,13 @@ export default function EditorPdf() {
   const [zoom, setZoom] = useState(1)
   const [aspecto, setAspecto] = useState(false)
 
-  const pdfContainerRef = useRef(null)
   const [carregando, setCarregando] = useState(false)
 
 
   const [imagens, setImagens] = useState([]);
   const [repeatMode, setRepeatMode] = useState("all");
-
   const [repeatBorder, setBorder] = useState("none");
-  const espessuraBorda = 22;   // grossura da moldura, em px
-  const tamanhoTile = 150;    // tamanho do “azulejo” (escala do padrão)
+
 
   const [cabecalhoAtivo, setCabecalhoAtivo] = useLocalStorage("cabecalhoAtivo", false);
   const [cabecalhoBorder, setCabecalhoBorder] = useLocalStorage("cabecalhoBorder", false);
@@ -267,11 +273,9 @@ export default function EditorPdf() {
 
   }
 
-
-
   // 2. Na função de disparo do download/modificação:
   const processarDownload = async () => {
-    if (!arquivoRaw) return;
+    if (!arquivosRaw) return;
 
     try {
 
@@ -285,10 +289,18 @@ export default function EditorPdf() {
       const formData = new FormData();
 
       // Anexa o arquivo físico bruto que está na memória do navegador
-      formData.append('pdf_file', arquivoRaw);
+      const resposta = await fetch(pdfUrl);
+
+      const blob = await resposta.blob();
+
+      formData.append('pdf_file', blob, 'pdf_unificado.pdf');
 
       // Anexa o array de configurações convertido em string JSON
-      formData.append('paginas', JSON.stringify(pagesConfig));
+      // formData.append('paginas', JSON.stringify(pagesConfig));
+
+      // NOVO: Usa a função auxiliar para incluir as edições do Fabric
+      formData.append('paginas', JSON.stringify(getFinalPagesConfig()));
+
 
       // Anexa dados globais adicionais que o cabeçalho do TCPDF vai precisar ler
       formData.append('textos_cabecalho', JSON.stringify(cabecalhoTexto));
@@ -304,14 +316,15 @@ export default function EditorPdf() {
 
 
 
+
       const response = await axios.post(route('gerar.pdf.canvas'), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         responseType: 'blob'
       });
 
       // Em vez de baixar direto, criamos a URL e salvamos no estado do componente
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const urlGerada = window.URL.createObjectURL(blob);
+      const blobR = new Blob([response.data], { type: 'application/pdf' });
+      const urlGerada = window.URL.createObjectURL(blobR);
 
       setPdfModificadoUrl(urlGerada);
 
@@ -356,8 +369,6 @@ export default function EditorPdf() {
     resetarConfiguracoesGeral(resetarConfiguracoes);
   };
 
-
-
   //
   //
   useEffect(() => {
@@ -393,11 +404,25 @@ export default function EditorPdf() {
 
   // Função utilitária para atualizar a propriedade de uma página específica
   const updatePageConfig = (pageNumber, field, value) => {
-    setPagesConfig(prev =>
-      prev.map(item =>
-        item.page === pageNumber ? { ...item, [field]: value } : item
-      )
-    );
+
+    setPagesConfig(prev => {
+
+      const novo =
+        prev.map(item =>
+          item.page === pageNumber
+            ? {
+              ...item,
+              [field]: value
+            }
+            : item
+        );
+
+      return novo;
+    });
+
+    if (!alteracoesPendentes) {
+      setAlteracoesPendentes(true);
+    }
   };
 
   useEffect(() => {
@@ -466,7 +491,7 @@ export default function EditorPdf() {
     }
 
     setPdfUrl(null);
-    setArquivoRaw(null);
+    setArquivosRaw(null);
     setPdfModificadoUrl(null);
 
     setPagesConfig([]);
@@ -478,6 +503,408 @@ export default function EditorPdf() {
     // opcional
     setErroPdf(null);
   };
+
+  const adicionarPdfAoPreview = async (novosArquivos) => {
+    try {
+
+      setCarregando(true);
+
+      const pdfFinal = await PDFDocument.create();
+
+      const todosArquivos = [
+        ...arquivosRaw,
+        ...Array.from(novosArquivos)
+      ];
+
+      for (const arquivo of todosArquivos) {
+
+        const bytes = await arquivo.arrayBuffer();
+
+        const pdf = await PDFDocument.load(bytes);
+
+        const paginas = await pdfFinal.copyPages(
+          pdf,
+          pdf.getPageIndices()
+        );
+
+        paginas.forEach((p) =>
+          pdfFinal.addPage(p)
+        );
+      }
+
+      const bytesFinais = await pdfFinal.save();
+
+      if (pdfUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(pdfUrl);
+      }
+
+      const blob = new Blob([bytesFinais], { type: 'application/pdf' });
+
+      const url = URL.createObjectURL(blob);
+
+      setPdfUrl(url);
+
+      // guarda lista original
+      setArquivosRaw(todosArquivos);
+
+      setCabecalhoAtivo(false);
+
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+
+  // NOVO: Função utilitária para montar o config final incluindo o JSON do Fabric.
+  // Esta função NÃO altera o estado principal (pagesConfig), apenas prepara os dados para o envio.
+  const getFinalPagesConfig = () => {
+    return pagesConfig.map(config => ({
+      ...config,
+      // Adiciona o JSON do Fabric correspondente a esta página (ou vazio se não houver).
+      fabricJson: edicoesFabricPaginas[config.page] || null,
+    }));
+  };
+
+  // Ação 1: Salva o estado atual do canvas APENAS para a página ativa
+  const salvarEdicaoPaginaAtual = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !paginaEmEdicaoTotal) return;
+
+    // No Fabric v6, canvas.toJSON() exporta os objetos adicionados de forma limpa
+    const jsonDados = canvas.toJSON();
+
+    setEdicoesFabricPaginas((prev) => ({
+      ...prev,
+      [paginaEmEdicaoTotal.pageNumber]: JSON.stringify(jsonDados),
+    }));
+
+    // console.log("Edição salva para a página", paginaEmEdicaoTotal.pageNumber, ":", jsonDados);
+
+    setAlteracoesPendentes(true);
+    setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
+  };
+
+  // Ação 2: Replica o design atual do canvas para TODAS as páginas do documento
+  const aplicarEdicaoATodasAsPaginas = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !paginaEmEdicaoTotal) return;
+
+    const jsonDados = canvas.toJSON();
+    const jsonString = JSON.stringify(jsonDados);
+
+    // Mapeia todas as páginas do config gerando o mesmo conteúdo nelas
+    const novasEdicoes = {};
+    pagesConfig.forEach((config) => {
+      novasEdicoes[config.page] = jsonString;
+    });
+
+    setEdicoesFabricPaginas(novasEdicoes);
+    setAlteracoesPendentes(true);
+    setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
+  };
+
+
+  // Função para adicionar uma caixa de texto inteligente (Textbox) na tela
+  const adicionarTextoFabric = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const texto = new fabric.Textbox('Clique duas vezes para editar', {
+      left: 50,
+      top: 50,
+      width: 250,
+      fontSize: 20,
+      fontFamily: 'Arial',
+      fill: '#000000', // Cor preta padrão
+      borderColor: '#6366f1', // Borda roxa de seleção estilizada
+      cornerColor: '#6366f1',
+      cornerSize: 8,
+      transparentCorners: false,
+    });
+
+    canvas.add(texto);
+    canvas.setActiveObject(texto); // Já deixa o texto selecionado para o usuário
+    canvas.renderAll();
+  };
+
+  // Função para apagar o objeto que estiver selecionado atualmente no Canvas
+  const apagarObjetoSelecionado = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const objetoAtivo = canvas.getActiveObject();
+    if (objetoAtivo) {
+      canvas.remove(objetoAtivo);
+      canvas.discardActiveObject(); // Desmarca a seleção
+      canvas.renderAll();
+    }
+  };
+
+  const adicionarImagemFabric = (e) => {
+    const arquivo = e.target.files[0];
+    if (!arquivo || !fabricCanvasRef.current) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgNativa = new Image();
+      imgNativa.onload = () => {
+        // Instancia o FabricImage adequado para o Fabric v6
+        const fabricImg = new fabric.FabricImage(imgNativa, {
+          left: 100,
+          top: 100,
+          // Redimensiona um pouco se a imagem for gigante para não quebrar a tela
+          scaleX: imgNativa.width > 300 ? 300 / imgNativa.width : 1,
+          scaleY: imgNativa.width > 300 ? 300 / imgNativa.width : 1,
+        });
+
+        fabricCanvasRef.current.add(fabricImg);
+        fabricCanvasRef.current.setActiveObject(fabricImg);
+        fabricCanvasRef.current.renderAll();
+      };
+      imgNativa.src = event.target.result;
+    };
+    reader.readAsDataURL(arquivo);
+
+    // Limpa o input para permitir selecionar a mesma imagem novamente se necessário
+    e.target.value = '';
+  };
+
+  // useEffect(() => {
+  //   if (!paginaEmEdicaoTotal) {
+  //     if (fabricCanvasRef.current) {
+  //       fabricCanvasRef.current.dispose();
+  //       fabricCanvasRef.current = null;
+  //     }
+  //     return;
+  //   }
+
+  //   let ativo = true;
+
+  //   const inicializarEditor = async () => {
+  //     try {
+  //       console.log("--- DEBUG START ---");
+  //       console.log("1. URL do PDF recebida:", paginaEmEdicaoTotal.url);
+  //       console.log("2. Página a renderizar:", paginaEmEdicaoTotal.pageNumber);
+
+  //       // Carrega o documento
+  //       const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
+  //       const pdf = await loadingTask.promise;
+  //       const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
+
+  //       // Usando escala 1.2 para teste
+  //       const viewport = page.getViewport({ scale: 1.2 });
+  //       console.log("3. Dimensões da Viewport:", viewport.width, "x", viewport.height);
+
+  //       if (!ativo) return;
+
+  //       // Criando o canvas temporário em memória
+  //       const tempCanvas = document.createElement('canvas');
+  //       tempCanvas.width = viewport.width;
+  //       tempCanvas.height = viewport.height;
+  //       const context = tempCanvas.getContext('2d');
+
+  //       console.log("4. Iniciando renderização do PDF no canvas temporário...");
+
+  //       // Renderiza a página
+  //       const renderTask = page.render({ canvasContext: context, viewport: viewport });
+  //       await renderTask.promise;
+
+  //       console.log("5. RenderTask do PDFJS resolvida.");
+
+  //       // --- AJUSTE DE SEGURANÇA ---
+  //       // Damos 50ms para garantir que o buffer de imagem do navegador foi atualizado
+  //       await new Promise((resolve) => setTimeout(resolve, 50));
+
+  //       // Extrai a string base64
+  //       const pdfPageImgUrl = tempCanvas.toDataURL('image/png');
+
+  //       // LOG DE VALIDAÇÃO: Se a string for muito curta, o canvas está gerando uma imagem vazia!
+  //       console.log("6. Tamanho da string Base64 gerada:", pdfPageImgUrl.length);
+  //       if (pdfPageImgUrl.length < 1000) {
+  //         console.error("AVISO CRÍTICO: A imagem gerada está em branco/vazia!");
+  //       }
+
+  //       if (!ativo) return;
+
+  //       // Destruição preventiva do Fabric anterior
+  //       if (fabricCanvasRef.current) {
+  //         fabricCanvasRef.current.dispose();
+  //       }
+
+  //       const elementoCanvas = document.getElementById('fabric-lousa');
+  //       if (!elementoCanvas) {
+  //         console.error("Erro: Tag canvas 'fabric-lousa' não encontrada no DOM.");
+  //         return;
+  //       }
+
+  //       // Inicializa o Fabric.js
+  //       const canvas = new fabric.Canvas('fabric-lousa', {
+  //         width: viewport.width,
+  //         height: viewport.height,
+  //       });
+  //       fabricCanvasRef.current = canvas;
+
+  //       console.log("7. Carregando imagem no Fabric...");
+
+  //       // Carrega a imagem gerada no Fabric
+  //       fabric.FabricImage.fromURL(pdfPageImgUrl, (img) => {
+  //         if (!ativo) return;
+
+  //         console.log("8. Callback do Fabric disparado. Aplicando background...");
+
+  //         canvas.setBackgroundImage(img, () => {
+  //           canvas.renderAll();
+  //           canvas.calcOffset();
+  //           console.log("9. --- PDF REDENRIZADO COM SUCESSO NO FABRIC ---");
+  //         }, {
+  //           originX: 'left',
+  //           originY: 'top',
+  //           scaleX: 1,
+  //           scaleY: 1,
+  //         });
+  //       }, { crossOrigin: 'anonymous' }); // Evita problemas de CORS se a URL for externa
+
+  //     } catch (error) {
+  //       console.error("ERRO DETECTADO NO FLUXO DE DEBUG:", error);
+  //     }
+  //   };
+
+  //   const timer = setTimeout(() => {
+  //     inicializarEditor();
+  //   }, 250);
+
+  //   return () => {
+  //     ativo = false;
+  //     clearTimeout(timer);
+  //   };
+  // }, [paginaEmEdicaoTotal]);
+
+  useEffect(() => {
+    if (!paginaEmEdicaoTotal) {
+      if (fabricCanvasRef.current) {
+        console.log("Fechando modal: Destruindo instância do Fabric");
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
+      return;
+    }
+
+    let ativo = true;
+
+    const inicializarEditor = async () => {
+      try {
+        console.log("--- DEBUG START ---");
+        console.log("1. URL do PDF recebida:", paginaEmEdicaoTotal.url);
+        console.log("2. Página a renderizar:", paginaEmEdicaoTotal.pageNumber);
+
+        // Carrega o documento via PDF.js
+        const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
+
+        const viewport = page.getViewport({ scale: 1.2 });
+        console.log("3. Dimensões da Viewport:", viewport.width, "x", viewport.height);
+
+        if (!ativo) return;
+
+        // Criando o canvas temporário em memória para renderizar o PDF
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = viewport.width;
+        tempCanvas.height = viewport.height;
+        const context = tempCanvas.getContext('2d');
+
+        console.log("4. Iniciando renderização do PDF no canvas temporário...");
+        const renderTask = page.render({ canvasContext: context, viewport: viewport });
+        await renderTask.promise;
+
+        console.log("5. RenderTask do PDFJS resolvida.");
+
+        // Pequena folga para garantir sincronia do buffer do navegador
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Extrai a string base64 dos pixels do PDF
+        const pdfPageImgUrl = tempCanvas.toDataURL('image/png');
+        console.log("6. Tamanho da string Base64 gerada:", pdfPageImgUrl.length);
+
+        if (!ativo) return;
+
+        // Destruição preventiva de instâncias antigas
+        if (fabricCanvasRef.current) {
+          fabricCanvasRef.current.dispose();
+        }
+
+        const elementoCanvas = document.getElementById('fabric-lousa');
+        if (!elementoCanvas) {
+          console.error("Erro: Tag canvas 'fabric-lousa' não encontrada no DOM.");
+          return;
+        }
+
+        // Inicializa o Canvas do Fabric.js
+        const canvas = new fabric.Canvas('fabric-lousa', {
+          width: viewport.width,
+          height: viewport.height,
+        });
+        fabricCanvasRef.current = canvas;
+
+        console.log("7. Carregando imagem via objeto HTML Image nativo...");
+
+        // Criamos o objeto de imagem nativo do JavaScript
+        const imgNativa = new Image();
+
+        imgNativa.onload = () => {
+          console.log("8. Imagem nativa processada pelo navegador. Enviando ao Fabric...");
+
+          // Criando a instância de imagem compatível com a sua versão do Fabric (v6+)
+          const fabricImg = new fabric.FabricImage(imgNativa, {
+            left: 0,
+            top: 0,
+            originX: 'left',
+            originY: 'top'
+          });
+
+          // Ajusta a escala para cobrir o fundo perfeitamente se necessário
+          canvas.backgroundImage = fabricImg;
+
+          // Renderiza o quadro e recalcula as marcações de clique do mouse
+          canvas.renderAll();
+          canvas.calcOffset();
+          console.log("9. --- PDF RENDERIZADO COM SUCESSO NO FABRIC ---");
+        };
+
+        imgNativa.onerror = (err) => {
+          console.error("Erro crítico ao processar string Base64 na imagem nativa:", err);
+        };
+
+        // Alimenta a imagem nativa com a string Base64 do PDF
+        imgNativa.src = pdfPageImgUrl;
+
+        // Restaura desenhos salvos anteriormente na página se existirem
+        const edicaoExistente = edicoesFabricPaginas[paginaEmEdicaoTotal.pageNumber];
+        if (edicaoExistente && edicaoExistente !== "{}") {
+          canvas.loadFromJSON(edicaoExistente, () => {
+            canvas.renderAll();
+            console.log("Edições anteriores restauradas.");
+          });
+        }
+
+      } catch (error) {
+        console.error("ERRO DETECTADO NO FLUXO DE DEBUG:", error);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      inicializarEditor();
+    }, 250);
+
+    return () => {
+      ativo = false;
+      clearTimeout(timer);
+    };
+  }, [paginaEmEdicaoTotal]);
+
+
+
+
 
 
 
@@ -550,36 +977,35 @@ export default function EditorPdf() {
                 setAlteracoesPendentes={setAlteracoesPendentes}
               />
 
-              {/* Botões */}
-              {/* <PdfActions
-                imagens={imagens}
-                alteracoesPendentes={alteracoesPendentes}
-                carregando={carregando}
-                limiteAtingido={limiteAtingido}
-                gerarPDF={gerarPDF}
-                pdfUrl={pdfUrl}
-                processarDownload={processarDownload}
-                auth={auth}
-                handleResetConfig={handleResetConfig}
-              /> */}
-
-              {/* Seção de Histórico com Miniaturas */}
-              {/* <PdfHistory
-                pdfs={pdfs}
-                showMobileList={showMobileList}
-                setShowMobileList={setShowMobileList}
-                pdfSelecionadoModal={pdfSelecionadoModal}
-                setPdfSelecionadoModal={setPdfSelecionadoModal}
-                processarDownload={processarDownload}
-                removerPdf={removerPdf}
-                baixarTodosPdfsUnificados={baixarTodosPdfsUnificados}
-                handleLimparTudo={handleLimparTudo}
-                comecarNovaPagina={comecarNovaPagina}
-                auth={auth}
-              /> */}
-
-
             </div>
+
+
+            {/* Botões */}
+            <PdfActionsEditor
+              state={{
+                pdfUrl,
+                pdfModificadoUrl,
+                alteracoesPendentes,
+                carregando,
+                bloqueado: auth.alertService.isBlocked,
+              }}
+              actions={{
+                gerar: processarDownload,
+                baixar: baixarArquivoGerado,
+                limpar: () => setPdfModificadoUrl(null),
+                resetar: handleResetConfig
+              }}
+            />
+
+            {/* Seção de Histórico com Miniaturas */}
+            {/* <PdfHistoryEditor
+              pdfs={pdfs}
+              processarDownload={processarDownload}
+              removerPdf={removerPdf}
+              handleLimparTudo={handleLimparTudo}
+              comecarNovaPagina={comecarNovaPagina}
+              auth={auth}
+            /> */}
 
             {/* Resumo das atividades(Tamanhos) */}
             <ResumoAtividade
@@ -600,25 +1026,27 @@ export default function EditorPdf() {
                     {pdfUrl ? "do PDF" : "da Imagem"}
                   </span>
                 </h1>
-
                 {pdfUrl && (
-                  <button
-                    title="Remover PDF atual"
-                    onClick={limparPdfAtual}
-                    className="
-                      absolute right-0
-                      rounded-full
-                      p-1 px-2
-                      shadow
-                      transition-all
-                      bg-white
-                      bg-opacity-80
-                      hover:bg-opacity-100
-                      text-red-500
-                    "
-                  >
-                    ❌
-                  </button>
+                  <>
+                    <button
+                      title="Adicionar PDF" onClick={() => document.getElementById('pdf-add')?.click()}
+                      className="absolute right-12 rounded-full p-2 px-3 bg-white text-green-500 shadow"
+                    >
+                      ➕
+                    </button>
+
+                    <input hidden id="pdf-add" type="file" accept="application/pdf" multiple
+                      onChange={(e) => {
+                        if (!e.target.files) return;
+                        adicionarPdfAoPreview(e.target.files);
+                      }}
+                    />
+
+                    <button title="Remover PDF atual" onClick={limparPdfAtual}
+                      className=" absolute right-0 rounded-full p-2 px-2 shadow  transition-all bg-white  bg-opacity-80   hover:bg-opacity-100   text-red-500"                    >
+                      ❌
+                    </button>
+                  </>
                 )}
 
               </div>
@@ -650,10 +1078,10 @@ export default function EditorPdf() {
                                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                               />
                             </svg>
-                            <p className="mb-2 text-sm text-gray-500">
+                            <p className="mb-2 text-sm md:text-xl text-gray-600">
                               <span className="font-semibold">Clique para fazer upload</span> ou arraste o arquivo aqui
                             </p>
-                            <p className="text-xs text-gray-400">Apenas arquivos PDF (Max. 50MB)</p>
+                            <p className=" text-gray-400">Apenas arquivos PDF (Max. 50MB)</p>
                           </div>
 
                           {/* Input escondido controlado pela label */}
@@ -663,19 +1091,14 @@ export default function EditorPdf() {
                             accept="application/pdf"
                             className="hidden"
                             onChange={(e) => {
-                              const arquivo = e.target.files?.[0];
-                              if (arquivo) {
 
-                                // Converte o arquivo local para uma URL temporária blob
-                                const urlGerada = URL.createObjectURL(arquivo);
+                              if (!e.target.files?.length)
+                                return;
 
-                                if (typeof setPdfUrl === 'function') {
-                                  setPdfUrl(urlGerada);
-                                  setArquivoRaw(arquivo);
-                                } else {
-                                  console.log("Arquivo carregado. Vincule a sua função de state aqui:", urlGerada);
-                                }
-                              }
+                              adicionarPdfAoPreview(e.target.files);
+
+                              e.target.value = '';
+
                             }}
                           />
                         </label>
@@ -718,8 +1141,9 @@ export default function EditorPdf() {
                                     <input
                                       type="checkbox"
                                       checked={config.include}
-                                      onChange={(e) => updatePageConfig(pageNum, 'include', e.target.checked)}
                                       className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                      onChange={(e) => updatePageConfig(pageNum, 'include', e.target.checked)}
+
                                     />
                                     Incluir no PDF final
                                   </label>
@@ -733,11 +1157,26 @@ export default function EditorPdf() {
                                         type="checkbox"
                                         checked={config.hasHeader}
                                         disabled={!config.include}
-                                        onChange={(e) => updatePageConfig(pageNum, 'hasHeader', e.target.checked)}
+                                        onChange={(e) => {
+                                          updatePageConfig(pageNum, 'hasHeader', e.target.checked);
+                                          setCabecalhoAtivo(e.target.checked);
+                                          setCabecalhoModo("algumas");
+
+                                        }}
                                         className="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                                       />
                                       Adicionar Cabeçalho
                                     </label>
+
+                                    {/* ABRIR O FABRIC.JS NESTA PÁGINA */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setPaginaEmEdicaoTotal({ pageNumber: pageNum, url: pdfUrl })}
+                                      className="mt-2 w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 
+                                      font-medium rounded-lg border border-indigo-200 transition-colors text-center flex items-center justify-center gap-1"
+                                    >
+                                      📝 Editar Conteúdo
+                                    </button>
                                   </div>
 
                                 </div>
@@ -814,13 +1253,113 @@ export default function EditorPdf() {
                     </button>
                   </div>
                 )}
+
+
               </div>
 
             </div>
           </div>
 
         </div>
+
       </div >
+
+      {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
+      <Modal
+        show={paginaEmEdicaoTotal !== null}
+        onClose={() => setPaginaEmEdicaoTotal(null)}
+        maxWidth="7xl" // Ou 'full' se você adicionou lá no Modal.jsx
+      >
+        <div className="p-6 flex flex-col h-[85vh]">
+          {/* Cabeçalho do Modal */}
+          <div className="flex justify-between items-center pb-4 border-b">
+            <h3 className="text-lg font-bold text-gray-900">
+              Editando Página {paginaEmEdicaoTotal?.pageNumber}
+            </h3>
+            <button
+              onClick={() => setPaginaEmEdicaoTotal(null)}
+              className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Área Central (Onde o Fabric vai morar no Passo 3) */}
+          <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex items-center justify-center rounded-lg border border-dashed border-gray-300">
+            {/* <p className="text-gray-400">O quadro do Fabric.js será montado aqui no próximo passo.</p> */}
+            {/* Área Central Ajustada para Prevenir Quebra de Flexbox */}
+            <div className="flex flex-col md:flex-row gap-4 my-4 min-h-[400px]">
+
+              {/* Barra Lateral de Ferramentas - Fixamos a largura no desktop */}
+              <div className="w-full md:w-48 flex flex-row md:flex-col gap-2 bg-gray-50 p-3 rounded-lg border h-fit">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:block mb-1">
+                  Ferramentas
+                </span>
+
+                <button
+                  type="button"
+                  onClick={adicionarTextoFabric}
+                  className="py-2 px-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors"
+                >
+                  🔤 Texto
+                </button>
+
+                <button
+                  type="button"
+                  onClick={apagarObjetoSelecionado}
+                  className="py-2 px-4 w-full bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+                >
+                  🗑️ Apagar
+                </button>
+
+                {/* NOVO: BOTÃO DE IMAGEM */}
+                <label className="py-2 px-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
+                  🖼️ Inserir Imagem
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={adicionarImagemFabric}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Área da Lousa do Fabric.js - Centralizada com scroll se o PDF for muito grande */}
+              <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 max-h-[60vh]">
+                <div className="bg-white shadow-lg rounded border border-red-500">
+                  <canvas id="fabric-lousa" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Rodapé do Modal com as ações que você pediu */}
+          <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t mt-auto">
+            <button
+              onClick={() => setPaginaEmEdicaoTotal(null)}
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg transition-colors"
+            >
+              Voltar sem salvar
+            </button>
+
+            <div className="flex gap-2">
+              <button
+                onClick={aplicarEdicaoATodasAsPaginas}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Salvar em Todas as Páginas
+              </button>
+
+              <button
+                onClick={salvarEdicaoPaginaAtual}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
+              >
+                Salvar nesta Página
+              </button>
+            </div>
+          </div>
+        </div>
+      </Modal>
 
       <Footer ano={2025} />
     </>

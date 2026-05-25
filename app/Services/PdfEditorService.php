@@ -130,6 +130,11 @@ class PdfEditorService
       if ($config && isset($config['marcacoes']) && is_array($config['marcacoes'])) {
         $this->aplicarMarcacoes($config['marcacoes']);
       }
+
+      // NOVO: Processa as edições livres do Fabric.js (Texto / Remoções) nesta página
+      if ($config && !empty($config['fabricJson'])) {
+        $this->aplicarEdicoesFabric($config['fabricJson']);
+      }
     }
 
     // No final do método, antes de dar o Output, limpe o arquivo temporário gerado para não entupir o servidor:
@@ -467,5 +472,246 @@ class PdfEditorService
 
     // Se falhar, retorna o caminho original como fallback de segurança
     return $pdfPath;
+  }
+
+  /**
+   * Interpreta o JSON do Fabric e desenha os textos nas coordenadas corretas
+   */
+  // protected function aplicarEdicoesFabric(string $fabricJson)
+  // {
+  //   // Se por algum motivo o front mandou como string double-encoded, limpamos aqui
+  //   $dados = is_string($fabricJson) ? json_decode($fabricJson, true) : $fabricJson;
+
+  //   // Se ainda assim for string (devido ao escape do FormData), decodifica de novo
+  //   if (is_string($dados)) {
+  //     $dados = json_decode($dados, true);
+  //   }
+
+  //   if (!$dados || empty($dados['objects'])) {
+  //     return;
+  //   }
+
+  //   // FATOR DE CONVERSÃO CORRETO: 
+  //   // Se o seu canvas no front-end foi desenhado espelhando o tamanho em pontos do PDF (72 DPI),
+  //   // 1 mm = 2.83464567 pontos (pixels do PDF). 
+  //   // Se o seu canvas usa a densidade padrão de tela (96 DPI), mude para 3.7795.
+  //   // Ajuste multiplicando pela escala base que você usou no front (ex: 1.2)
+  //   $pixelParaMm = 2.83464567 * 1.2;
+
+  //   foreach ($dados['objects'] as $objeto) {
+  //     // Verifica variações de escrita do tipo (Textbox, text, i-text)
+  //     $type = strtolower($objeto['type'] ?? '');
+  //     if ($type === 'textbox' || $type === 'text' || $type === 'i-text') {
+
+  //       $texto = $objeto['text'] ?? '';
+  //       if (trim($texto) === '') {
+  //         continue;
+  //       }
+
+  //       // Pegamos as coordenadas brutas do objeto
+  //       $left = $objeto['left'] ?? 0;
+  //       $top = $objeto['top'] ?? 0;
+
+  //       $scaleX = $objeto['scaleX'] ?? 1;
+  //       $scaleY = $objeto['scaleY'] ?? 1;
+
+  //       $larguraObjetoPx = ($objeto['width'] ?? 0) * $scaleX;
+  //       $alturaObjetoPx = ($objeto['height'] ?? 0) * $scaleY;
+
+  //       // CORREÇÃO DE ORIGEM (Fabric centro vs TCPDF topo-esquerdo)
+  //       // Se o Fabric indica que a coordenada é o centro, precisamos subtrair metade da largura/altura para achar o topo-esquerdo
+  //       if (($objeto['originX'] ?? 'left') === 'center') {
+  //         $left = $left - ($larguraObjetoPx / 2);
+  //       }
+  //       if (($objeto['originY'] ?? 'top') === 'center') {
+  //         $top = $top - ($alturaObjetoPx / 2);
+  //       }
+
+  //       // Converte os pixels corrigidos para Milímetros
+  //       $xMm = $left / $pixelParaMm;
+  //       $yMm = $top / $pixelParaMm;
+  //       $larguraMm = $larguraObjetoPx / $pixelParaMm;
+
+  //       // No TCPDF o tamanho da fonte é em Pontos (pt). 
+  //       // Se no front está em pixels de tela, dividimos pela escala para equiparar.
+  //       $fontSizePt = ($objeto['fontSize'] ?? 20) / 1.2;
+
+  //       // Converte e aplica a cor do texto
+  //       $corHex = $objeto['fill'] ?? '#000000';
+  //       [$r, $g, $b] = $this->converterHexParaRgb($corHex);
+  //       $this->pdf->SetTextColor($r, $g, $b);
+
+  //       // Aplica a fonte
+  //       $this->pdf->SetFont('helvetica', '', $fontSizePt);
+
+  //       // Posiciona e renderiza
+  //       $this->pdf->setXY($xMm, $yMm);
+
+  //       // MultiCell lida perfeitamente com quebras de linha '\n' enviadas pelo Fabric
+  //       $this->pdf->MultiCell(
+  //         $larguraMm,
+  //         0,
+  //         $texto,
+  //         0,
+  //         'L',
+  //         false
+  //       );
+  //     }
+  //   }
+  // }
+
+  /**
+   * Interpreta o JSON do Fabric v6+ e desenha textos e imagens nas coordenadas corretas
+   */
+  protected function aplicarEdicoesFabric(string $fabricJson)
+  {
+    // Se por algum motivo o front mandou como string double-encoded, limpamos aqui
+    $dados = is_string($fabricJson) ? json_decode($fabricJson, true) : $fabricJson;
+
+    // Se ainda assim for string (devido ao escape do FormData), decodifica de novo
+    if (is_string($dados)) {
+      $dados = json_decode($dados, true);
+    }
+
+    if (!$dados || empty($dados['objects'])) {
+      return;
+    }
+
+    // FATOR DE CONVERSÃO CORRETO PRESERVADO:
+    $pixelParaMm = 2.83464567 * 1.2;
+
+    foreach ($dados['objects'] as $objeto) {
+      $type = strtolower($objeto['type'] ?? '');
+
+      // --- BLOCO 1: PROCESSAMENTO DE TEXTO (INALTERADO) ---
+      if ($type === 'textbox' || $type === 'text' || $type === 'i-text') {
+
+        $texto = $objeto['text'] ?? '';
+        if (trim($texto) === '') {
+          continue;
+        }
+
+        $left = $objeto['left'] ?? 0;
+        $top = $objeto['top'] ?? 0;
+
+        $scaleX = $objeto['scaleX'] ?? 1;
+        $scaleY = $objeto['scaleY'] ?? 1;
+
+        $larguraObjetoPx = ($objeto['width'] ?? 0) * $scaleX;
+        $alturaObjetoPx = ($objeto['height'] ?? 0) * $scaleY;
+
+        if (($objeto['originX'] ?? 'left') === 'center') {
+          $left = $left - ($larguraObjetoPx / 2);
+        }
+        if (($objeto['originY'] ?? 'top') === 'center') {
+          $top = $top - ($alturaObjetoPx / 2);
+        }
+
+        $xMm = $left / $pixelParaMm;
+        $yMm = $top / $pixelParaMm;
+        $larguraMm = $larguraObjetoPx / $pixelParaMm;
+
+        $fontSizePt = ($objeto['fontSize'] ?? 20) / 1.2;
+
+        $corHex = $objeto['fill'] ?? '#000000';
+        [$r, $g, $b] = $this->converterHexParaRgb($corHex);
+        $this->pdf->SetTextColor($r, $g, $b);
+
+        $this->pdf->SetFont('helvetica', '', $fontSizePt);
+        $this->pdf->setXY($xMm, $yMm);
+
+        $this->pdf->MultiCell(
+          $larguraMm,
+          0,
+          $texto,
+          0,
+          'L',
+          false
+        );
+      }
+
+      // --- BLOCO 2: PROCESSAMENTO DE IMAGEM (NOVO ADICIONADO COM CUIDADO) ---
+      if ($type === 'image') {
+        $src = $objeto['src'] ?? '';
+        if (empty($src)) {
+          continue;
+        }
+
+        $left = $objeto['left'] ?? 0;
+        $top = $objeto['top'] ?? 0;
+
+        $scaleX = $objeto['scaleX'] ?? 1;
+        $scaleY = $objeto['scaleY'] ?? 1;
+
+        // Calcula a largura e altura reais baseadas no redimensionamento que o usuário fez em tela
+        $larguraObjetoPx = ($objeto['width'] ?? 0) * $scaleX;
+        $alturaObjetoPx = ($objeto['height'] ?? 0) * $scaleY;
+
+        // Mantém a mesma regra de correção de origem do seu texto
+        if (($objeto['originX'] ?? 'left') === 'center') {
+          $left = $left - ($larguraObjetoPx / 2);
+        }
+        if (($objeto['originY'] ?? 'top') === 'center') {
+          $top = $top - ($alturaObjetoPx / 2);
+        }
+
+        // Converte os pixels da imagem para Milímetros usando seu fator exato
+        $xMm = $left / $pixelParaMm;
+        $yMm = $top / $pixelParaMm;
+        $larguraMm = $larguraObjetoPx / $pixelParaMm;
+        $alturaMm = $alturaObjetoPx / $pixelParaMm;
+
+        // Processa o upload dependendo de como o front entregou o conteúdo (Base64 ou Caminho)
+        if (str_contains($src, 'base64,')) {
+          $dadosBase64 = explode('base64,', $src)[1];
+          $imagemBinaria = base64_decode($dadosBase64);
+
+          // '@' diz ao TCPDF para ler a string de bytes diretamente na memória
+          $this->pdf->Image(
+            '@' . $imagemBinaria,
+            $xMm,
+            $yMm,
+            $larguraMm,
+            $alturaMm,
+            ''
+          );
+        } else {
+          // Fallback para caso seja uma URL local relativa ou externa
+          $caminhoArquivo = str_starts_with($src, 'http') ? $src : public_path($src);
+
+          if (str_starts_with($src, 'http') || file_exists($caminhoArquivo)) {
+            $this->pdf->Image(
+              $caminhoArquivo,
+              $xMm,
+              $yMm,
+              $larguraMm,
+              $alturaMm
+            );
+          }
+        }
+      }
+    }
+  }
+
+
+  /**
+   * Função utilitária para transformar '#FFFFFF' ou '#000000' em array [R, G, B]
+   */
+  private function converterHexParaRgb(string $hex): array
+  {
+    $hex = ltrim($hex, '#');
+    if (strlen($hex) === 3) {
+      $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+
+    if (strlen($hex) !== 6) {
+      return [0, 0, 0]; // Retorna preto se falhar
+    }
+
+    return [
+      hexdec(substr($hex, 0, 2)),
+      hexdec(substr($hex, 2, 2)),
+      hexdec(substr($hex, 4, 2))
+    ];
   }
 }

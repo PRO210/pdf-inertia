@@ -258,6 +258,7 @@ class PdfEditorController extends Controller
             $cabecalhoTipo = $request->input('cabecalho_tipo', 'texto');
             $cabecalhoImagem = $request->input('cabecalho_imagem'); // String Base64
             $bordaTipo = $request->input('borda_tipo', 'none'); // "lapis", "abelhas", "none", etc.
+            
 
             // 2. Chama a Service passando o arquivo temporário e as configurações decodificadas
             $pdfBinario = $this->pdfService->processarPdf(
