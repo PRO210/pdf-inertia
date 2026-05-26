@@ -19,6 +19,7 @@ import Modal from '@/Components/Modal';
 import * as fabric from 'fabric';
 import PdfHistoryEditor from '@/Components/EditorPdf/PdfHistoryEditor'
 import PdfActionsEditor from '@/Components/EditorPdf/PdfActionsEditor'
+import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
@@ -35,6 +36,9 @@ export default function EditorPdf() {
   // Instancia o gerenciador de mensagens
   const { getMsgLocal, podeExibir, silenciar, confirmarComCheck, exibirAvisoCritico } = useMensagens();
 
+  //Instancia o Contabilizador  de dowloads
+  const { processarDownload } = useDownloadPdf();
+
 
 
   // Movi a lógica de limpeza para uma função separada para não repetir código
@@ -46,27 +50,8 @@ export default function EditorPdf() {
   };
 
   const [pdfs, setPdfs] = useState([])
-  const [pdfSelecionadoModal, setPdfSelecionadoModal] = useState(null);
 
-  // Função para remover do array e liberar memória do navegador
-  const removerPdf = (id) => {
-    setPdfs((prev) => {
-      // Busca o PDF para revogar a URL antes de excluir do estado
-      const pdfParaRemover = prev.find(p => p.id === id);
-      if (pdfParaRemover && pdfParaRemover.url) {
-        URL.revokeObjectURL(pdfParaRemover.url);
-      }
-      return prev.filter(p => p.id !== id);
-    });
 
-    // Se o PDF excluído for o que está sendo visualizado no momento, limpa o preview
-    setPdfUrl(currentUrl => {
-      const pdfExcluido = pdfs.find(p => p.id === id);
-      return (pdfExcluido && pdfExcluido.url === currentUrl) ? null : currentUrl;
-    });
-
-    setAlteracoesPendentes(true)
-  };
 
   const comecarNovaPagina = async () => {
     const config = getMsgLocal('limpar_mesa');
@@ -93,108 +78,11 @@ export default function EditorPdf() {
     executarLimpeza();
   };
 
-
-
-  const baixarTodosPdfsUnificados = async () => {
-    if (!pdfs || pdfs.length === 0) {
-      alert("Nenhum PDF no histórico para mesclar.");
-      return;
-    }
-
-    try {
-      setCarregando(true);
-
-      // 1. Cria o documento mestre
-      const pdfUnificado = await PDFDocument.create();
-
-      // 2. Mescla as páginas (Lógica que já tínhamos)
-      for (const item of pdfs) {
-        const resposta = await fetch(item.url);
-        const arrayBuffer = await resposta.arrayBuffer();
-        const pdfIndividual = await PDFDocument.load(arrayBuffer);
-        const paginasCopiadas = await pdfUnificado.copyPages(
-          pdfIndividual,
-          pdfIndividual.getPageIndices()
-        );
-        paginasCopiadas.forEach((pagina) => pdfUnificado.addPage(pagina));
-      }
-
-      // 3. Salva os bytes do PDF unificado
-      const pdfFinalBytes = await pdfUnificado.save();
-      const blobFinal = new Blob([pdfFinalBytes], { type: 'application/pdf' });
-      const urlFinal = URL.createObjectURL(blobFinal);
-
-      // --- INÍCIO DA SUA LÓGICA DE CONTABILIZAÇÃO ---
-
-      // 4. Envia para o servidor para contar o download
-      // Enviamos um nome genérico ou "pacote_completo" para o backend
-      const response = await axios.post(route('user.downloads.storePacote'), {
-        file_name: 'atividades.pdf', // Mantém o nome que você deseja
-        quantidade: pdfs.length      // Envia quantos créditos devem ser cobrados
-      });
-
-      // 5. Pega o total retornado pelo seu banco de dados
-      const total = response.data.total_downloads;
-      const nomeArquivo = `Atividades-Completo-${total}.pdf`;
-
-      // 6. Dispara o download com o nome oficial
-      const link = document.createElement('a');
-      link.href = urlFinal;
-      link.download = nomeArquivo;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // --- FIM DA LÓGICA DE CONTABILIZAÇÃO ---
-
-      // Limpeza
-      setTimeout(() => URL.revokeObjectURL(urlFinal), 100);
-
-    } catch (error) {
-      // DESATIVA o carregamento antes de mostrar qualquer aviso
-      setCarregando(false);
-
-      const status = error.response?.status;
-      const data = error.response?.data;
-
-      console.error("Erro ao unificar e contabilizar:", status, data);
-
-      if (status === 403) {
-        if (data?.error === 'limite_atingido') {
-          const configMsg = MENSAGENS_SISTEMA?.global?.limite_downloads;
-
-          if (configMsg) {
-            const result = await exibirAvisoCritico(configMsg);
-            if (result.isConfirmed) {
-              router.visit('/pagamentos');
-            }
-          } else {
-            alert(data.message || 'Limite de créditos insuficiente para baixar o pacote.');
-            router.visit('/pagamentos');
-          }
-        } else {
-          alert(data?.message || 'Ação não permitida.');
-        }
-        return;
-      }
-
-      if (status === 422) {
-        alert('Erro de validação: ' + (data?.message || 'Verifique seus créditos.'));
-        return;
-      }
-
-      alert('Erro ao processar o arquivo ou contabilizar o download.');
-    } finally {
-      // Garante que o loading saia se o fluxo for de sucesso
-      setCarregando(false);
-    }
-  };
-
-
   const [pagesConfig, setPagesConfig] = useState([]);
   const [arquivosRaw, setArquivosRaw] = useState([]);
   const [pdfModificadoUrl, setPdfModificadoUrl] = useState(null);
   const [cabecalhoLayout, setCabecalhoLayout] = useState('sobreposto');
+  const [layoutPaginas, setLayoutPaginas] = useState('1');
 
 
 
@@ -211,25 +99,18 @@ export default function EditorPdf() {
 
 
 
-
-
   const [showMobileList, setShowMobileList] = useState(false);
   const [totalPages, setTotalPages] = useState(0);
 
   const [pdfUrl, setPdfUrl] = useState(null)
-  const [ampliacao, setAmpliacao] = useState({ colunas: 2, linhas: 1 })
   const [orientacao, setOrientacao] = useState('paisagem')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [erroPdf, setErroPdf] = useState(null)
-  const [paginaAtual, setPaginaAtual] = useState(1)
-  const [zoom, setZoom] = useState(1)
-  const [aspecto, setAspecto] = useState(false)
 
   const [carregando, setCarregando] = useState(false)
 
 
   const [imagens, setImagens] = useState([]);
-  const [repeatMode, setRepeatMode] = useState("all");
   const [repeatBorder, setBorder] = useState("none");
 
 
@@ -274,7 +155,7 @@ export default function EditorPdf() {
   }
 
   // 2. Na função de disparo do download/modificação:
-  const processarDownload = async () => {
+  const processarPdf = async () => {
     if (!arquivosRaw) return;
 
     try {
@@ -314,7 +195,7 @@ export default function EditorPdf() {
       // Dentro da sua função processarDownload:
       formData.append('borda_tipo', repeatBorder); // Envia "lapis", "abelhas", "none", etc.
 
-
+      formData.append('layout_paginas', layoutPaginas); // 1 por folha, 2 por folha, etc.
 
 
       const response = await axios.post(route('gerar.pdf.canvas'), formData, {
@@ -345,15 +226,11 @@ export default function EditorPdf() {
   }
 
   // ETAPA 2: Executada localmente no navegador quando o usuário clica no botão de download
-  const baixarArquivoGerado = () => {
+  const baixarArquivoGerado = async () => {
     if (!pdfModificadoUrl) return;
 
-    const link = document.createElement('a');
-    link.href = pdfModificadoUrl;
-    link.download = 'atividade_modificada.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Dispara o hook, passando a URL e o tipo do download
+    await processarDownload(pdfModificadoUrl, 'editor_pdf');
   };
 
 
@@ -603,7 +480,6 @@ export default function EditorPdf() {
     setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
   };
 
-
   // Função para adicionar uma caixa de texto inteligente (Textbox) na tela
   const adicionarTextoFabric = () => {
     const canvas = fabricCanvasRef.current;
@@ -668,116 +544,6 @@ export default function EditorPdf() {
     // Limpa o input para permitir selecionar a mesma imagem novamente se necessário
     e.target.value = '';
   };
-
-  // useEffect(() => {
-  //   if (!paginaEmEdicaoTotal) {
-  //     if (fabricCanvasRef.current) {
-  //       fabricCanvasRef.current.dispose();
-  //       fabricCanvasRef.current = null;
-  //     }
-  //     return;
-  //   }
-
-  //   let ativo = true;
-
-  //   const inicializarEditor = async () => {
-  //     try {
-  //       console.log("--- DEBUG START ---");
-  //       console.log("1. URL do PDF recebida:", paginaEmEdicaoTotal.url);
-  //       console.log("2. Página a renderizar:", paginaEmEdicaoTotal.pageNumber);
-
-  //       // Carrega o documento
-  //       const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
-  //       const pdf = await loadingTask.promise;
-  //       const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
-
-  //       // Usando escala 1.2 para teste
-  //       const viewport = page.getViewport({ scale: 1.2 });
-  //       console.log("3. Dimensões da Viewport:", viewport.width, "x", viewport.height);
-
-  //       if (!ativo) return;
-
-  //       // Criando o canvas temporário em memória
-  //       const tempCanvas = document.createElement('canvas');
-  //       tempCanvas.width = viewport.width;
-  //       tempCanvas.height = viewport.height;
-  //       const context = tempCanvas.getContext('2d');
-
-  //       console.log("4. Iniciando renderização do PDF no canvas temporário...");
-
-  //       // Renderiza a página
-  //       const renderTask = page.render({ canvasContext: context, viewport: viewport });
-  //       await renderTask.promise;
-
-  //       console.log("5. RenderTask do PDFJS resolvida.");
-
-  //       // --- AJUSTE DE SEGURANÇA ---
-  //       // Damos 50ms para garantir que o buffer de imagem do navegador foi atualizado
-  //       await new Promise((resolve) => setTimeout(resolve, 50));
-
-  //       // Extrai a string base64
-  //       const pdfPageImgUrl = tempCanvas.toDataURL('image/png');
-
-  //       // LOG DE VALIDAÇÃO: Se a string for muito curta, o canvas está gerando uma imagem vazia!
-  //       console.log("6. Tamanho da string Base64 gerada:", pdfPageImgUrl.length);
-  //       if (pdfPageImgUrl.length < 1000) {
-  //         console.error("AVISO CRÍTICO: A imagem gerada está em branco/vazia!");
-  //       }
-
-  //       if (!ativo) return;
-
-  //       // Destruição preventiva do Fabric anterior
-  //       if (fabricCanvasRef.current) {
-  //         fabricCanvasRef.current.dispose();
-  //       }
-
-  //       const elementoCanvas = document.getElementById('fabric-lousa');
-  //       if (!elementoCanvas) {
-  //         console.error("Erro: Tag canvas 'fabric-lousa' não encontrada no DOM.");
-  //         return;
-  //       }
-
-  //       // Inicializa o Fabric.js
-  //       const canvas = new fabric.Canvas('fabric-lousa', {
-  //         width: viewport.width,
-  //         height: viewport.height,
-  //       });
-  //       fabricCanvasRef.current = canvas;
-
-  //       console.log("7. Carregando imagem no Fabric...");
-
-  //       // Carrega a imagem gerada no Fabric
-  //       fabric.FabricImage.fromURL(pdfPageImgUrl, (img) => {
-  //         if (!ativo) return;
-
-  //         console.log("8. Callback do Fabric disparado. Aplicando background...");
-
-  //         canvas.setBackgroundImage(img, () => {
-  //           canvas.renderAll();
-  //           canvas.calcOffset();
-  //           console.log("9. --- PDF REDENRIZADO COM SUCESSO NO FABRIC ---");
-  //         }, {
-  //           originX: 'left',
-  //           originY: 'top',
-  //           scaleX: 1,
-  //           scaleY: 1,
-  //         });
-  //       }, { crossOrigin: 'anonymous' }); // Evita problemas de CORS se a URL for externa
-
-  //     } catch (error) {
-  //       console.error("ERRO DETECTADO NO FLUXO DE DEBUG:", error);
-  //     }
-  //   };
-
-  //   const timer = setTimeout(() => {
-  //     inicializarEditor();
-  //   }, 250);
-
-  //   return () => {
-  //     ativo = false;
-  //     clearTimeout(timer);
-  //   };
-  // }, [paginaEmEdicaoTotal]);
 
   useEffect(() => {
     if (!paginaEmEdicaoTotal) {
@@ -924,17 +690,32 @@ export default function EditorPdf() {
                 <h1>Opções</h1>
               </div>
 
-              {/* =========================
-                BORDAS
-            ========================== */}
+              {/* =============== Páginas por Folha========== */}
               <div className="w-full">
-
                 <label className="block mb-1 pro-label text-center text-xl">
-                  Bordas:
+                  Páginas por Folha:
                 </label>
 
                 <select
-                  value={repeatBorder}
+                  value={layoutPaginas}
+                  onChange={(e) => {
+                    setLayoutPaginas(e.target.value);
+                    setAlteracoesPendentes(true);
+                  }}
+                  className="px-2 w-full rounded-full pro-input"
+                >
+                  <option value="1">1 Página por Folha</option>
+                  <option value="2"> 2 Páginas Folha</option>
+
+                </select>
+              </div>
+
+              {/* =============== BORDAS========== */}
+              <div className="w-full">
+                <label className="block mb-1 pro-label text-center text-xl">
+                  Bordas:
+                </label>
+                <select value={repeatBorder}
                   onChange={(e) => {
 
                     setBorder(e.target.value);
@@ -990,7 +771,7 @@ export default function EditorPdf() {
                 bloqueado: auth.alertService.isBlocked,
               }}
               actions={{
-                gerar: processarDownload,
+                gerar: processarPdf,
                 baixar: baixarArquivoGerado,
                 limpar: () => setPdfModificadoUrl(null),
                 resetar: handleResetConfig
@@ -1008,9 +789,9 @@ export default function EditorPdf() {
             /> */}
 
             {/* Resumo das atividades(Tamanhos) */}
-            <ResumoAtividade
+            {/* <ResumoAtividade
               resumoTamanho={resumoTamanho}
-            />
+            /> */}
 
           </div>
 
@@ -1037,8 +818,15 @@ export default function EditorPdf() {
 
                     <input hidden id="pdf-add" type="file" accept="application/pdf" multiple
                       onChange={(e) => {
-                        if (!e.target.files) return;
-                        adicionarPdfAoPreview(e.target.files);
+                        const files = [Array.from(e.target.files || [])].flat();
+
+                        if (!files.length) return;
+                        adicionarPdfAoPreview(files);
+
+                        setAlteracoesPendentes(true);
+
+                        //Permite selecionar o mesmo arquivo novamente limpando o input após a seleção
+                        e.target.value = '';
                       }}
                     />
 
@@ -1060,10 +848,10 @@ export default function EditorPdf() {
                       <div className="w-full flex flex-col items-center justify-center">
                         <label
                           htmlFor="pdf-upload"
-                          className="w-full flex flex-col items-center justify-center h-64 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors group"
+                          className="relative group w-full h-64 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 hover:border-indigo-500 cursor-pointer transition-colors"
                         >
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                            {/* Ícone de Upload */}
+                          {/* O conteúdo visual fica ao fundo */}
+                          <div className="flex flex-col items-center justify-center pointer-events-none">
                             <svg
                               className="w-12 h-12 mb-3 text-gray-400 group-hover:text-indigo-500 transition-colors"
                               fill="none"
@@ -1081,27 +869,25 @@ export default function EditorPdf() {
                             <p className="mb-2 text-sm md:text-xl text-gray-600">
                               <span className="font-semibold">Clique para fazer upload</span> ou arraste o arquivo aqui
                             </p>
-                            <p className=" text-gray-400">Apenas arquivos PDF (Max. 50MB)</p>
+                            <p className="text-gray-400 text-sm">Apenas arquivos PDF (Max. 50MB)</p>
                           </div>
 
-                          {/* Input escondido controlado pela label */}
-                          <input
-                            id="pdf-upload"
-                            type="file"
-                            accept="application/pdf"
+                          {/* O input invisível cobre a label inteira */}
+                          <input id="pdf-upload" type="file" accept="application/pdf" multiple
                             className="hidden"
                             onChange={(e) => {
+                              const files = [Array.from(e.target.files || [])].flat();
 
-                              if (!e.target.files?.length)
-                                return;
+                              if (!files.length) return;
+                              adicionarPdfAoPreview(files);
 
-                              adicionarPdfAoPreview(e.target.files);
-
+                              //Permite selecionar o mesmo arquivo novamente limpando o input após a seleção
                               e.target.value = '';
-
                             }}
                           />
+
                         </label>
+
                       </div>
                     )}
 
@@ -1194,7 +980,7 @@ export default function EditorPdf() {
                         {/* BOTÃO 1: Aparece se NÃO foi processado AINDA ou se houver alterações pendentes */}
                         {(!pdfModificadoUrl || alteracoesPendentes) && (
                           <button
-                            onClick={processarDownload} // Sua função que dispara o axios para o back
+                            onClick={processarPdf} // Sua função que dispara o axios para o back
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow transition-colors"
                             disabled={carregando}
                           >
@@ -1246,7 +1032,7 @@ export default function EditorPdf() {
                     </div>
 
                     <button
-                      onClick={() => router.visit(route('pagamento.retorno'))}
+                      onClick={() => router.visit(route('pdf.pagamentos'))}
                       className="w-full sm:w-auto bg-red-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-md"
                     >
                       Assinar Plano PRO

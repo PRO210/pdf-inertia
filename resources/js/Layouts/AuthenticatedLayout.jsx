@@ -29,9 +29,9 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </Link>
                             </div>
                             <div className="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex  ">
-                                <NavLink href={route('dashboard')} active={route().current('dashboard')} >
+                                {/* <NavLink href={route('dashboard')} active={route().current('dashboard')} >
                                     Dashboard
-                                </NavLink>
+                                </NavLink> */}
 
                                 <NavLink href={route('pdf.editor')} active={route().current('pdf.editor')} >
                                     Criar Posters

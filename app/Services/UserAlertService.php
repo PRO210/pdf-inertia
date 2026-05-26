@@ -87,7 +87,8 @@ class UserAlertService
       ->where(function ($query) {
         $query->where('file_name', 'LIKE', '%poster.pdf%')
           ->orWhere('file_name', 'LIKE', '%atividades.pdf%')
-          ->orWhere('file_name', 'LIKE', '%mascara.pdf%');
+          ->orWhere('file_name', 'LIKE', '%mascara.pdf%')
+          ->orWhere('file_name', 'LIKE', '%editor_pdf.pdf%');
       })
       ->sum('count');
 

@@ -27,9 +27,8 @@ export const useDownloadPdf = () => {
     // CONFIGURAÇÃO INICIAL
     // Define comportamento com base no tipo de download
     // ==============================
-    const isPoster = tipo === 'poster';
-    const fileNameParam = isPoster ? 'poster.pdf' : 'atividades.pdf';
-    const prefixoDownload = isPoster ? 'poster' : 'atividades';
+    const fileNameParam = `${tipo}.pdf`;
+    const prefixoDownload = tipo;
 
     // Aceita tanto string direta quanto objeto com propriedade "url"
     const urlFinal = typeof pdf === 'string' ? pdf : pdf?.url;

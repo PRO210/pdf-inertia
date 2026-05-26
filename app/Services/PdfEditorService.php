@@ -33,7 +33,8 @@ class PdfEditorService
     string $cabecalhoLayout = 'sobreposto',
     string $cabecalhoTipo = 'texto',
     ?string $cabecalhoImagem = null,
-    string $bordaTipo = 'none'
+    string $bordaTipo = 'none',
+    string $layoutPaginas = '1'
   ) {
 
     // -----------------------------------------------------------------
@@ -137,12 +138,21 @@ class PdfEditorService
       }
     }
 
+
     // No final do método, antes de dar o Output, limpe o arquivo temporário gerado para não entupir o servidor:
     if ($pdfPathCompativel !== $pdfPath && file_exists($pdfPathCompativel)) {
       @unlink($pdfPathCompativel);
     }
 
-    return $this->pdf->Output('', 'S');
+    // Pega o PDF processado em formato de string/Stream antes de dar o retorno final
+    $pdfPadraoString = $this->pdf->Output('', 'S');
+
+    // MUDANÇA AQUI: Se o usuário selecionou 2 por folha, passa o resultado pelo agrupador antes de retornar
+    if ($layoutPaginas === '2') {
+      return $this->agruparEmDuasPorFolha($pdfPadraoString);
+    }
+
+    return $pdfPadraoString;
   }
 
 
@@ -713,5 +723,83 @@ class PdfEditorService
       hexdec(substr($hex, 2, 2)),
       hexdec(substr($hex, 4, 2))
     ];
+  }
+
+  /**
+   * Pega um PDF já processado e o transforma em um layout de 2 páginas por folha.
+   * * @param string $pdfString Conteúdo binário do PDF gerado pelo fluxo padrão
+   * @return string Conteúdo binário do PDF final agrupado
+   */
+  protected function agruparEmDuasPorFolha(string $pdfString): string
+  {
+    // Criamos uma nova instância do FPDI para o arquivo final de saída
+    $pdfFinal = new \setasign\Fpdi\Tcpdf\Fpdi();
+    $pdfFinal->setPrintHeader(false);
+    $pdfFinal->setPrintFooter(false);
+    $pdfFinal->SetMargins(0, 0, 0);
+    $pdfFinal->SetAutoPageBreak(false);
+
+    // Salva o PDF temporariamente para que o FPDI possa lê-lo como origem
+    $tmpOriginal = tempnam(sys_get_temp_dir(), 'pdf_bloco_') . '.pdf';
+    file_put_contents($tmpOriginal, $pdfString);
+
+    // Força compatibilidade de versão (1.4) caso necessário
+    $tmpCompativel = $this->converterParaPdfCompativel($tmpOriginal);
+
+    $pageCount = $pdfFinal->setSourceFile($tmpCompativel);
+
+    // Cria um array com os números de todas as páginas existentes
+    $paginas = range(1, $pageCount);
+    $paresDePaginas = array_chunk($paginas, 2);
+
+    foreach ($paresDePaginas as $par) {
+      // Adiciona uma página em modo Paisagem (Landscape) A4
+      $pdfFinal->AddPage('L', 'A4');
+
+      $larguraA4 = $pdfFinal->getPageWidth();
+      $alturaA4 = $pdfFinal->getPageHeight();
+      $metadeLargura = $larguraA4 / 2;
+
+      // --- PÁGINA DA ESQUERDA ---
+      $vazia = false;
+      $templateE = $pdfFinal->importPage($par[0]);
+      $sizeE = $pdfFinal->getTemplateSize($templateE);
+
+      // Calcula a proporção para caber perfeitamente na metade esquerda (com margem de 8mm)
+      $propE = min(($metadeLargura - 0) / $sizeE['width'], ($alturaA4 - 0) / $sizeE['height']);
+      $wE = $sizeE['width'] * $propE;
+      $hE = $sizeE['height'] * $propE;
+
+      // Centraliza o PDF original dentro da metade esquerda da folha
+      $xE = ($metadeLargura - $wE) / 2;
+      $yE = ($alturaA4 - $hE) / 2;
+
+      $pdfFinal->useTemplate($templateE, $xE, $yE, $wE, $hE);
+
+      // --- PÁGINA DA DIREITA (Se houver) ---
+      if (isset($par[1])) {
+        $templateD = $pdfFinal->importPage($par[1]);
+        $sizeD = $pdfFinal->getTemplateSize($templateD);
+
+        $propD = min(($metadeLargura - 0) / $sizeD['width'], ($alturaA4 - 0) / $sizeD['height']);
+        $wD = $sizeD['width'] * $propD;
+        $hD = $sizeD['height'] * $propD;
+
+        // Centraliza dentro da metade direita (deslocando o X pelo tamanho da metade)
+        $xD = $metadeLargura + (($metadeLargura - $wD) / 2);
+        $yD = ($alturaA4 - $hD) / 2;
+
+        $pdfFinal->useTemplate($templateD, $xD, $yD, $wD, $hD);
+      }
+    }
+
+    // Limpa os arquivos temporários do servidor
+    @unlink($tmpOriginal);
+    if ($tmpCompativel !== $tmpOriginal) {
+      @unlink($tmpCompativel);
+    }
+
+    // Retorna o PDF finalizado em string/stream
+    return $pdfFinal->Output('', 'S');
   }
 }

@@ -257,8 +257,9 @@ class PdfEditorController extends Controller
             $cabecalhoLayout = $request->input('cabecalho_layout', 'sobreposto');
             $cabecalhoTipo = $request->input('cabecalho_tipo', 'texto');
             $cabecalhoImagem = $request->input('cabecalho_imagem'); // String Base64
-            $bordaTipo = $request->input('borda_tipo', 'none'); // "lapis", "abelhas", "none", etc.
-            
+            $bordaTipo = $request->input('borda_tipo', 'none'); // "lapis", "abelhas", "none", etc.           
+            $layoutPaginas = $request->input('layout_paginas', '1'); // Pega a nova variável que você enviará pelo FormData do front-end
+
 
             // 2. Chama a Service passando o arquivo temporário e as configurações decodificadas
             $pdfBinario = $this->pdfService->processarPdf(
@@ -268,7 +269,8 @@ class PdfEditorController extends Controller
                 $cabecalhoLayout,
                 $cabecalhoTipo,
                 $cabecalhoImagem,
-                $bordaTipo
+                $bordaTipo,
+                $layoutPaginas
             );
 
             // 3. Retorna o arquivo binário direto para download
