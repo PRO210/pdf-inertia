@@ -1,80 +1,92 @@
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useState, useRef } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// cache das miniaturas
+// Caches globais para reaproveitamento de memória
 const thumbCache = new Map();
-
-// cache dos PDFs carregados ← ADICIONE
 const pdfCache = new Map();
 
 const PdfPageThumbnail = ({ url, pageNumber }) => {
   const cacheKey = `${url}-${pageNumber}`;
+  const containerRef = useRef(null);
 
-  const [thumb, setThumb] = useState(
-    thumbCache.get(cacheKey) || null
-  );
+  const [thumb, setThumb] = useState(thumbCache.get(cacheKey) || null);
+  const [isIntersecting, setIsIntersecting] = useState(false);
 
+  // 1. Observer para detectar quando a página está próxima da tela
   useEffect(() => {
-    if (!url || !pageNumber) return;
+    if (thumb) return; // Se já tem cache, não precisa observar
 
-    if (thumbCache.has(cacheKey)) {
-      setThumb(thumbCache.get(cacheKey));
-      return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsIntersecting(true);
+          observer.disconnect(); // Acionou uma vez, pode parar de observar
+        }
+      },
+      {
+        rootMargin: "200px", // Começa a carregar 200px antes de aparecer na tela
+        threshold: 0.1
+      }
+    );
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
     }
 
-    let cancelado = false;
+    return () => observer.disconnect();
+  }, [thumb]);
+
+  // 2. Efeito responsável pela renderização (só roda se estiver visível)
+  useEffect(() => {
+    if (!url || !pageNumber || !isIntersecting || thumb) return;
+
+    let isCancelled = false;
+    let pageInstance = null;
 
     const generateThumb = async () => {
       try {
-        // REUTILIZA O PDF
         let pdf = pdfCache.get(url);
 
         if (!pdf) {
           const loadingTask = pdfjsLib.getDocument(url);
-
           pdf = await loadingTask.promise;
-
           pdfCache.set(url, pdf);
         }
 
-        if (cancelado) return;
+        if (isCancelled) return;
 
-        const page = await pdf.getPage(pageNumber);
+        pageInstance = await pdf.getPage(pageNumber);
+        if (isCancelled) return;
 
-        if (cancelado) return;
-
-        const viewport = page.getViewport({
-          scale: 0.5, // pequena redução já ajuda
-        });
-
+        const viewport = pageInstance.getViewport({ scale: 0.3 });
         const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
 
-        await page.render({
-          canvasContext: canvas.getContext("2d"),
+        const renderTask = pageInstance.render({
+          canvasContext: context,
           viewport,
-        }).promise;
+        });
 
-        if (cancelado) return;
+        await renderTask.promise;
+        if (isCancelled) return;
 
-        const data = canvas.toDataURL("image/jpeg", 0.5);
-
+        const data = canvas.toDataURL("image/jpeg", 0.6); 
         thumbCache.set(cacheKey, data);
-
         setThumb(data);
 
-        // libera memória
+        // Limpeza estrita de memória
         canvas.width = 0;
         canvas.height = 0;
-
       } catch (err) {
-        if (!cancelado) {
-          console.error(
-            `Erro miniatura página ${pageNumber}`,
-            err
-          );
+        if (!isCancelled) {
+          console.error(`Erro ao gerar miniatura da página ${pageNumber}:`, err);
+        }
+      } finally {
+        if (pageInstance) {
+          pageInstance.cleanup();
         }
       }
     };
@@ -82,12 +94,15 @@ const PdfPageThumbnail = ({ url, pageNumber }) => {
     generateThumb();
 
     return () => {
-      cancelado = true;
+      isCancelled = true;
     };
-  }, [url, pageNumber]);
+  }, [url, pageNumber, isIntersecting, thumb, cacheKey]);
 
   return (
-    <div className="relative w-full bg-white rounded shadow-sm hover:ring-2 hover:ring-indigo-500 transition-all overflow-hidden border flex flex-col items-center p-2 group cursor-pointer">
+    <div
+      ref={containerRef}
+      className="relative w-full bg-white rounded shadow-sm hover:ring-2 hover:ring-indigo-500 transition-all overflow-hidden border flex flex-col items-center p-2 group cursor-pointer"
+    >
       <div className="w-full h-48 bg-gray-50 flex items-center justify-center overflow-hidden rounded border border-gray-100">
         {thumb ? (
           <img
@@ -96,9 +111,11 @@ const PdfPageThumbnail = ({ url, pageNumber }) => {
             className="object-contain w-full h-full"
           />
         ) : (
-          <span className="text-xs text-gray-400">
-            Carregando...
-          </span>
+          <div className="flex flex-col items-center gap-2">
+            {/* Um esqueleto de loading discreto e profissional */}
+            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-[10px] text-gray-400">Carregando...</span>
+          </div>
         )}
       </div>
 

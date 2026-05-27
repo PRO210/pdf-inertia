@@ -700,6 +700,70 @@ class PdfEditorService
           }
         }
       }
+
+      // ----  BLOCO 3: PROCESSAMENTO DE DESENHOS/BORRACHA (COORDENADAS CORRIGIDAS) ----
+      if ($type === 'path') {
+        $corHex = $objeto['stroke'] ?? '#ffffff';
+        $espessuraPx = $objeto['strokeWidth'] ?? 20;
+
+        // Converte a cor usando o método da sua classe
+        [$r, $g, $b] = $this->converterHexParaRgb($corHex);
+        $this->pdf->SetDrawColor($r, $g, $b);
+
+        // Converte a espessura do traço (px -> mm)
+        $espessuraMm = $espessuraPx / $pixelParaMm;
+        $this->pdf->SetLineWidth($espessuraMm);
+
+        // CORREÇÃO 1: Adiciona um ganho de 5% na espessura para cobrir erros de arredondamento decimal
+        $espessuraMm = ($espessuraPx * 1.05) / $pixelParaMm;
+        $this->pdf->SetLineWidth($espessuraMm);
+
+        // CORREÇÃO 2: Força o TCPDF a arredondar as pontas e junções das linhas (muda de quadrado para redondo)
+        $this->pdf->SetLineStyle([
+          'cap' => 'round', // Pontas arredondadas
+          'join' => 'round' // Junções de curvas arredondadas
+        ]);
+
+        $pathComandos = $objeto['path'] ?? [];
+
+        if (is_array($pathComandos) && !empty($pathComandos)) {
+          $ultimoX = 0;
+          $ultimoY = 0;
+
+          foreach ($pathComandos as $comando) {
+            // Garante que o comando é um array válido
+            if (!is_array($comando)) {
+              continue;
+            }
+
+            $acao = $comando[0] ?? '';
+
+            if ($acao === 'M') {
+              // Converte direto a coordenada absoluta do Fabric para Milímetros
+              $ultimoX = $comando[1] / $pixelParaMm;
+              $ultimoY = $comando[2] / $pixelParaMm;
+            } elseif ($acao === 'L') {
+              // Linha reta direta
+              $xMm = $comando[1] / $pixelParaMm;
+              $yMm = $comando[2] / $pixelParaMm;
+
+              $this->pdf->Line($ultimoX, $ultimoY, $xMm, $yMm);
+
+              $ultimoX = $xMm;
+              $ultimoY = $yMm;
+            } elseif ($acao === 'Q') {
+              // Curva convertida diretamente usando os pontos de destino absolutos ($comando[3] e [4])
+              $toXMm = $comando[3] / $pixelParaMm;
+              $toYMm = $comando[4] / $pixelParaMm;
+
+              $this->pdf->Line($ultimoX, $ultimoY, $toXMm, $toYMm);
+
+              $ultimoX = $toXMm;
+              $ultimoY = $toYMm;
+            }
+          }
+        }
+      }
     }
   }
 

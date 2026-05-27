@@ -10,7 +10,6 @@ import Footer from '@/Components/Footer'
 import FullScreenSpinner from '@/Components/FullScreenSpinner'
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useMensagens } from '@/Hooks/useMensagens'
-import { MENSAGENS_SISTEMA } from '@/constantes/mensagens'
 import { useLimpezaDados } from '@/Hooks/useLimpezaDados'
 import ResumoAtividade from '@/Components/PdfEditor/ResumoAtividade'
 import PdfPageThumbnail from '@/Components/EditorPdf/PdfPageThumbnail'
@@ -40,43 +39,15 @@ export default function EditorPdf() {
   const { processarDownload } = useDownloadPdf();
 
 
-
   // Movi a lógica de limpeza para uma função separada para não repetir código
   const executarLimpeza = () => {
     setImagens([]);
     setPdfUrl(null);
-    setPaginaAtual(1);
     setAlteracoesPendentes(false);
   };
 
   const [pdfs, setPdfs] = useState([])
 
-
-
-  const comecarNovaPagina = async () => {
-    const config = getMsgLocal('limpar_mesa');
-    const temConteudo = imagens.some(Boolean);
-
-    if (temConteudo) {
-      // Verifica se o usuário já silenciou esse ID específico
-      if (config && podeExibir(config.id)) {
-        const result = await confirmarComCheck(config);
-
-        if (result.isConfirmed) {
-          // Se o checkbox foi marcado, salvamos no localStorage AGORA
-          if (result.value.isChecked) {
-            silenciar(config.id);
-          }
-          // Depois de salvar a preferência, executa a limpeza
-          executarLimpeza();
-        }
-        return; // Interrompe para não executar a limpeza duas vezes
-      }
-    }
-
-    // Se já estiver silenciado ou não tiver conteúdo, limpa direto
-    executarLimpeza();
-  };
 
   const [pagesConfig, setPagesConfig] = useState([]);
   const [arquivosRaw, setArquivosRaw] = useState([]);
@@ -94,9 +65,13 @@ export default function EditorPdf() {
   const [edicoesFabricPaginas, setEdicoesFabricPaginas] = useState({}); // Ex: { "1": "{}", "2": '{"objects":[...]}' }
   // NOVO: Referência para controlar o ciclo de vida do Canvas do Fabric.js
   const fabricCanvasRef = useRef(null);
+  // Estado para controlar se a "borracha" está ativa ou não
+  const [borrachaAtiva, setBorrachaAtiva] = useState(false);
 
-
-
+  // 1. Estado para controlar quantas páginas exibir (começa com 15)
+  const [visibleCount, setVisibleCount] = useState(15);
+  // 2. Criamos uma lista cortada contendo apenas as páginas que devem aparecer no momento
+  const visiblePagesConfig = pagesConfig.slice(0, visibleCount);
 
 
   const [showMobileList, setShowMobileList] = useState(false);
@@ -108,7 +83,6 @@ export default function EditorPdf() {
   const [erroPdf, setErroPdf] = useState(null)
 
   const [carregando, setCarregando] = useState(false)
-
 
   const [imagens, setImagens] = useState([]);
   const [repeatBorder, setBorder] = useState("none");
@@ -142,7 +116,7 @@ export default function EditorPdf() {
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
     setErroPdf(null)
-    setPaginaAtual(1)
+
     setZoom(1)
     setAspecto(false)
     setImagens([])
@@ -181,7 +155,6 @@ export default function EditorPdf() {
 
       // NOVO: Usa a função auxiliar para incluir as edições do Fabric
       formData.append('paginas', JSON.stringify(getFinalPagesConfig()));
-
 
       // Anexa dados globais adicionais que o cabeçalho do TCPDF vai precisar ler
       formData.append('textos_cabecalho', JSON.stringify(cabecalhoTexto));
@@ -368,13 +341,12 @@ export default function EditorPdf() {
     }
 
     setPdfUrl(null);
-    setArquivosRaw(null);
+    setArquivosRaw([]);
     setPdfModificadoUrl(null);
 
     setPagesConfig([]);
     setTotalPages(0);
 
-    setPaginaAtual(1);
     setAlteracoesPendentes(false);
 
     // opcional
@@ -448,7 +420,8 @@ export default function EditorPdf() {
     if (!canvas || !paginaEmEdicaoTotal) return;
 
     // No Fabric v6, canvas.toJSON() exporta os objetos adicionados de forma limpa
-    const jsonDados = canvas.toJSON();
+    // const jsonDados = canvas.toJSON();
+    const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
 
     setEdicoesFabricPaginas((prev) => ({
       ...prev,
@@ -459,6 +432,8 @@ export default function EditorPdf() {
 
     setAlteracoesPendentes(true);
     setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
+    setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
+
   };
 
   // Ação 2: Replica o design atual do canvas para TODAS as páginas do documento
@@ -466,7 +441,8 @@ export default function EditorPdf() {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !paginaEmEdicaoTotal) return;
 
-    const jsonDados = canvas.toJSON();
+    // const jsonDados = canvas.toJSON();
+    const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
     const jsonString = JSON.stringify(jsonDados);
 
     // Mapeia todas as páginas do config gerando o mesmo conteúdo nelas
@@ -478,6 +454,7 @@ export default function EditorPdf() {
     setEdicoesFabricPaginas(novasEdicoes);
     setAlteracoesPendentes(true);
     setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
+    setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
   };
 
   // Função para adicionar uma caixa de texto inteligente (Textbox) na tela
@@ -505,16 +482,58 @@ export default function EditorPdf() {
 
   // Função para apagar o objeto que estiver selecionado atualmente no Canvas
   const apagarObjetoSelecionado = () => {
+    if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
-    if (!canvas) return;
 
+    // Desliga a borracha se ela estiver ativa
+    if (borrachaAtiva) {
+      canvas.isDrawingMode = false;
+      setBorrachaAtiva(false);
+    }
+
+    // ... o resto do seu código original que deleta o objeto do canvas ...
     const objetoAtivo = canvas.getActiveObject();
     if (objetoAtivo) {
       canvas.remove(objetoAtivo);
-      canvas.discardActiveObject(); // Desmarca a seleção
-      canvas.renderAll();
+      canvas.requestRenderAll();
     }
   };
+
+
+  const alternarBorrachaSimulada = () => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+
+    // Inverte o estado atual do botão
+    const novoEstado = !borrachaAtiva;
+    setBorrachaAtiva(novoEstado);
+
+    if (novoEstado) {
+      // 1. Ativa o modo de desenho livre do Fabric.js
+      canvas.isDrawingMode = true;
+
+      // 2. Cria o pincel de desenho padrão (PencilBrush)
+      const pincel = new fabric.PencilBrush(canvas);
+      pincel.color = '#FFFFFF'; // Força a cor branca para cobrir o PDF
+      pincel.width = 20;        // Espessura do traço da borracha (pode ajustar)
+
+      // 3. Define as extremidades para um acabamento arredondado e suave
+      pincel.strokeLineCap = 'round';
+      pincel.strokeLineJoin = 'round';
+
+      canvas.freeDrawingBrush = pincel;
+      canvas.defaultCursor = 'crosshair';
+
+      console.log("Modo borracha simulada (Whitewash) ativado.");
+    } else {
+      // Desativa o desenho livre e volta para o modo de seleção normal
+      canvas.isDrawingMode = false;
+      canvas.defaultCursor = 'default';
+      console.log("Modo borracha desativado.");
+    }
+  };
+
+
 
   const adicionarImagemFabric = (e) => {
     const arquivo = e.target.files[0];
@@ -545,6 +564,7 @@ export default function EditorPdf() {
     e.target.value = '';
   };
 
+
   useEffect(() => {
     if (!paginaEmEdicaoTotal) {
       if (fabricCanvasRef.current) {
@@ -556,71 +576,44 @@ export default function EditorPdf() {
     }
 
     let ativo = true;
+    let canvasInstancia = null;
 
     const inicializarEditor = async () => {
       try {
         console.log("--- DEBUG START ---");
-        console.log("1. URL do PDF recebida:", paginaEmEdicaoTotal.url);
-        console.log("2. Página a renderizar:", paginaEmEdicaoTotal.pageNumber);
-
-        // Carrega o documento via PDF.js
         const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
         const pdf = await loadingTask.promise;
-        const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
-
-        const viewport = page.getViewport({ scale: 1.2 });
-        console.log("3. Dimensões da Viewport:", viewport.width, "x", viewport.height);
 
         if (!ativo) return;
+        const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
+        const viewport = page.getViewport({ scale: 1.2 });
 
-        // Criando o canvas temporário em memória para renderizar o PDF
+        // Criando o canvas temporário em memória para o PDF.js
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = viewport.width;
         tempCanvas.height = viewport.height;
         const context = tempCanvas.getContext('2d');
 
-        console.log("4. Iniciando renderização do PDF no canvas temporário...");
-        const renderTask = page.render({ canvasContext: context, viewport: viewport });
-        await renderTask.promise;
-
-        console.log("5. RenderTask do PDFJS resolvida.");
-
-        // Pequena folga para garantir sincronia do buffer do navegador
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        // Extrai a string base64 dos pixels do PDF
-        const pdfPageImgUrl = tempCanvas.toDataURL('image/png');
-        console.log("6. Tamanho da string Base64 gerada:", pdfPageImgUrl.length);
-
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
         if (!ativo) return;
 
-        // Destruição preventiva de instâncias antigas
-        if (fabricCanvasRef.current) {
-          fabricCanvasRef.current.dispose();
-        }
+        const pdfPageImgUrl = tempCanvas.toDataURL('image/png');
 
         const elementoCanvas = document.getElementById('fabric-lousa');
-        if (!elementoCanvas) {
-          console.error("Erro: Tag canvas 'fabric-lousa' não encontrada no DOM.");
-          return;
-        }
+        if (!elementoCanvas) return;
 
-        // Inicializa o Canvas do Fabric.js
-        const canvas = new fabric.Canvas('fabric-lousa', {
+        // Inicializa o Canvas do Fabric v6
+        canvasInstancia = new fabric.Canvas('fabric-lousa', {
           width: viewport.width,
           height: viewport.height,
         });
-        fabricCanvasRef.current = canvas;
+        fabricCanvasRef.current = canvasInstancia;
 
-        console.log("7. Carregando imagem via objeto HTML Image nativo...");
-
-        // Criamos o objeto de imagem nativo do JavaScript
+        // Criamos a imagem nativa do PDF
         const imgNativa = new Image();
+        imgNativa.onload = async () => {
+          if (!ativo) return;
 
-        imgNativa.onload = () => {
-          console.log("8. Imagem nativa processada pelo navegador. Enviando ao Fabric...");
-
-          // Criando a instância de imagem compatível com a sua versão do Fabric (v6+)
           const fabricImg = new fabric.FabricImage(imgNativa, {
             left: 0,
             top: 0,
@@ -628,33 +621,36 @@ export default function EditorPdf() {
             originY: 'top'
           });
 
-          // Ajusta a escala para cobrir o fundo perfeitamente se necessário
-          canvas.backgroundImage = fabricImg;
+          const edicaoExistente = edicoesFabricPaginas[paginaEmEdicaoTotal.pageNumber];
 
-          // Renderiza o quadro e recalcula as marcações de clique do mouse
-          canvas.renderAll();
-          canvas.calcOffset();
-          console.log("9. --- PDF RENDERIZADO COM SUCESSO NO FABRIC ---");
+          if (edicaoExistente && edicaoExistente !== "{}") {
+            try {
+              // NO FABRIC v6, loadFromJSON RETORNA UMA PROMISE E NÃO ACEITA CALLBACKS TRADICIONAIS
+              const dadosJson = JSON.parse(edicaoExistente);
+              await canvasInstancia.loadFromJSON(dadosJson);
+
+              // Reatribui o fundo APÓS carregar o JSON para não ser limpo por ele
+              canvasInstancia.backgroundImage = fabricImg;
+              console.log("Edições anteriores e fundo restaurados com sucesso.");
+            } catch (jsonErr) {
+              console.error("Erro ao processar JSON do banco:", jsonErr);
+              canvasInstancia.backgroundImage = fabricImg;
+            }
+          } else {
+            canvasInstancia.backgroundImage = fabricImg;
+          }
+
+          canvasInstancia.renderAll();
+          canvasInstancia.calcOffset();
+
         };
+        console.log('OBJETOS FABRIC:', canvasInstancia.getObjects()
+        );
 
-        imgNativa.onerror = (err) => {
-          console.error("Erro crítico ao processar string Base64 na imagem nativa:", err);
-        };
-
-        // Alimenta a imagem nativa com a string Base64 do PDF
         imgNativa.src = pdfPageImgUrl;
 
-        // Restaura desenhos salvos anteriormente na página se existirem
-        const edicaoExistente = edicoesFabricPaginas[paginaEmEdicaoTotal.pageNumber];
-        if (edicaoExistente && edicaoExistente !== "{}") {
-          canvas.loadFromJSON(edicaoExistente, () => {
-            canvas.renderAll();
-            console.log("Edições anteriores restauradas.");
-          });
-        }
-
       } catch (error) {
-        console.error("ERRO DETECTADO NO FLUXO DE DEBUG:", error);
+        console.error("ERRO DETECTADO NO FLUXO DE EDIDOR:", error);
       }
     };
 
@@ -665,14 +661,11 @@ export default function EditorPdf() {
     return () => {
       ativo = false;
       clearTimeout(timer);
+      if (canvasInstancia) {
+        canvasInstancia.dispose();
+      }
     };
   }, [paginaEmEdicaoTotal]);
-
-
-
-
-
-
 
   return (
     <>
@@ -867,9 +860,9 @@ export default function EditorPdf() {
                               />
                             </svg>
                             <p className="mb-2 text-sm md:text-xl text-gray-600">
-                              <span className="font-semibold">Clique para fazer upload</span> ou arraste o arquivo aqui
+                              <span className="font-semibold">Clique para fazer upload !</span>
                             </p>
-                            <p className="text-gray-400 text-sm">Apenas arquivos PDF (Max. 50MB)</p>
+                            {/* <p className="text-gray-400 text-sm">Apenas arquivos PDF (Max. 50MB)</p> */}
                           </div>
 
                           {/* O input invisível cobre a label inteira */}
@@ -894,81 +887,110 @@ export default function EditorPdf() {
                     {/* SE HOUVER PDF: Oculta o input e mostra o Container das Miniaturas com controles */}
                     {pdfUrl && pagesConfig.length > 0 && (
                       <div className="w-full max-h-[70vh] overflow-y-auto px-4 py-4 bg-gray-50 rounded-xl border border-gray-200 shadow-inner">
-                        {/* Grid ajustado: se quiser mais espaço para os controles por página, 
-        usar grid-cols-1 ou grid-cols-2 em telas médias é uma boa pedida */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-                          {pagesConfig.map((config) => {
-                            const pageNum = config.page;
-                            return (
-                              <div
-                                key={`${pdfUrl}-${pageNum}`}
-                                className={`flex flex-col gap-3 p-3 bg-white rounded-xl border transition-all ${config.include ? 'border-gray-200 shadow-sm' : 'border-dashed border-gray-300 opacity-60 bg-gray-100/50'
-                                  }`}
-                              >
-                                {/* 1. O Componente Visual do PDF */}
-                                <div className="relative">
-                                  <PdfPageThumbnail
-                                    url={pdfUrl}
-                                    pageNumber={pageNum}
-                                  />
-                                  {/* Badge indicando se está ativo */}
-                                  {!config.include && (
-                                    <div className="absolute inset-0 bg-gray-900/10 backdrop-blur-[1px] flex items-center justify-center rounded-lg pointer-events-none">
-                                      <span className="bg-gray-700 text-white text-xs font-bold px-2 py-1 rounded">Removido do final</span>
-                                    </div>
-                                  )}
-                                </div>
 
-                                {/* 2. Painel de Configuração da Página */}
-                                <div className="flex flex-col gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                        {/* Contêiner Flex para alinhar o Grid e o Botão embaixo */}
+                        <div className="flex flex-col gap-6">
 
-                                  {/* Checkbox: Incluir Página */}
-                                  <label className="flex items-center gap-2 font-medium text-gray-700 cursor-pointer select-none">
-                                    <input
-                                      type="checkbox"
-                                      checked={config.include}
-                                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                      onChange={(e) => updatePageConfig(pageNum, 'include', e.target.checked)}
+                          {/* Grid de Páginas */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {visiblePagesConfig.map((config) => {
+                              const pageNum = config.page;
+                              return (
+                                <div
+                                  key={`${pdfUrl}-${pageNum}`}
+                                  className={`flex flex-col gap-3 p-3 bg-white rounded-xl border transition-all ${config.include
+                                    ? "border-gray-200 shadow-sm"
+                                    : "border-dashed border-gray-300 opacity-60 bg-gray-100/50"
+                                    }`}
+                                >
+                                  {/* 1. O Componente Visual do PDF */}
+                                  <div className="relative">
+                                    <PdfPageThumbnail url={pdfUrl} pageNumber={pageNum} />
 
-                                    />
-                                    Incluir no PDF final
-                                  </label>
-
-                                  {/* Controles do Cabeçalho - Só habilitam se a página for incluída */}
-                                  <div className={`flex flex-col gap-2 pt-1 border-t border-gray-200/60 mt-1 transition-opacity ${!config.include ? 'pointer-events-none opacity-40' : ''}`}>
-
-                                    {/* Checkbox: Ativar Cabeçalho */}
-                                    <label className="flex items-center gap-2 text-gray-600 cursor-pointer select-none">
-                                      <input
-                                        type="checkbox"
-                                        checked={config.hasHeader}
-                                        disabled={!config.include}
-                                        onChange={(e) => {
-                                          updatePageConfig(pageNum, 'hasHeader', e.target.checked);
-                                          setCabecalhoAtivo(e.target.checked);
-                                          setCabecalhoModo("algumas");
-
-                                        }}
-                                        className="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                      />
-                                      Adicionar Cabeçalho
-                                    </label>
-
-                                    {/* ABRIR O FABRIC.JS NESTA PÁGINA */}
-                                    <button
-                                      type="button"
-                                      onClick={() => setPaginaEmEdicaoTotal({ pageNumber: pageNum, url: pdfUrl })}
-                                      className="mt-2 w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 
-                                      font-medium rounded-lg border border-indigo-200 transition-colors text-center flex items-center justify-center gap-1"
-                                    >
-                                      📝 Editar Conteúdo
-                                    </button>
+                                    {/* Badge indicando se está ativo */}
+                                    {!config.include && (
+                                      <div className="absolute inset-0 bg-gray-900/10 backdrop-blur-[1px] flex items-center justify-center rounded-lg pointer-events-none">
+                                        <span className="bg-gray-700 text-white text-xs font-bold px-2 py-1 rounded">
+                                          Removido do final
+                                        </span>
+                                      </div>
+                                    )}
                                   </div>
 
+                                  {/* 2. Painel de Configuração da Página */}
+                                  <div className="flex flex-col gap-2 text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+
+                                    {/* Checkbox: Incluir Página */}
+                                    <label className="flex items-center gap-2 font-medium text-gray-700 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={config.include}
+                                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        onChange={(e) =>
+                                          updatePageConfig(pageNum, "include", e.target.checked)
+                                        }
+                                      />
+                                      Incluir no PDF final
+                                    </label>
+
+                                    {/* Controles do Cabeçalho */}
+                                    <div
+                                      className={`flex flex-col gap-2 pt-1 border-t border-gray-200/60 mt-1 transition-opacity ${!config.include ? "pointer-events-none opacity-40" : ""
+                                        }`}
+                                    >
+                                      {/* Checkbox: Ativar Cabeçalho */}
+                                      <label className="flex items-center gap-2 text-gray-600 cursor-pointer select-none">
+                                        <input
+                                          type="checkbox"
+                                          checked={config.hasHeader}
+                                          disabled={!config.include}
+                                          onChange={(e) => {
+                                            updatePageConfig(pageNum, "hasHeader", e.target.checked);
+                                            setCabecalhoAtivo(e.target.checked);
+                                            setCabecalhoModo("algumas");
+                                          }}
+                                          className="w-3.5 h-3.5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                                        />
+                                        Adicionar Cabeçalho
+                                      </label>
+
+                                      {/* Botão de Editar Conteúdo */}
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPaginaEmEdicaoTotal({ pageNumber: pageNum, url: pdfUrl })
+                                        }
+                                        className="mt-2 w-full py-1.5 px-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 
+                    font-medium rounded-lg border border-indigo-200 transition-colors text-center flex items-center justify-center gap-1"
+                                      >
+                                        📝 Editar Conteúdo
+                                      </button>
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
+
+                          {/* 3. Botão para carregar mais 15 páginas */}
+                          {visibleCount < pagesConfig.length && (
+                            <div className="flex flex-col items-center justify-center gap-2 pt-4 border-t border-gray-200">
+                              <button
+                                type="button"
+                                onClick={() => setVisibleCount((prev) => prev + 15)}
+                                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-sm hover:shadow transition-all duration-200 flex items-center gap-2"
+                              >
+                                <span>Carregar mais 15 páginas</span>
+                                <span className="bg-indigo-500 text-indigo-100 text-xs px-2 py-0.5 rounded-full">
+                                  {visibleCount} de {pagesConfig.length}
+                                </span>
+                              </button>
+                              <p className="text-xs text-gray-400">
+                                Otimizado para evitar lentidão no seu navegador.
+                              </p>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     )}
@@ -1095,7 +1117,19 @@ export default function EditorPdf() {
                   onClick={apagarObjetoSelecionado}
                   className="py-2 px-4 w-full bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
                 >
-                  🗑️ Apagar
+                  🗑️ Apagar as criações
+                </button>
+
+                {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
+                <button
+                  type="button"
+                  onClick={alternarBorrachaSimulada}
+                  className={`py-2 px-4 w-full font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
+                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-inner"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    }`}
+                >
+                  ✏️ {borrachaAtiva ? "Usando Borracha (Clique para parar)" : "Simular Borracha"}
                 </button>
 
                 {/* NOVO: BOTÃO DE IMAGEM */}
@@ -1112,7 +1146,11 @@ export default function EditorPdf() {
 
               {/* Área da Lousa do Fabric.js - Centralizada com scroll se o PDF for muito grande */}
               <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 max-h-[60vh]">
-                <div className="bg-white shadow-lg rounded border border-red-500">
+                {/* A KEY DEVE FICAR NESTA DIV PAI ABAIXO */}
+                <div
+                  key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
+                  className="bg-white shadow-lg rounded border border-red-500"
+                >
                   <canvas id="fabric-lousa" />
                 </div>
               </div>

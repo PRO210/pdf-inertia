@@ -153,11 +153,26 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     </div>
                                 </Link>
 
+                                <Link href={route('editor.pdf.canvas')} className="flex flex-col items-center justify-start">
+                                    <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition pb-6">
+                                        <div className="p-4 text-xl text-center">
+                                            <p className="font-semibold text-black dark:text-white">
+                                              Adicione, <strong> retire,escreva,coloque imagens e muito mais!  </strong>
+                                            </p>
+                                        </div>
+                                        <img
+                                            className="px-2 max-h-44 m-auto object-contain transform transition-transform duration-300 hover:scale-105"
+                                            src="/imagens/editor-pdf.png" alt="editor de pdf"
+                                        />
+                                    </div>
+                                </Link>
+
+
                                 <Link href={route('image.in.mask')} className="flex flex-col items-center justify-start">
                                     <div className="overflow-hidden rounded hover:shadow-md bg-[#FF2D20]/10 transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
-                                                  Aplique  <strong> formas   </strong> em sua imagens e se divirta com as posssibilidades!
+                                                Aplique  <strong> formas   </strong> em sua imagens e se divirta com as posssibilidades!
                                             </p>
                                         </div>
                                         <img
@@ -202,7 +217,7 @@ export default function Welcome({ auth, laravelVersion, phpVersion }) {
                                     <div className="overflow-hidden rounded shadow-md bg-[#FF2D20]/10 hover:shadow-lg transition pb-6">
                                         <div className="p-4 text-xl text-center">
                                             <p className="font-semibold text-black dark:text-white">
-                                              Crie avatares, perfis ou artes personalizadas no universo anime.
+                                                Crie avatares, perfis ou artes personalizadas no universo anime.
                                             </p>
                                         </div>
                                         <img

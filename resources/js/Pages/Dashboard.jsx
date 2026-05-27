@@ -50,14 +50,13 @@ export default function Dashboard() {
                                 </div>
                             </Link>
 
-
                             {/* Segundo bloco */}
                             <Link
                                 href={route('editor.pdf.canvas')} className="flex flex-col items-center justify-start h-full" >
                                 <div className="overflow-hidden rounded cursor-pointer hover:shadow-lg transition">
                                     <div className="p-4 text-xl text-justify">
                                         <p className="text-black">
-                                            Editor  <strong>de PDF</strong>
+                                            Adicione, <strong> retire,escreva,coloque imagens e muito mais!  </strong>
                                         </p>
                                     </div>
                                     <img className="px-2 object-contain transform transition-transform duration-300 hover:scale-105"
