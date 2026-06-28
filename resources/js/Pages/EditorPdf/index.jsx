@@ -1073,6 +1073,8 @@ export default function EditorPdf() {
       </div >
 
       {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
+
+      {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
       <Modal
         show={paginaEmEdicaoTotal !== null}
         onClose={() => setPaginaEmEdicaoTotal(null)}
@@ -1092,72 +1094,69 @@ export default function EditorPdf() {
             </button>
           </div>
 
-          {/* Área Central (Onde o Fabric vai morar no Passo 3) */}
-          <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex items-center justify-center rounded-lg border border-dashed border-gray-300">
-            {/* <p className="text-gray-400">O quadro do Fabric.js será montado aqui no próximo passo.</p> */}
-            {/* Área Central Ajustada para Prevenir Quebra de Flexbox */}
-            <div className="flex flex-col md:flex-row gap-4 my-4 min-h-[400px]">
+          {/* Área Central - Agora com layout estritamente vertical (flex-col) */}
+          <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex flex-col rounded-lg border border-dashed border-gray-300">
 
-              {/* Barra Lateral de Ferramentas - Fixamos a largura no desktop */}
-              <div className="w-full md:w-48 flex flex-row md:flex-col gap-2 bg-gray-50 p-3 rounded-lg border h-fit">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider hidden md:block mb-1">
-                  Ferramentas
-                </span>
+            {/* 🌟 BARRA DE FERRAMENTAS REPOSICIONADA NO TOPO (Horizontal) */}
+            <div className="w-full flex flex-row flex-wrap items-center align-middle gap-3 bg-gray-50 p-3 mb-4 rounded-lg border">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
+                Ferramentas:
+              </span>
 
-                <button
-                  type="button"
-                  onClick={adicionarTextoFabric}
-                  className="py-2 px-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors"
-                >
-                  🔤 Texto
-                </button>
+              <button
+                type="button"
+                onClick={adicionarTextoFabric}
+                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors"
+              >
+                🔤 Texto
+              </button>
 
-                <button
-                  type="button"
-                  onClick={apagarObjetoSelecionado}
-                  className="py-2 px-4 w-full bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
-                >
-                  🗑️ Apagar as criações
-                </button>
+              <button
+                type="button"
+                onClick={apagarObjetoSelecionado}
+                className="py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+              >
+                🗑️ Apagar as criações
+              </button>
 
-                {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
-                <button
-                  type="button"
-                  onClick={alternarBorrachaSimulada}
-                  className={`py-2 px-4 w-full font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
-                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-inner"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
-                >
-                  ✏️ {borrachaAtiva ? "Usando Borracha (Clique para parar)" : "Simular Borracha"}
-                </button>
+              {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
+              <button
+                type="button"
+                onClick={alternarBorrachaSimulada}
+                className={`py-2 px-4 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
+                  ? "bg-slate-700 hover:bg-slate-800 text-white shadow-inner"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  }`}
+              >
+                ✏️ {borrachaAtiva ? "Usando Borracha (Clique para parar)" : "Simular Borracha"}
+              </button>
 
-                {/* NOVO: BOTÃO DE IMAGEM */}
-                <label className="py-2 px-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
-                  🖼️ Inserir Imagem
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={adicionarImagemFabric}
-                    className="hidden"
-                  />
-                </label>
-              </div>
+              {/* NOVO: BOTÃO DE IMAGEM */}
+              <label className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
+                🖼️ Inserir Imagem
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={adicionarImagemFabric}
+                  className="hidden"
+                />
+              </label>
+            </div>
 
-              {/* Área da Lousa do Fabric.js - Centralizada com scroll se o PDF for muito grande */}
-              <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 max-h-[60vh]">
-                {/* A KEY DEVE FICAR NESTA DIV PAI ABAIXO */}
-                <div
-                  key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
-                  className="bg-white shadow-lg rounded border border-red-500"
-                >
-                  <canvas id="fabric-lousa" />
-                </div>
+            {/* Área da Lousa do Fabric.js - Agora expandida abaixo das ferramentas */}
+            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 min-h-[400px]">
+              {/* A KEY DEVE FICAR NESTA DIV PAI ABAIXO */}
+              <div
+                key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
+                className="bg-white shadow-lg rounded border border-red-500"
+              >
+                <canvas id="fabric-lousa" />
               </div>
             </div>
+
           </div>
 
-          {/* Rodapé do Modal com as ações que você pediu */}
+          {/* Rodapé do Modal */}
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t mt-auto">
             <button
               onClick={() => setPaginaEmEdicaoTotal(null)}
@@ -1184,6 +1183,7 @@ export default function EditorPdf() {
           </div>
         </div>
       </Modal>
+
 
       <Footer ano={2025} />
     </>
