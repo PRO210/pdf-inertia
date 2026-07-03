@@ -776,7 +776,7 @@ export default function Index() {
       return;
     }
 
-    const mascaraPath = `${initialPath}/imagens/mascaras/${mascaraSelecionada}.png`;
+    const mascaraPath = `${initialPath}imagens/mascaras/${mascaraSelecionada}.png`;
     const inicio = performance.now();
 
     const mascaradas = await Promise.all(
