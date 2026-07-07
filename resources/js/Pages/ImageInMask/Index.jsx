@@ -36,6 +36,7 @@ export default function Index() {
   const [espacamentoCm, setEspacamentoCm] = useState(1);
 
   const [orientacao, setOrientacao] = useState('paisagem')
+  const [original, setOriginal] = useState('original')
   const [alteracoesPendentes, setAlteracoesPendentes] = useState(false)
   const [imagens, setImagens] = useState([]);
   const [imagensMask, setImagensMask] = useState([]);
@@ -206,6 +207,7 @@ export default function Index() {
     if (modoReducao === "cm") {
       await gerarPdfComQuadroCm();
     } else {
+      // alert("Modo de redução selecionado: " + modoReducao + ". O PDF será gerado com base na grade (grid).")
       await gerarPdfComGrid();
     }
   };
@@ -367,6 +369,7 @@ export default function Index() {
             continue;
           }
 
+
           const base64 = imagemObj.maskedBase64;
           let pdfImage;
 
@@ -386,27 +389,42 @@ export default function Index() {
           const { width: imgW, height: imgH } = pdfImage;
 
           // Lógica de ajuste (fit/contain) da imagem na célula
-          let drawW_img = cellW;
-          let drawH_img = cellH;
+          let drawW_img;
+          let drawH_img;
           let drawX_img = x;
           let drawY_img = y;
 
-          const ratio = imgW / imgH;
+          if (original == 'original') {
+            // Mantém a proporção (contain)
+            const ratio = imgW / imgH;
+            const cellRatio = cellW / cellH;
 
-          if (cellW / cellH < ratio) {
-            // Largura da imagem é o fator limitante (ajusta a altura)
-            drawH_img = cellW / ratio;
-            drawY_img = y + (cellH - drawH_img) / 2; // Centraliza verticalmente
+            if (cellRatio < ratio) {
+              drawW_img = cellW;
+              drawH_img = cellW / ratio;
+              drawY_img = y + (cellH - drawH_img) / 2;
+            } else {
+              drawH_img = cellH;
+              drawW_img = cellH * ratio;
+              drawX_img = x + (cellW - drawW_img) / 2;
+            }
+
           } else {
-            // Altura da imagem é o fator limitante (ajusta a largura)
-            drawW_img = cellH * ratio;
-            drawX_img = x + (cellW - drawW_img) / 2; // Centraliza horizontalmente
+            // Estica a imagem para ocupar toda a célula
+            drawW_img = cellW;
+            drawH_img = cellH;
           }
 
           // Clipping (Recorte para garantir que a imagem não vaze da célula)
-          paginaAtual.pushOperators(pushGraphicsState());
-          paginaAtual.drawRectangle({ x, y, width: cellW, height: cellH, opacity: 0 });
-          paginaAtual.pushOperators(clip(), endPath());
+          // paginaAtual.pushOperators(pushGraphicsState());
+          // paginaAtual.drawRectangle({
+          //   x,
+          //   y,
+          //   width: cellW,
+          //   height: cellH,
+          //   opacity: 0,
+          // });
+          // paginaAtual.pushOperators(clip(), endPath());
 
           // Desenhar imagem
           paginaAtual.drawImage(pdfImage, {
@@ -419,11 +437,17 @@ export default function Index() {
           // Restaura o estado gráfico
           paginaAtual.pushOperators(popGraphicsState());
 
-          // borda da célula
+          // Borda da célula
           paginaAtual.drawRectangle({
-            x, y, width: cellW, height: cellH,
-            borderWidth: 0.1, borderColor: rgb(0.1, 0.1, 0.1),
+            x,
+            y,
+            width: cellW,
+            height: cellH,
+            borderWidth: 0.1,
+            borderColor: rgb(0.1, 0.1, 0.1),
           });
+
+          //
         }
 
         addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
@@ -480,7 +504,6 @@ export default function Index() {
 
   const gerarPdfComQuadroCm = async () => {
     console.log("========== 🟣 INICIANDO GERAR PDF (QUADRO CM) - PAGINADO ==========");
-
     // ================================
     // 📌 Configurações Iniciais e Limpeza
     // ================================
@@ -565,7 +588,6 @@ export default function Index() {
       // ==========================================================
       // 3️⃣ LOOP PRINCIPAL: RENDERIZAÇÃO E PAGINAÇÃO
       // ==========================================================
-
       const pdfDoc = await PDFDocument.create();
       let paginaAtual = null;
       let imagemIndex = 0;
@@ -625,9 +647,42 @@ export default function Index() {
               });
 
               // Desenha a imagem (sem ajuste de proporção, pois o quadro é fixo)
+
+              // paginaAtual.drawImage(pdfImage, {
+              //   x: atualX, y: atualY, width: quadroW, height: quadroH,
+              // });
+              const { width: imgW, height: imgH } = pdfImage;
+              let drawW_img = quadroW;
+              let drawH_img = quadroH;
+              let drawX_img = atualX;
+              let drawY_img = atualY;
+
+              const ratio = imgW / imgH;
+
+              if (quadroW / quadroH < ratio) {
+                // Largura é o fator limitante
+                drawH_img = quadroW / ratio;
+                drawY_img = atualY + (quadroH - drawH_img) / 2; // Centraliza verticalmente
+              } else {
+                // Altura é o fator limitante
+                drawW_img = quadroH * ratio;
+                drawX_img = atualX + (quadroW - drawW_img) / 2; // Centraliza horizontalmente
+              }
+
+              // Garante que nada vaze do quadro fixo
+              paginaAtual.pushOperators(pushGraphicsState());
+              paginaAtual.drawRectangle({ x: atualX, y: atualY, width: quadroW, height: quadroH, opacity: 0 });
+              paginaAtual.pushOperators(clip(), endPath());
+
+              // Desenha a imagem proporcionalizada e centralizada
               paginaAtual.drawImage(pdfImage, {
-                x: atualX, y: atualY, width: quadroW, height: quadroH,
+                x: drawX_img,
+                y: drawY_img,
+                width: drawW_img,
+                height: drawH_img,
               });
+
+              paginaAtual.pushOperators(popGraphicsState());
             }
 
             // Avança o índice da imagem APENAS quando processamos um item
@@ -658,7 +713,6 @@ export default function Index() {
         addResumo(`Página ${pageIndex + 1}/${totalDePaginas} renderizada.`);
       }
 
-      // ... (O restante da finalização e lógica de resumo/paginação é mantido)
 
       // ==========================================================
       // 4️⃣ FINALIZAÇÃO E LÓGICA DE RESUMO (Adaptada)
@@ -708,6 +762,7 @@ export default function Index() {
     }
   };
 
+  // 🗑️ Função para remover uma imagem do array de imagens
   const removerImagem = (indexParaRemover) => {
     setImagens(prevImagens => {
       const novasImagens = prevImagens.filter(
@@ -735,10 +790,12 @@ export default function Index() {
     });
   };
 
+  // 🔙 Função para resetar todas as configurações para o estado inicial
   const resetarConfiguracoes = () => {
     setAmpliacao({ colunas: 2, linhas: 1 })
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
+    setOriginal('original');
     setImagens([]);
     setImagensMask([]);
     setRepeatMode("all");
@@ -760,7 +817,6 @@ export default function Index() {
     setIsLoading(true);
 
     console.log("🟣 Iniciando aplicação de máscara em todas as imagens...");
-    // ... (restante dos logs)
 
     if (!imagens.length) {
       console.warn("⚠️ Nenhuma imagem encontrada no array.");
@@ -791,6 +847,8 @@ export default function Index() {
             console.error("❌ Item não é File!", file);
             throw new Error("Item do array não é File válido.");
           }
+
+          file = await removerTransparencia(file);
 
           // ==========================================================
           // 🚀 PASSO 1: Obter dimensões e peso
@@ -844,7 +902,7 @@ export default function Index() {
 
           console.log("⏳ Aplicando máscara...");
           // A função aplicarMascaraCanvas agora usa a URL do arquivo redimensionado
-          const base64 = await aplicarMascaraCanvas(caminhoImagem, mascaraPath);
+          const base64 = await aplicarMascaraCanvas(caminhoImagem, mascaraPath, mascaraSelecionada);
 
           console.log("✅ Máscara aplicada!");
           console.log("📤 Base64 gerada (tamanho):", base64.length);
@@ -869,13 +927,10 @@ export default function Index() {
       })
     );
 
-    // ... (restante da função)
     setIsLoading(false); // Melhor colocar aqui para garantir que o estado seja limpo
 
-    // remove nulls (em caso de erro)
     const filtradas = mascaradas.filter(Boolean);
 
-    // ... (logs de finalização e setImagensMask)
     setImagensMask(filtradas);
   };
 
@@ -884,6 +939,54 @@ export default function Index() {
       gerarPdf();
     }
   }, [imagensMask])
+
+
+  // Função para remover transparência de imagens PNG, adicionando fundo branco
+  async function removerTransparencia(file) {
+    // Se não for PNG, retorna o próprio arquivo
+    if (file.type !== "image/png") {
+      return file;
+    }
+
+    console.log("🟣 PNG detectado - adicionando fundo branco");
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    await new Promise(resolve => {
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve();
+      };
+      img.src = url;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    const ctx = canvas.getContext("2d");
+
+    // Fundo branco
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Desenha o PNG sobre o fundo
+    ctx.drawImage(img, 0, 0);
+
+    const blob = await new Promise(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", 1)
+    );
+
+    return new File(
+      [blob],
+      file.name.replace(/\.png$/i, ".jpg"),
+      {
+        type: "image/jpeg",
+        lastModified: Date.now()
+      }
+    );
+  }
 
 
   const { processarDownload, estaBaixando } = useDownloadPdfProcessado();
@@ -919,6 +1022,27 @@ export default function Index() {
               >
                 <option value="retrato">Retrato</option>
                 <option value="paisagem">Paisagem</option>
+              </select>
+            </div>
+
+            {/* Aspecto da Imagem */}
+            <div className="w-full">
+              <label className="block mb-1 pro-label text-center text-xl">Aspecto da Imagem:</label>
+              <select
+                className="px-2 w-full rounded-full pro-input"
+                name="original"
+                id="original"
+                value={original}
+                onChange={(e) => {
+                  setOriginal(e.target.value)
+
+                  setAlteracoesPendentes(true)
+                  // console.log("🔄 Alterando aspecto da imagem para:", e.target.value)
+                }}
+              >
+                <option value="original">Manter o Aspecto Original</option>
+                <option value="ampliado">Ampliar para Preencher</option>
+
               </select>
             </div>
 
@@ -1194,7 +1318,8 @@ export default function Index() {
                   setAlteracoesPendentes(true);
                 }}
               >
-                <option value="retangulo">Retângulo</option>
+                <option value="retangulo">Retângulo Arredondado</option>
+                <option value="retanguloInteiro">Retângulo</option>
                 <option value="circulo">Círculo</option>
                 <option value="coracao">Coração</option>
 

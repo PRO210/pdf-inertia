@@ -47,21 +47,25 @@ class PdfEditorService
     $configMap = collect($pagesConfig)->keyBy('page');
 
 
+    // Definição de margem física da borda (Equivalente aos 0.5cm do seu antigo projeto)
+    $margemBorda = ($bordaTipo !== 'none') ? 6 : 0;
+
     // 1. CÁLCULO DO ESPAÇO DO CABEÇALHO
     $espacoCabecalhoTotal = 0;
+    
     if ($configMap->contains('hasHeader', true)) {
       if ($cabecalhoTipo === 'texto') {
+
         $qtdLinhas = max(count($textosCabecalho), 1);
-        $espacoCabecalhoTotal = ($qtdLinhas * 6) + 15;
+        $espacoCabecalhoTotal = ($qtdLinhas * 6) + $margemBorda;
+
       } elseif ($cabecalhoTipo === 'imagem' || $cabecalhoTipo === 'ambos') {
-        $espacoCabecalhoTotal = 38;
+        $espacoCabecalhoTotal = 35 + $margemBorda;
       } elseif ($cabecalhoTipo === 'banner') {
-        $espacoCabecalhoTotal = 52;
+        $espacoCabecalhoTotal = 35 + $margemBorda;
       }
     }
 
-    // Definição de margem física da borda (Equivalente aos 0.5cm do seu antigo projeto)
-    $margemBorda = ($bordaTipo !== 'none') ? 6 : 0;
 
     for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
       $config = $configMap->get($pageNo);
@@ -79,24 +83,20 @@ class PdfEditorService
 
       // 2. DESENHO DO PDF ORIGINAL (Com respeito a Borda e ao Cabeçalho)
       if ($temCabecalhoNestaPagina && $cabecalhoLayout === 'encolhido') {
-        // Remove o cabeçalho no topo e a margem da borda embaixo
+
         $novaAlturaTemplate = $size['height'] - $espacoCabecalhoTotal - $margemBorda;
-        // Remove as margens das bordas esquerda e direita
         $novaLarguraTemplate = $size['width'] - ($margemBorda * 2);
 
-        // Proporções para não distorcer o PDF original
-        $proporcaoH = $novaAlturaTemplate / $size['height'];
-        $proporcaoW = $novaLarguraTemplate / $size['width'];
-        $proporcao = min($proporcaoH, $proporcaoW);
-
-        $larguraFinalPDF = $size['width'] * $proporcao;
-        $alturaFinalPDF = $size['height'] * $proporcao;
-
-        // Centraliza horizontalmente e posiciona logo abaixo do cabeçalho
-        $posicaoX = ($size['width'] - $larguraFinalPDF) / 2;
+        $posicaoX = $margemBorda;
         $posicaoY = $espacoCabecalhoTotal;
 
-        $this->pdf->useTemplate($templateId, $posicaoX, $posicaoY, $larguraFinalPDF, $alturaFinalPDF);
+        $this->pdf->useTemplate(
+          $templateId,
+          $posicaoX,
+          $posicaoY,
+          $novaLarguraTemplate,
+          $novaAlturaTemplate
+        );
       } else {
         // Se for sobreposto, mas tiver borda, encolhe apenas o suficiente para não cobrir a borda
         if ($bordaTipo !== 'none') {
@@ -327,7 +327,7 @@ class PdfEditorService
     // --- VARIAÇÃO 3: SOMENTE IMAGEM (Altura fixa de 35mm, Largura Automática) ---
     if ($type === 'imagem' && $imgData) {
 
-      $alturaFixa = 30;
+      $alturaFixa = 35;
 
       $x = $paddingX;
       $y = $paddingX;
@@ -368,7 +368,7 @@ class PdfEditorService
       $startY = $paddingX;
 
       // altura fixa = 3cm
-      $alturaFixa = 30;
+      $alturaFixa = 35;
 
       // largura disponível descontando bordas e margens
       $larguraDisponivel = $pageSize['width'] - ($startX * 2);

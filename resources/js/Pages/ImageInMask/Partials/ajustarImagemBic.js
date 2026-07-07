@@ -6,7 +6,7 @@ const UM_MB = 1024 * 1024;
  * Redimensiona SOMENTE imagens >= 1MB
  */
 export async function ajustarImagemBic(file, larguraIdeal, alturaIdeal) {
-
+  
   console.log('--- TESTE DE TAMANHO DA IMAGEM ---');
   console.log(`Tamanho original: ${(file.size / UM_MB).toFixed(2)} MB`);
 
@@ -70,4 +70,8 @@ export async function ajustarImagemBic(file, larguraIdeal, alturaIdeal) {
     url: tempURL,
     base64: finalBase64
   };
+
+ 
 }
+
+

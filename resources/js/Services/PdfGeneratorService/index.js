@@ -1091,7 +1091,7 @@ export const gerarPDFService = async (
     if (cabecalhoAtivo) {
       // Modificado de 80 para 90 pontos para garantir mais de 3cm de altura mínima disponível
       if (cabecalhoTipo === "imagem" || cabecalhoTipo === "ambos" || cabecalhoTipo === "banner") {
-        cabecalhoAltura = 90;
+        cabecalhoAltura = 100;
       } else {
         const linhasCab = Array.isArray(cabecalhoTexto)
           ? cabecalhoTexto.filter(t => t.trim()).length
@@ -1176,7 +1176,7 @@ export const gerarPDFService = async (
       const cellBottomY = topStartY - (row + 1) * cellH - row * gap;
 
       const temCabecalho = shouldDrawHeader && cabecalhoAltura > 0;
-      const gapHcabecalho = 0;
+      const gapHcabecalho = 10;
 
       const availableW = Math.max(1, cellW - totalBorderW);
 
