@@ -56,7 +56,6 @@ export default function EditorPdf() {
   const [layoutPaginas, setLayoutPaginas] = useState('1');
 
 
-
   // NOVO: Estado para a Edição Livre com Fabric.js
   // Controla qual página está aberta no editor em tela cheia. Se null, o editor está fechado.
   const [paginaEmEdicaoTotal, setPaginaEmEdicaoTotal] = useState(null); // Ex: { pageNumber: 2, url: 'blob...' }

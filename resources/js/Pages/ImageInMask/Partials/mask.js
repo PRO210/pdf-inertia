@@ -126,7 +126,7 @@ export function aplicarMascaraCanvas(imagemSrc, mascaraSrc) {
         let escalaCanvas = 1.0;
         
         if (ehCirculo || ehCoracao) {
-            escalaCanvas = 1.15;
+            escalaCanvas = 1.1;
         }
 
         // O canvas ganha o tamanho com o percentual aplicado
