@@ -42,9 +42,51 @@ class PdfEditorService
     // -----------------------------------------------------------------
     $pdfPathCompativel = $this->converterParaPdfCompativel($pdfPath);
 
+    // =========================================================================
+    // SE HOUVER CORTES ATIVOS, AGRUPE ANTES DE APLICAR O FLUXO PRINCIPAL
+    // =========================================================================
+    $temCorte = collect($pagesConfig)->contains(fn($p) => isset($p['corte']));
+
+    if ($temCorte) {
+      // 1. O agrupador faz o trabalho dele e gera o PDF com os pedaços costurados verticalmente
+      $pdfAgrupadoString = $this->processarCortesEAgrupar($pdfPathCompativel, $pagesConfig);
+
+      @unlink($pdfPathCompativel);
+      $pdfPathCompativel = tempnam(sys_get_temp_dir(), 'pdf_recortado_') . '.pdf';
+      file_put_contents($pdfPathCompativel, $pdfAgrupadoString);
+
+      // // Interrompe TUDO aqui e devolve o binário puro do corte para teste
+      // return $pdfAgrupadoString;
+
+      // 2. Reseta a instância principal para ler o PDF combinado resultante
+      $this->pdf = new Fpdi();
+      $this->pdf->setPrintHeader(false);
+      $this->pdf->setPrintFooter(false);
+      $this->pdf->SetMargins(0, 0, 0);
+      $this->pdf->SetAutoPageBreak(false);
+
+      $pageCount = $this->pdf->setSourceFile($pdfPathCompativel);
+
+      // 3. CORREÇÃO CRITICAL: Cria um mapa linear 1 para 1 para as PÁGINAS RESULTANTES do agrupamento
+      // Isso impede que o loop duplique ou tente esticar o conteúdo
+      $configMap = collect();
+      for ($i = 1; $i <= $pageCount; $i++) {
+        $configMap->put($i, [
+          'include' => true,
+          'hasHeader' => $pagesConfig[0]['hasHeader'] ?? false,
+          'fabricJson' => $pagesConfig[$i - 1]['fabricJson'] ?? null // Garante o alinhamento das edições
+        ]);
+      }
+    } else {
+      // Fluxo normal sem corte
+      $pageCount = $this->pdf->setSourceFile($pdfPathCompativel);
+      $configMap = collect($pagesConfig)->keyBy('page');
+    }
+
+
     // Passa o caminho do arquivo convertido para o FPDI
-    $pageCount = $this->pdf->setSourceFile($pdfPathCompativel);
-    $configMap = collect($pagesConfig)->keyBy('page');
+    // $pageCount = $this->pdf->setSourceFile($pdfPathCompativel);
+    // $configMap = collect($pagesConfig)->keyBy('page');
 
 
     // Definição de margem física da borda (Equivalente aos 0.5cm do seu antigo projeto)
@@ -52,13 +94,12 @@ class PdfEditorService
 
     // 1. CÁLCULO DO ESPAÇO DO CABEÇALHO
     $espacoCabecalhoTotal = 0;
-    
+
     if ($configMap->contains('hasHeader', true)) {
       if ($cabecalhoTipo === 'texto') {
 
         $qtdLinhas = max(count($textosCabecalho), 1);
         $espacoCabecalhoTotal = ($qtdLinhas * 6) + $margemBorda;
-
       } elseif ($cabecalhoTipo === 'imagem' || $cabecalhoTipo === 'ambos') {
         $espacoCabecalhoTotal = 35 + $margemBorda;
       } elseif ($cabecalhoTipo === 'banner') {
@@ -155,6 +196,128 @@ class PdfEditorService
     return $pdfPadraoString;
   }
 
+
+
+  /**
+   * Processa cortes e agrupa pedaços de páginas em um novo PDF
+   */ 
+  protected function processarCortesEAgrupar(string $pdfPath, array $pagesConfig): string
+  {
+    $pdfTmp = new \setasign\Fpdi\Tcpdf\Fpdi();
+
+    $pdfTmp->setPrintHeader(false);
+    $pdfTmp->setPrintFooter(false);
+    $pdfTmp->SetMargins(0, 0, 0);
+    $pdfTmp->SetAutoPageBreak(false);
+
+    $pageCount = $pdfTmp->setSourceFile($pdfPath);
+    $configMap = collect($pagesConfig)->keyBy('page');
+    $pedacos = [];
+
+    for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+      $config = $configMap->get($pageNo);
+
+      if ($config && isset($config['include']) && !$config['include']) {
+        continue;
+      }
+
+      $templateId = $pdfTmp->importPage($pageNo);
+      $size = $pdfTmp->getTemplateSize($templateId);
+
+      $larguraOriginal = $size['width'];
+      $alturaOriginal  = $size['height'];
+
+      $cX = 0;
+      $cY = 0;
+      $cW = $larguraOriginal;
+      $cH = $alturaOriginal;
+
+      $corte = $config['corte'] ?? $pagesConfig[0]['corte'] ?? null;
+
+      if ($corte) {
+        $cX = ($corte['xPercent'] / 100) * $larguraOriginal;
+        $cY = ($corte['yPercent'] / 100) * $alturaOriginal;
+        $cW = ($corte['widthPercent'] / 100) * $larguraOriginal;
+        $cH = ($corte['heightPercent'] / 100) * $alturaOriginal;
+      }
+
+      $pedacos[] = [
+        'page' => $pageNo,
+        'templateId' => $templateId,
+        'orientation' => $size['orientation'],
+        'origX' => $cX,
+        'origY' => $cY,
+        'origW' => $cW,
+        'origH' => $cH,
+        'larguraFolha' => $larguraOriginal,
+        'alturaFolha' => $alturaOriginal,
+      ];
+    }
+
+    $grupos = array_chunk($pedacos, 2);
+
+    foreach ($grupos as $grupo) {
+      $p1 = $grupo[0];
+
+      // Cria a página baseada no tamanho padrão do documento original
+      $pdfTmp->AddPage('P', [$p1['larguraFolha'], $p1['alturaFolha']]);
+      $pdfTmp->SetAutoPageBreak(false, 0);
+
+      // Centraliza horizontalmente o primeiro pedaço caso ele seja menor que a página
+      $x1 = max(0, ($p1['larguraFolha'] - $p1['origW']) / 2);
+
+      // ==========================================================
+      // RENDERIZAÇÃO DO PRIMEIRO PEDAÇO
+      // ==========================================================
+      $pdfTmp->StartTransform();
+
+      // Restringe a área visível ao tamanho exato do corte
+      $pdfTmp->Rect($x1, 0, $p1['origW'], $p1['origH'], 'CNZ');
+
+      // Posiciona o template transladando as coordenadas de corte originais
+      $pdfTmp->useTemplate(
+        $p1['templateId'],
+        $x1 - $p1['origX'],
+        0 - $p1['origY'],
+        $p1['larguraFolha'],
+        $p1['alturaFolha']
+      );
+
+      $pdfTmp->StopTransform();
+
+      // ==========================================================
+      // RENDERIZAÇÃO DO SEGUNDO PEDAÇO (Se houver no par)
+      // ==========================================================
+      if (isset($grupo[1])) {
+        $p2 = $grupo[1];
+
+        // Centraliza horizontalmente o segundo pedaço
+        $x2 = max(0, ($p2['larguraFolha'] - $p2['origW']) / 2);
+        
+        // O início vertical dele é rigorosamente o término do primeiro pedaço
+        $y2 = $p1['origH'];
+
+        $pdfTmp->StartTransform();
+
+        // Restringe a área de visão do segundo pedaço
+        $pdfTmp->Rect($x2, $y2, $p2['origW'], $p2['origH'], 'CNZ');
+
+        // Renderiza deslocando o ponto inicial para Y2 e compensando a origem do corte original
+        $pdfTmp->useTemplate(
+          $p2['templateId'],
+          $x2 - $p2['origX'],
+          $y2 - $p2['origY'],
+          $p2['larguraFolha'],
+          $p2['alturaFolha']
+        );
+
+        $pdfTmp->StopTransform();
+      }
+    }
+
+    return $pdfTmp->Output('', 'S');
+  }
+  
 
   /**
    * Lógica corrigida: Lê o tamanho real dos carimbos das bordas,

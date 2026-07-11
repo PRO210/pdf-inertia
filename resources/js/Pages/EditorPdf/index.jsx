@@ -48,7 +48,6 @@ export default function EditorPdf() {
 
   const [pdfs, setPdfs] = useState([])
 
-
   const [pagesConfig, setPagesConfig] = useState([]);
   const [arquivosRaw, setArquivosRaw] = useState([]);
   const [pdfModificadoUrl, setPdfModificadoUrl] = useState(null);
@@ -71,6 +70,22 @@ export default function EditorPdf() {
   const [visibleCount, setVisibleCount] = useState(15);
   // 2. Criamos uma lista cortada contendo apenas as páginas que devem aparecer no momento
   const visiblePagesConfig = pagesConfig.slice(0, visibleCount);
+
+  // =========================
+  // Ferramenta de Corte
+  // =========================
+  const [corteAtivo, setCorteAtivo] = useState(false);
+
+  const corteAtivoRef = useRef(false);
+  // Área selecionada da página
+  const [cropArea, setCropArea] = useState(null);
+  // Retângulo desenhado no Fabric
+  const cropRectRef = useRef(null);
+
+  // será usada na próxima etapa
+  const cropOverlayRef = useRef(null);
+  const isDrawingCropRef = useRef(false);
+  const cropStartRef = useRef({ x: 0, y: 0 });
 
 
   const [showMobileList, setShowMobileList] = useState(false);
@@ -115,7 +130,6 @@ export default function EditorPdf() {
     setOrientacao('paisagem')
     setAlteracoesPendentes(false)
     setErroPdf(null)
-
     setZoom(1)
     setAspecto(false)
     setImagens([])
@@ -124,6 +138,7 @@ export default function EditorPdf() {
     setCabecalhoAtivo(false);
     setCabecalhoTexto(["ESCOLA ", "PROFESSOR(A):", "ALUNO:__________________________________________________", "TURMA:"]);
     setCabecalhoModo("ambas");
+    limparCorte();
 
   }
 
@@ -169,6 +184,21 @@ export default function EditorPdf() {
 
       formData.append('layout_paginas', layoutPaginas); // 1 por folha, 2 por folha, etc.
 
+      // console.log("=== INSPEÇÃO DOS DADOS ENVIADOS AO BACKEND ===");
+      // console.log(Object.fromEntries(formData));
+      // // Se quiser ler a string JSON exata das páginas no console:
+      // console.log("Configuração de Páginas (JSON):", JSON.parse(formData.get('paginas')));
+
+      const paginas = JSON.parse(formData.get('paginas'));
+
+      paginas.forEach(p => {
+        console.log({
+          page: p.page,
+          include: p.include,
+          corte: p.corte
+        });
+      });
+      // console.log("=============================================");
 
       const response = await axios.post(route('gerar.pdf.canvas'), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -348,6 +378,8 @@ export default function EditorPdf() {
 
     setAlteracoesPendentes(false);
 
+    limparCorte();
+
     // opcional
     setErroPdf(null);
   };
@@ -413,6 +445,34 @@ export default function EditorPdf() {
     }));
   };
 
+
+  // NOVO: Função para obter as coordenadas do retângulo de corte em porcentagem
+  const obterCoordenadasCorte = () => {
+    const canvas = fabricCanvasRef.current;
+    const retangulo = cropRectRef.current;
+
+    if (!canvas || !retangulo) return null;
+
+    // Dimensões atuais da área de desenho
+    const larguraCanvas = canvas.width;
+    const alturaCanvas = canvas.height;
+
+    // Posição e tamanho corrigidos pela escala do Fabric caso o usuário redimensione
+    const x = retangulo.left;
+    const y = retangulo.top;
+    const largura = retangulo.width * (retangulo.scaleX || 1);
+    const altura = retangulo.height * (retangulo.scaleY || 1);
+
+    return {
+      xPercent: (x / larguraCanvas) * 100,
+      yPercent: (y / alturaCanvas) * 100,
+      widthPercent: (largura / larguraCanvas) * 100,
+      heightPercent: (altura / alturaCanvas) * 100
+    };
+  };
+
+
+
   // Ação 1: Salva o estado atual do canvas APENAS para a página ativa
   const salvarEdicaoPaginaAtual = () => {
     const canvas = fabricCanvasRef.current;
@@ -436,24 +496,67 @@ export default function EditorPdf() {
   };
 
   // Ação 2: Replica o design atual do canvas para TODAS as páginas do documento
+  // const aplicarEdicaoATodasAsPaginas = () => {
+  //   const canvas = fabricCanvasRef.current;
+  //   if (!canvas || !paginaEmEdicaoTotal) return;
+
+  //   // const jsonDados = canvas.toJSON();
+  //   const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
+  //   const jsonString = JSON.stringify(jsonDados);
+
+  //   // Mapeia todas as páginas do config gerando o mesmo conteúdo nelas
+  //   const novasEdicoes = {};
+  //   pagesConfig.forEach((config) => {
+  //     novasEdicoes[config.page] = jsonString;
+  //   });
+
+  //   setEdicoesFabricPaginas(novasEdicoes);
+  //   setAlteracoesPendentes(true);
+  //   setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
+  //   setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
+  // };
+
   const aplicarEdicaoATodasAsPaginas = () => {
+
     const canvas = fabricCanvasRef.current;
     if (!canvas || !paginaEmEdicaoTotal) return;
 
-    // const jsonDados = canvas.toJSON();
-    const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
+    const dadosCorte = obterCoordenadasCorte();
+
+    const jsonDados = canvas.toJSON([
+      'stroke',
+      'strokeWidth',
+      'color',
+      'width',
+      'selectable',
+      'evented'
+    ]);
+
     const jsonString = JSON.stringify(jsonDados);
 
-    // Mapeia todas as páginas do config gerando o mesmo conteúdo nelas
     const novasEdicoes = {};
-    pagesConfig.forEach((config) => {
+
+    pagesConfig.forEach(config => {
       novasEdicoes[config.page] = jsonString;
     });
 
     setEdicoesFabricPaginas(novasEdicoes);
+
+    // Replica o corte para todas as páginas
+    if (dadosCorte) {
+      setPagesConfig(prev =>
+        prev.map(page => ({
+          ...page,
+          corte: dadosCorte
+        }))
+      );
+    }
+
     setAlteracoesPendentes(true);
-    setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
-    setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
+    setPaginaEmEdicaoTotal(null);
+    setBorrachaAtiva(false);
+
+
   };
 
   // Função para adicionar uma caixa de texto inteligente (Textbox) na tela
@@ -462,9 +565,9 @@ export default function EditorPdf() {
     if (!canvas) return;
 
     const texto = new fabric.Textbox('Clique duas vezes para editar', {
-      left: 50,
-      top: 50,
-      width: 250,
+      left: 150,
+      top: 10,
+      width: 300,
       fontSize: 20,
       fontFamily: 'Arial',
       fill: '#000000', // Cor preta padrão
@@ -489,6 +592,8 @@ export default function EditorPdf() {
       canvas.isDrawingMode = false;
       setBorrachaAtiva(false);
     }
+
+    limparCorte(); // Limpa o corte se estiver ativo
 
     // ... o resto do seu código original que deleta o objeto do canvas ...
     const objetoAtivo = canvas.getActiveObject();
@@ -533,7 +638,6 @@ export default function EditorPdf() {
   };
 
 
-
   const adicionarImagemFabric = (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo || !fabricCanvasRef.current) return;
@@ -564,6 +668,35 @@ export default function EditorPdf() {
   };
 
 
+  const alternarModoCorte = () => {
+
+    if (!fabricCanvasRef.current) return;
+
+    const canvas = fabricCanvasRef.current;
+
+    const novoEstado = !corteAtivoRef.current;
+
+    // Atualiza o React
+    setCorteAtivo(novoEstado);
+
+    // Atualiza a ref usada pelo Fabric
+    corteAtivoRef.current = novoEstado;
+
+    // console.log("Modo corte:", corteAtivoRef.current);
+
+    // desliga a borracha
+    if (novoEstado && borrachaAtiva) {
+      canvas.isDrawingMode = false;
+      setBorrachaAtiva(false);
+    }
+
+    canvas.defaultCursor = novoEstado
+      ? "crosshair"
+      : "default";
+
+  }
+
+  // Responsável por iniciar as funções do Fabric
   useEffect(() => {
     if (!paginaEmEdicaoTotal) {
       if (fabricCanvasRef.current) {
@@ -601,12 +734,138 @@ export default function EditorPdf() {
         const elementoCanvas = document.getElementById('fabric-lousa');
         if (!elementoCanvas) return;
 
-        // Inicializa o Canvas do Fabric v6
+        // Inicializa o Canvas do Fabric v7
         canvasInstancia = new fabric.Canvas('fabric-lousa', {
           width: viewport.width,
           height: viewport.height,
         });
         fabricCanvasRef.current = canvasInstancia;
+
+
+        // Configurações iniciais do Fabric para o recorte
+        canvasInstancia.on("mouse:down", (opt) => {
+
+          if (!corteAtivoRef.current)
+            return;
+
+          if (opt.target === cropRectRef.current) {
+            return;
+          }
+
+          canvasInstancia.discardActiveObject();
+          canvasInstancia.selection = false;
+
+          isDrawingCropRef.current = true;
+
+          const pointer = {
+            x: opt.scenePoint.x,
+            y: opt.scenePoint.y
+          };
+
+          cropStartRef.current = {
+            x: pointer.x,
+            y: pointer.y
+          };
+
+          if (cropRectRef.current) {
+            canvasInstancia.remove(cropRectRef.current);
+            cropRectRef.current = null;
+          }
+
+          const rect = new fabric.Rect({
+            left: pointer.x,
+            top: pointer.y,
+            width: 0,
+            height: 0,
+            fill: "rgba(59,130,246,0.15)",
+            stroke: "#2563eb",
+            strokeWidth: 2,
+            strokeDashArray: [6, 6],
+            selectable: false,
+            evented: false,
+            hasControls: false,
+            hasBorders: false,
+            originX: "left",
+            originY: "top",
+          });
+
+          canvasInstancia.add(rect);
+
+          cropRectRef.current = rect;
+
+          canvasInstancia.requestRenderAll();
+        });
+
+
+        canvasInstancia.on("mouse:move", (opt) => {
+
+          if (!isDrawingCropRef.current)
+            return;
+
+          const pointer = opt.scenePoint;
+
+          const rect = cropRectRef.current;
+
+          if (!rect)
+            return;
+
+          console.log("Inicial:", cropStartRef.current, "Atual:", pointer);
+
+          rect.set({
+            left: Math.min(cropStartRef.current.x, pointer.x),
+            top: Math.min(cropStartRef.current.y, pointer.y),
+            width: Math.abs(pointer.x - cropStartRef.current.x),
+            height: Math.abs(pointer.y - cropStartRef.current.y),
+          });
+
+          rect.setCoords();
+
+          canvasInstancia.requestRenderAll();
+        });
+
+
+        canvasInstancia.on("mouse:up", () => {
+
+          if (!isDrawingCropRef.current)
+            return;
+
+          isDrawingCropRef.current = false;
+
+          canvasInstancia.selection = true;
+
+          if (!cropRectRef.current)
+            return;
+
+          cropRectRef.current.set({
+            selectable: true,
+            evented: true,
+            hasControls: true,
+            hasBorders: true,
+            lockRotation: true,
+          });
+
+          cropRectRef.current.setCoords();
+
+          canvasInstancia.setActiveObject(cropRectRef.current);
+
+          // ==========================================
+          // NOVO: CAPTURA E SALVA AS COORDENADAS AQUI
+          // ==========================================
+          const dadosCorte = obterCoordenadasCorte();
+          if (dadosCorte && paginaEmEdicaoTotal) {
+            // Atualiza a configuração da página ativa com os dados do corte
+            updatePageConfig(paginaEmEdicaoTotal.pageNumber, 'corte', dadosCorte);
+          }
+          // ==========================================
+
+          // Sai do modo desenho
+          corteAtivoRef.current = false;
+          setCorteAtivo(false);
+
+          canvasInstancia.defaultCursor = "default";
+
+          canvasInstancia.requestRenderAll();
+        });
 
         // Criamos a imagem nativa do PDF
         const imgNativa = new Image();
@@ -619,6 +878,7 @@ export default function EditorPdf() {
             originX: 'left',
             originY: 'top'
           });
+
 
           const edicaoExistente = edicoesFabricPaginas[paginaEmEdicaoTotal.pageNumber];
 
@@ -665,6 +925,42 @@ export default function EditorPdf() {
       }
     };
   }, [paginaEmEdicaoTotal]);
+
+  const limparCorte = () => {
+    // 1. Limpa os elementos visuais do Canvas atual do Fabric
+    if (fabricCanvasRef.current) {
+      const canvas = fabricCanvasRef.current;
+
+      // Remove o retângulo do corte da tela
+      if (cropRectRef.current) {
+        canvas.remove(cropRectRef.current);
+        cropRectRef.current = null;
+      }
+
+      // Remove a máscara/overlay se existir
+      if (cropOverlayRef.current) {
+        canvas.remove(cropOverlayRef.current);
+        cropOverlayRef.current = null;
+      }
+
+      // Desativa o modo e o cursor de corte
+      setCorteAtivo(false);
+      corteAtivoRef.current = false; // Importante atualizar a Ref também!
+      canvas.defaultCursor = "default";
+      canvas.renderAll();
+    }
+
+    // 2. Limpa o estado local de preview do componente
+    setCropArea(null);
+
+    // ==========================================================
+    // CORREÇÃO CRÍTICA: Remover o corte do estado global do React
+    // ==========================================================
+    if (paginaEmEdicaoTotal) {
+      // Usamos a sua função utilitária nativa para definir o corte como null
+      updatePageConfig(paginaEmEdicaoTotal.pageNumber, 'corte', null);
+    }
+  };
 
   return (
     <>
@@ -1071,49 +1367,29 @@ export default function EditorPdf() {
 
       </div >
 
-      {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
 
       {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
-      <Modal
-        show={paginaEmEdicaoTotal !== null}
-        onClose={() => setPaginaEmEdicaoTotal(null)}
-        maxWidth="7xl" // Ou 'full' se você adicionou lá no Modal.jsx
-      >
-        <div className="p-6 flex flex-col h-[85vh]">
+      <Modal  show={paginaEmEdicaoTotal !== null}  onClose={() => setPaginaEmEdicaoTotal(null)}  maxWidth="" >
+        <div className="m-3 flex flex-col h-[85vh]">
           {/* Cabeçalho do Modal */}
-          <div className="flex justify-between items-center pb-4 border-b">
-            <h3 className="text-lg font-bold text-gray-900">
-              Editando Página {paginaEmEdicaoTotal?.pageNumber}
+          <div className="flex items-center justify-between gap-2 ">
+            <h3 className=" text-lg font-bold text-gray-900 text-nowrap">
+              Página {paginaEmEdicaoTotal?.pageNumber}
             </h3>
-            <button
-              onClick={() => setPaginaEmEdicaoTotal(null)}
-              className="text-gray-400 hover:text-gray-600 font-bold text-xl"
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Área Central - Agora com layout estritamente vertical (flex-col) */}
-          <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex flex-col rounded-lg border border-dashed border-gray-300">
-
             {/* 🌟 BARRA DE FERRAMENTAS REPOSICIONADA NO TOPO (Horizontal) */}
-            <div className="w-full flex flex-row flex-wrap items-center align-middle gap-3 bg-gray-50 p-3 mb-4 rounded-lg border">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">
+            <div className="w-full flex flex-row flex-wrap items-center align-middle gap-3 bg-gray-50 p-2 rounded-lg border">
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mx-2">
                 Ferramentas:
               </span>
 
-              <button
-                type="button"
-                onClick={adicionarTextoFabric}
-                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors"
+              <button type="button" onClick={adicionarTextoFabric}
+                className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg flex items-center justify-center gap-1 shadow-sm transition-colors"
               >
                 🔤 Texto
               </button>
 
-              <button
-                type="button"
-                onClick={apagarObjetoSelecionado}
-                className="py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors"
+              <button type="button" onClick={apagarObjetoSelecionado}
+                className="py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg  text-sm flex items-center justify-center gap-1 transition-colors"
               >
                 🗑️ Apagar as criações
               </button>
@@ -1122,7 +1398,7 @@ export default function EditorPdf() {
               <button
                 type="button"
                 onClick={alternarBorrachaSimulada}
-                className={`py-2 px-4 font-medium rounded-lg text-sm flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
+                className={`py-2 px-4 font-medium rounded-lg flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
                   ? "bg-slate-700 hover:bg-slate-800 text-white shadow-inner"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                   }`}
@@ -1131,7 +1407,7 @@ export default function EditorPdf() {
               </button>
 
               {/* NOVO: BOTÃO DE IMAGEM */}
-              <label className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
+              <label className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg  flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
                 🖼️ Inserir Imagem
                 <input
                   type="file"
@@ -1140,7 +1416,27 @@ export default function EditorPdf() {
                   className="hidden"
                 />
               </label>
+
+              <button type="button" onClick={alternarModoCorte}
+                className={`py-2 px-4 font-medium rounded-lg  flex items-center justify-center gap-1 transition-colors ${corteAtivo
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-100 hover:bg-blue-200 text-blue-700"
+                  }`}
+              >
+                ✂️ {corteAtivo ? "Recorte: Ativo" : "Recorte de Página"}
+              </button>
+           
             </div>
+            {/* <button
+              onClick={() => setPaginaEmEdicaoTotal(null)}
+              className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+            >
+              ✕
+            </button> */}
+          </div>
+
+          {/* Área Central - Agora com layout estritamente vertical (flex-col) */}
+          <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex flex-col rounded-lg border border-dashed border-gray-300">
 
             {/* Área da Lousa do Fabric.js - Agora expandida abaixo das ferramentas */}
             <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 min-h-[400px]">

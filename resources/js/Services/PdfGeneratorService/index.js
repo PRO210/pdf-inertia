@@ -362,7 +362,7 @@ export const gerarPDFService = async (
       try {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         // Passamos a imagem e o nível de nitidez (0.1 a 0.3 é o ideal para um "filtro leve")
-        const sharpenedData = aplicarFiltroNitidez(imageData, ctx, 0.3, 240);
+        const sharpenedData = aplicarFiltroNitidez(imageData, ctx, 0.2, 240);
         ctx.putImageData(sharpenedData, 0, 0);
       } catch (e) {
         console.warn("Não foi possível aplicar o filtro de nitidez (talvez CORS):", e);
