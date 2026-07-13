@@ -362,7 +362,7 @@ export const gerarPDFService = async (
       try {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         // Passamos a imagem e o nível de nitidez (0.1 a 0.3 é o ideal para um "filtro leve")
-        const sharpenedData = aplicarFiltroNitidez(imageData, ctx, 0.2, 240);
+        const sharpenedData = aplicarFiltroNitidez(imageData, ctx, 0.3, 235);
         ctx.putImageData(sharpenedData, 0, 0);
       } catch (e) {
         console.warn("Não foi possível aplicar o filtro de nitidez (talvez CORS):", e);
@@ -613,91 +613,103 @@ export const gerarPDFService = async (
     console.log('Gerado com Sucesso!');
   }
 
-  //   /**
-  //  * Aplica um filtro de nitidez (Sharpening) leve em uma ImageData de Canvas
+
+  // /**
+  //  * Aplica um filtro de nitidez apenas em áreas que não sejam brancas/claras
   //  * @param {ImageData} imageData Dados dos pixels do canvas
   //  * @param {CanvasRenderingContext2D} ctx Contexto do canvas
-  //  * @param {number} mix Intensidade do efeito (ex: 0.2 para leve, 0.5 para forte)
+  //  * @param {number} mix Intensidade do efeito (0.2 a 0.3)
+  //  * @param {number} limiarBranco Tons acima deste valor (0-255) não serão tocados
   //  */
-  //   function aplicarFiltroNitidez(imageData, ctx, mix = 0.2) {
-  //     const w = imageData.width;
-  //     const h = imageData.height;
-  //     const src = imageData.data;
-  //     const output = ctx.createImageData(w, h);
-  //     const dst = output.data;
+  // function aplicarFiltroNitidez(imageData, ctx, mix = 0.3, limiarBranco = 235) {
+  //   const w = imageData.width;
+  //   const h = imageData.height;
+  //   const src = imageData.data;
+  //   const output = ctx.createImageData(w, h);
+  //   const dst = output.data;
 
-  //     // Matriz de Nitidez (Laplacian Kernel modificado)
-  //     // [  0, -1,  0 ]
-  //     // [ -1,  5, -1 ]
-  //     // [  0, -1,  0 ]
+  //   // Clonamos os pixels originais para a saída
+  //   dst.set(src);
 
-  //     // Para evitar que as bordas quebrem, clonamos os pixels originais primeiro
-  //     dst.set(src);
+  //   for (let y = 1; y < h - 1; y++) {
+  //     for (let x = 1; x < w - 1; x++) {
+  //       const idx = (y * w + x) * 4;
 
-  //     // Varre os pixels internos (pulando a primeira e última linha/coluna)
-  //     for (let y = 1; y < h - 1; y++) {
-  //       for (let x = 1; x < w - 1; x++) {
-  //         const idx = (y * w + x) * 4;
+  //       const r = src[idx];
+  //       const g = src[idx + 1];
+  //       const b = src[idx + 2];
 
-  //         // Índices dos pixels vizinhos (cima, baixo, esquerda, direita)
-  //         const acima = ((y - 1) * w + x) * 4;
-  //         const baixo = ((y + 1) * w + x) * 4;
-  //         const esquerda = (y * w + (x - 1)) * 4;
-  //         const direita = (y * w + (x + 1)) * 4;
+  //       // Calcula a luminosidade/média simples do pixel atual
+  //       const brilho = (r + g + b) / 3;
 
-  //         // Aplica o filtro separadamente para R, G e B
-  //         for (let c = 0; c < 3; c++) {
-  //           const pixelOriginal = src[idx + c];
+  //       // SE O PIXEL FOR MUITO CLARO (perto do branco), pula o filtro
+  //       // Isso impede que o fundo branco ganhe granulação
+  //       if (brilho > limiarBranco) {
+  //         continue;
+  //       }
 
-  //           // Kernel de nitidez padrão
-  //           const pixelNitido = (pixelOriginal * 5)
-  //             - src[acima + c]
-  //             - src[baixo + c]
-  //             - src[esquerda + c]
-  //             - src[direita + c];
+  //       const acima = ((y - 1) * w + x) * 4;
+  //       const baixo = ((y + 1) * w + x) * 4;
+  //       const esquerda = (y * w + (x - 1)) * 4;
+  //       const direita = (y * w + (x + 1)) * 4;
 
-  //           // Faz a mistura (mix) entre a imagem original e o filtro para ficar suave
-  //           let valorFinal = pixelOriginal + (pixelNitido - pixelOriginal) * mix;
+  //       for (let c = 0; c < 3; c++) {
+  //         const pixelOriginal = src[idx + c];
 
-  //           // Garante que o valor fique entre 0 e 255
-  //           dst[idx + c] = Math.min(255, Math.max(0, valorFinal));
-  //         }
-  //         // O canal Alpha (dst[idx + 3]) se mantém o original por conta do dst.set(src)
+  //         const pixelNitido = (pixelOriginal * 5)
+  //           - src[acima + c]
+  //           - src[baixo + c]
+  //           - src[esquerda + c]
+  //           - src[direita + c];
+
+  //         let valorFinal = pixelOriginal + (pixelNitido - pixelOriginal) * mix;
+
+  //         dst[idx + c] = Math.min(255, Math.max(0, valorFinal));
   //       }
   //     }
-  //     return output;
   //   }
+  //   return output;
+  // }
   /**
-   * Aplica um filtro de nitidez apenas em áreas que não sejam brancas/claras
-   * @param {ImageData} imageData Dados dos pixels do canvas
-   * @param {CanvasRenderingContext2D} ctx Contexto do canvas
-   * @param {number} mix Intensidade do efeito (0.2 a 0.3)
-   * @param {number} limiarBranco Tons acima deste valor (0-255) não serão tocados
+   * Aplica nitidez apenas em textos e linhas.
+   * Ignora fundo branco e imagens coloridas.
    */
   function aplicarFiltroNitidez(imageData, ctx, mix = 0.3, limiarBranco = 235) {
     const w = imageData.width;
     const h = imageData.height;
+
     const src = imageData.data;
     const output = ctx.createImageData(w, h);
     const dst = output.data;
 
-    // Clonamos os pixels originais para a saída
     dst.set(src);
+
+    const LIMIAR_BRANCO = limiarBranco;
+    const LIMIAR_CONTRASTE = 35;
+    const LIMIAR_COR = 20;
 
     for (let y = 1; y < h - 1; y++) {
       for (let x = 1; x < w - 1; x++) {
+
         const idx = (y * w + x) * 4;
 
         const r = src[idx];
         const g = src[idx + 1];
         const b = src[idx + 2];
 
-        // Calcula a luminosidade/média simples do pixel atual
-        const brilho = (r + g + b) / 3;
+        // Luminosidade
+        const brilho = 0.299 * r + 0.587 * g + 0.114 * b;
 
-        // SE O PIXEL FOR MUITO CLARO (perto do branco), pula o filtro
-        // Isso impede que o fundo branco ganhe granulação
-        if (brilho > limiarBranco) {
+        // Não altera o fundo branco
+        if (brilho > LIMIAR_BRANCO)
+          continue;
+
+        // Não altera pixels coloridos (fotos, figuras)
+        if (
+          Math.abs(r - g) > LIMIAR_COR ||
+          Math.abs(r - b) > LIMIAR_COR ||
+          Math.abs(g - b) > LIMIAR_COR
+        ) {
           continue;
         }
 
@@ -706,23 +718,49 @@ export const gerarPDFService = async (
         const esquerda = (y * w + (x - 1)) * 4;
         const direita = (y * w + (x + 1)) * 4;
 
-        for (let c = 0; c < 3; c++) {
-          const pixelOriginal = src[idx + c];
+        // Detecta borda
+        const brilhoDireita =
+          0.299 * src[direita] +
+          0.587 * src[direita + 1] +
+          0.114 * src[direita + 2];
 
-          const pixelNitido = (pixelOriginal * 5)
+        const brilhoBaixo =
+          0.299 * src[baixo] +
+          0.587 * src[baixo + 1] +
+          0.114 * src[baixo + 2];
+
+        const contraste = Math.max(
+          Math.abs(brilho - brilhoDireita),
+          Math.abs(brilho - brilhoBaixo)
+        );
+
+        // Sem borda = não faz nada
+        if (contraste < LIMIAR_CONTRASTE)
+          continue;
+
+        // Kernel de nitidez
+        for (let c = 0; c < 3; c++) {
+
+          const original = src[idx + c];
+
+          const sharpen =
+            original * 5
             - src[acima + c]
             - src[baixo + c]
             - src[esquerda + c]
             - src[direita + c];
 
-          let valorFinal = pixelOriginal + (pixelNitido - pixelOriginal) * mix;
+          const resultado =
+            original + (sharpen - original) * mix;
 
-          dst[idx + c] = Math.min(255, Math.max(0, valorFinal));
+          dst[idx + c] = Math.max(0, Math.min(255, resultado));
         }
       }
     }
+
     return output;
   }
+
 
   //
 

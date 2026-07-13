@@ -19,6 +19,7 @@ import * as fabric from 'fabric';
 import PdfHistoryEditor from '@/Components/EditorPdf/PdfHistoryEditor'
 import PdfActionsEditor from '@/Components/EditorPdf/PdfActionsEditor'
 import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
+import Upload from '@/Components/svgs/Upload'
 
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
@@ -63,8 +64,10 @@ export default function EditorPdf() {
   const [edicoesFabricPaginas, setEdicoesFabricPaginas] = useState({}); // Ex: { "1": "{}", "2": '{"objects":[...]}' }
   // NOVO: Referência para controlar o ciclo de vida do Canvas do Fabric.js
   const fabricCanvasRef = useRef(null);
-  // Estado para controlar se a "borracha" está ativa ou não
+
+  // Estado para controlar se a "borracha"
   const [borrachaAtiva, setBorrachaAtiva] = useState(false);
+  const [tamanhoBorracha, setTamanhoBorracha] = useState(20);
 
   // 1. Estado para controlar quantas páginas exibir (começa com 15)
   const [visibleCount, setVisibleCount] = useState(15);
@@ -478,7 +481,7 @@ export default function EditorPdf() {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !paginaEmEdicaoTotal) return;
 
-    // No Fabric v6, canvas.toJSON() exporta os objetos adicionados de forma limpa
+    // No Fabric v7, canvas.toJSON() exporta os objetos adicionados de forma limpa
     // const jsonDados = canvas.toJSON();
     const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
 
@@ -582,6 +585,7 @@ export default function EditorPdf() {
     canvas.renderAll();
   };
 
+
   // Função para apagar o objeto que estiver selecionado atualmente no Canvas
   const apagarObjetoSelecionado = () => {
     if (!fabricCanvasRef.current) return;
@@ -593,17 +597,31 @@ export default function EditorPdf() {
       setBorrachaAtiva(false);
     }
 
-    limparCorte(); // Limpa o corte se estiver ativo
-
-    // ... o resto do seu código original que deleta o objeto do canvas ...
+    // 1. Pega o objeto que está selecionado agora
     const objetoAtivo = canvas.getActiveObject();
-    if (objetoAtivo) {
+
+    if (!objetoAtivo) return; // Se não tem nada selecionado, não faz nada
+
+    // 2. CHECAGEM CRÍTICA: O objeto selecionado é o retângulo de corte?
+    if (cropRectRef.current && objetoAtivo === cropRectRef.current) {
+      // Se for o corte, chama a função que limpa a estrutura do corte por completo
+      limparCorte();
+    } else {
+      // Se for qualquer outro objeto (texto, desenho, forma, etc.), apenas remove do canvas
       canvas.remove(objetoAtivo);
-      canvas.requestRenderAll();
+
+      // Se o objeto deletado fazia parte de uma seleção múltipla (ActiveSelection)
+      if (objetoAtivo.type === 'activeSelection') {
+        objetoAtivo.forEachObject((obj) => canvas.remove(obj));
+      }
     }
+
+    // 3. Desmarca a seleção e atualiza a tela
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
   };
 
-
+  //
   const alternarBorrachaSimulada = () => {
     if (!fabricCanvasRef.current) return;
     const canvas = fabricCanvasRef.current;
@@ -619,25 +637,102 @@ export default function EditorPdf() {
       // 2. Cria o pincel de desenho padrão (PencilBrush)
       const pincel = new fabric.PencilBrush(canvas);
       pincel.color = '#FFFFFF'; // Força a cor branca para cobrir o PDF
-      pincel.width = 20;        // Espessura do traço da borracha (pode ajustar)
+      pincel.width = tamanhoBorracha;
 
       // 3. Define as extremidades para um acabamento arredondado e suave
       pincel.strokeLineCap = 'round';
       pincel.strokeLineJoin = 'round';
 
       canvas.freeDrawingBrush = pincel;
-      canvas.defaultCursor = 'crosshair';
+      // canvas.defaultCursor = 'crosshair';
+
+      //  Aplica o cursor com borda vermelha
+      atualizarCursorBorracha(tamanhoBorracha);
 
       console.log("Modo borracha simulada (Whitewash) ativado.");
     } else {
       // Desativa o desenho livre e volta para o modo de seleção normal
       canvas.isDrawingMode = false;
-      canvas.defaultCursor = 'default';
+
+      restaurarCursorPadrao();
+
       console.log("Modo borracha desativado.");
     }
   };
+  // Atualiza o tamanho em tempo real enquanto desenha
+  const alterarTamanhoBorracha = (quantidade) => {
+    const novoTamanho = Math.max(2, tamanhoBorracha + quantidade);
+    setTamanhoBorracha(novoTamanho);
 
+    if (fabricCanvasRef.current && fabricCanvasRef.current.isDrawingMode) {
+      if (fabricCanvasRef.current.freeDrawingBrush) {
+        fabricCanvasRef.current.freeDrawingBrush.width = novoTamanho;
+      }
+      // Atualiza o tamanho da borda vermelha do cursor instantaneamente
+      atualizarCursorBorracha(novoTamanho);
+    }
+  };
+  //Altera o mouse para ficar mais visível a borracha
+  const atualizarCursorBorracha = (tamanho) => {
+    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
 
+    // 1. LIMITADOR CRÍTICO: Navegadores travam/ignoram cursores maiores que 128px.
+    // Se a borracha for gigante, o cursor visual trava em 96px para continuar funcionando.
+    const tamanhoCursorVisual = Math.min(tamanho, 96);
+
+    const cursorCanvas = document.createElement("canvas");
+    const padding = 4;
+    cursorCanvas.width = tamanhoCursorVisual + padding;
+    cursorCanvas.height = tamanhoCursorVisual + padding;
+
+    const ctx = cursorCanvas.getContext("2d");
+    if (ctx) {
+      const raio = tamanhoCursorVisual / 2;
+      const centro = (tamanhoCursorVisual + padding) / 2;
+
+      ctx.beginPath();
+      ctx.arc(centro, centro, raio, 0, 2 * Math.PI);
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2; // Aumentei um pouco para destacar bem no PDF
+      ctx.stroke();
+    }
+
+    const cursorUrl = cursorCanvas.toDataURL("image/png");
+    const centroCursor = (tamanhoCursorVisual + padding) / 2;
+
+    const estiloCursor = `url(${cursorUrl}) ${centroCursor} ${centroCursor}, crosshair`;
+
+    // 2. FORÇAR NO FABRIC V7:
+    // Altera a propriedade padrão do Fabric
+    canvas.defaultCursor = estiloCursor;
+    canvas.hoverCursor = estiloCursor;
+    canvas.moveCursor = estiloCursor;
+    canvas.freeDrawingCursor = estiloCursor;
+
+    // Força a aplicação direta no elemento HTML superior onde o mouse realmente interage
+    if (canvas.upperCanvasEl) {
+      canvas.upperCanvasEl.style.cursor = estiloCursor;
+    }
+  };
+  //
+  const restaurarCursorPadrao = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    canvas.defaultCursor = 'default';
+    canvas.hoverCursor = 'move';
+    canvas.moveCursor = 'move';
+    canvas.freeDrawingCursor = 'crosshair';
+
+    if (canvas.upperCanvasEl) {
+      canvas.upperCanvasEl.style.cursor = 'default';
+    }
+
+    canvas.requestRenderAll();
+  };
+  //
+  //
   const adicionarImagemFabric = (e) => {
     const arquivo = e.target.files[0];
     if (!arquivo || !fabricCanvasRef.current) return;
@@ -646,7 +741,7 @@ export default function EditorPdf() {
     reader.onload = (event) => {
       const imgNativa = new Image();
       imgNativa.onload = () => {
-        // Instancia o FabricImage adequado para o Fabric v6
+        // Instancia o FabricImage adequado para o Fabric v7
         const fabricImg = new fabric.FabricImage(imgNativa, {
           left: 100,
           top: 100,
@@ -668,6 +763,7 @@ export default function EditorPdf() {
   };
 
 
+  //
   const alternarModoCorte = () => {
 
     if (!fabricCanvasRef.current) return;
@@ -687,6 +783,7 @@ export default function EditorPdf() {
     // desliga a borracha
     if (novoEstado && borrachaAtiva) {
       canvas.isDrawingMode = false;
+      restaurarCursorPadrao();
       setBorrachaAtiva(false);
     }
 
@@ -884,7 +981,7 @@ export default function EditorPdf() {
 
           if (edicaoExistente && edicaoExistente !== "{}") {
             try {
-              // NO FABRIC v6, loadFromJSON RETORNA UMA PROMISE E NÃO ACEITA CALLBACKS TRADICIONAIS
+              // NO FABRIC v7, loadFromJSON RETORNA UMA PROMISE E NÃO ACEITA CALLBACKS TRADICIONAIS
               const dadosJson = JSON.parse(edicaoExistente);
               await canvasInstancia.loadFromJSON(dadosJson);
 
@@ -1092,7 +1189,7 @@ export default function EditorPdf() {
                 <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
                   Preview{" "}
                   <span>
-                    {pdfUrl ? "do PDF" : "da Imagem"}
+                    {/* {pdfUrl ? "do PDF" : ""} */}
                   </span>
                 </h1>
                 {pdfUrl && (
@@ -1139,26 +1236,11 @@ export default function EditorPdf() {
                           className="relative group w-full h-64 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 hover:border-indigo-500 cursor-pointer transition-colors"
                         >
                           {/* O conteúdo visual fica ao fundo */}
-                          <div className="flex flex-col items-center justify-center pointer-events-none">
-                            <svg
-                              className="w-12 h-12 mb-3 text-gray-400 group-hover:text-indigo-500 transition-colors"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                              />
-                            </svg>
+                          <Upload>
                             <p className="mb-2 text-sm md:text-xl text-gray-600">
                               <span className="font-semibold">Clique para fazer upload !</span>
                             </p>
-                            {/* <p className="text-gray-400 text-sm">Apenas arquivos PDF (Max. 50MB)</p> */}
-                          </div>
+                          </Upload>
 
                           {/* O input invisível cobre a label inteira */}
                           <input id="pdf-upload" type="file" accept="application/pdf" multiple
@@ -1348,15 +1430,13 @@ export default function EditorPdf() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => router.visit(route('pdf.pagamentos'))}
+                    <button onClick={() => router.visit(route('pdf.pagamentos'))}
                       className="w-full sm:w-auto bg-red-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-md"
                     >
                       Assinar Plano PRO
                     </button>
                   </div>
                 )}
-
 
               </div>
 
@@ -1369,7 +1449,7 @@ export default function EditorPdf() {
 
 
       {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
-      <Modal  show={paginaEmEdicaoTotal !== null}  onClose={() => setPaginaEmEdicaoTotal(null)}  maxWidth="" >
+      <Modal show={paginaEmEdicaoTotal !== null} onClose={() => setPaginaEmEdicaoTotal(null)} maxWidth="" >
         <div className="m-3 flex flex-col h-[85vh]">
           {/* Cabeçalho do Modal */}
           <div className="flex items-center justify-between gap-2 ">
@@ -1388,16 +1468,8 @@ export default function EditorPdf() {
                 🔤 Texto
               </button>
 
-              <button type="button" onClick={apagarObjetoSelecionado}
-                className="py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg  text-sm flex items-center justify-center gap-1 transition-colors"
-              >
-                🗑️ Apagar as criações
-              </button>
-
               {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
-              <button
-                type="button"
-                onClick={alternarBorrachaSimulada}
+              <button type="button" onClick={alternarBorrachaSimulada}
                 className={`py-2 px-4 font-medium rounded-lg flex items-center justify-center gap-1 transition-colors ${borrachaAtiva
                   ? "bg-slate-700 hover:bg-slate-800 text-white shadow-inner"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-700"
@@ -1409,12 +1481,7 @@ export default function EditorPdf() {
               {/* NOVO: BOTÃO DE IMAGEM */}
               <label className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg  flex items-center justify-center gap-1 shadow-sm transition-colors cursor-pointer text-center">
                 🖼️ Inserir Imagem
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={adicionarImagemFabric}
-                  className="hidden"
-                />
+                <input type="file" accept="image/*" onChange={adicionarImagemFabric} className="hidden" />
               </label>
 
               <button type="button" onClick={alternarModoCorte}
@@ -1425,7 +1492,13 @@ export default function EditorPdf() {
               >
                 ✂️ {corteAtivo ? "Recorte: Ativo" : "Recorte de Página"}
               </button>
-           
+
+              <button type="button" onClick={apagarObjetoSelecionado}
+                className="py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg  text-sm flex items-center justify-center gap-1 transition-colors"
+              >
+                🗑️ Apagar as criações
+              </button>
+
             </div>
             {/* <button
               onClick={() => setPaginaEmEdicaoTotal(null)}
@@ -1435,21 +1508,54 @@ export default function EditorPdf() {
             </button> */}
           </div>
 
-          {/* Área Central - Agora com layout estritamente vertical (flex-col) */}
+          {/* Área Central - Modificada para conter o Canvas e os controles ao lado */}
           <div className="flex-1 overflow-auto bg-gray-100 my-4 p-4 flex flex-col rounded-lg border border-dashed border-gray-300">
 
-            {/* Área da Lousa do Fabric.js - Agora expandida abaixo das ferramentas */}
-            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex justify-center items-start rounded-lg border border-dashed border-gray-300 min-h-[400px]">
-              {/* A KEY DEVE FICAR NESTA DIV PAI ABAIXO */}
+            {/* Contêiner modificado de flex-col para flex-row para colocar os botões ao lado */}
+            <div className="flex-1 overflow-auto bg-gray-100 p-4 flex flex-row justify-center items-start gap-4 min-h-[400px]">
+
+              {/* 🌟 BARRA LATERAL CONDICIONAL: Só aparece se a borracha estiver ativa */}
+              {borrachaAtiva && (
+                <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-xl shadow-md border border-gray-200 self-center">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 text-center">
+                    Tamanho
+                  </span>
+
+                  {/* Botão Aumentar */}
+                  <button type="button" onClick={() => alterarTamanhoBorracha(5)}
+                    className="w-10 h-10 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg flex items-center justify-center border shadow-sm transition-colors text-lg"
+                    title="Aumentar Borracha"
+                  >
+                    ➕
+                  </button>
+
+                  {/* Indicador do tamanho atual */}
+                  <div className="text-sm font-semibold text-gray-700 my-1 bg-slate-50 px-2 py-1 rounded border min-w-[32px] text-center">
+                    {tamanhoBorracha}px
+                  </div>
+
+                  {/* Botão Diminuir */}
+                  <button type="button" onClick={() => alterarTamanhoBorracha(-5)}
+                    className="w-10 h-10 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg flex items-center justify-center border shadow-sm transition-colors text-lg"
+                    title="Diminuir Borracha"
+                  >
+                    ➖
+                  </button>
+                </div>
+              )}
+
+              {/* Canvas do PDF */}
               <div
                 key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
                 className="bg-white shadow-lg rounded border border-red-500"
               >
                 <canvas id="fabric-lousa" />
               </div>
+
             </div>
 
           </div>
+
 
           {/* Rodapé do Modal */}
           <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t mt-auto">

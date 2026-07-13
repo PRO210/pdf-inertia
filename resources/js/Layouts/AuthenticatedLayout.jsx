@@ -9,7 +9,7 @@ import { useState } from 'react';
 export default function AuthenticatedLayout({ header, children }) {
     const user = usePage().props.auth.user;
     const { auth } = usePage().props;
-    
+
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
 
@@ -34,16 +34,16 @@ export default function AuthenticatedLayout({ header, children }) {
                                 </NavLink> */}
 
                                 <NavLink href={route('pdf.editor')} active={route().current('pdf.editor')} >
-                                    Criar Posters
+                                    Posters
                                 </NavLink>
 
                                 <NavLink href={route('pdf.atividades')} active={route().current('pdf.atividades')} >
-                                    Criar Atividades
+                                    Atividades
                                 </NavLink>
 
 
                                 <NavLink href={route('editor.pdf.canvas')} active={route().current('editor.pdf.canvas')} >
-                                    Editor PDF Canvas
+                                    Editor PDF
                                 </NavLink>
 
 
@@ -161,7 +161,7 @@ export default function AuthenticatedLayout({ header, children }) {
                                             </Dropdown>
                                         </div>
                                     </div>
-                                )}]
+                                )}
 
                             </div>
                         </div>
@@ -194,16 +194,10 @@ export default function AuthenticatedLayout({ header, children }) {
                                     </Dropdown.Trigger>
 
                                     <Dropdown.Content>
-                                        <Dropdown.Link
-                                            href={route('profile.edit')}
-                                        >
+                                        <Dropdown.Link href={route('profile.edit')} >
                                             Perfil
                                         </Dropdown.Link>
-                                        <Dropdown.Link
-                                            href={route('logout')}
-                                            method="post"
-                                            as="button"
-                                        >
+                                        <Dropdown.Link href={route('logout')} method="post" as="button"  >
                                             Sair
                                         </Dropdown.Link>
                                     </Dropdown.Content>
@@ -262,10 +256,7 @@ export default function AuthenticatedLayout({ header, children }) {
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
-                        <ResponsiveNavLink
-                            href={route('dashboard')}
-                            active={route().current('dashboard')}
-                        >
+                        <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')} >
                             Dashboard
                         </ResponsiveNavLink>
                     </div>
@@ -286,11 +277,7 @@ export default function AuthenticatedLayout({ header, children }) {
                             {user.id === 1 && (
                                 <ResponsiveNavLink href={route('users.index')}>Usuários</ResponsiveNavLink>
                             )}
-                            <ResponsiveNavLink
-                                method="post"
-                                href={route('logout')}
-                                as="button"
-                            >
+                            <ResponsiveNavLink method="post" href={route('logout')} as="button"  >
                                 Sair
                             </ResponsiveNavLink>
                         </div>
