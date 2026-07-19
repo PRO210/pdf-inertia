@@ -200,7 +200,7 @@ class PdfEditorService
 
   /**
    * Processa cortes e agrupa pedaços de páginas em um novo PDF
-   */ 
+   */
   protected function processarCortesEAgrupar(string $pdfPath, array $pagesConfig): string
   {
     $pdfTmp = new \setasign\Fpdi\Tcpdf\Fpdi();
@@ -293,7 +293,7 @@ class PdfEditorService
 
         // Centraliza horizontalmente o segundo pedaço
         $x2 = max(0, ($p2['larguraFolha'] - $p2['origW']) / 2);
-        
+
         // O início vertical dele é rigorosamente o término do primeiro pedaço
         $y2 = $p1['origH'];
 
@@ -317,7 +317,7 @@ class PdfEditorService
 
     return $pdfTmp->Output('', 'S');
   }
-  
+
 
   /**
    * Lógica corrigida: Lê o tamanho real dos carimbos das bordas,
@@ -647,94 +647,9 @@ class PdfEditorService
     return $pdfPath;
   }
 
-  /**
-   * Interpreta o JSON do Fabric e desenha os textos nas coordenadas corretas
-   */
-  // protected function aplicarEdicoesFabric(string $fabricJson)
-  // {
-  //   // Se por algum motivo o front mandou como string double-encoded, limpamos aqui
-  //   $dados = is_string($fabricJson) ? json_decode($fabricJson, true) : $fabricJson;
-
-  //   // Se ainda assim for string (devido ao escape do FormData), decodifica de novo
-  //   if (is_string($dados)) {
-  //     $dados = json_decode($dados, true);
-  //   }
-
-  //   if (!$dados || empty($dados['objects'])) {
-  //     return;
-  //   }
-
-  //   // FATOR DE CONVERSÃO CORRETO: 
-  //   // Se o seu canvas no front-end foi desenhado espelhando o tamanho em pontos do PDF (72 DPI),
-  //   // 1 mm = 2.83464567 pontos (pixels do PDF). 
-  //   // Se o seu canvas usa a densidade padrão de tela (96 DPI), mude para 3.7795.
-  //   // Ajuste multiplicando pela escala base que você usou no front (ex: 1.2)
-  //   $pixelParaMm = 2.83464567 * 1.2;
-
-  //   foreach ($dados['objects'] as $objeto) {
-  //     // Verifica variações de escrita do tipo (Textbox, text, i-text)
-  //     $type = strtolower($objeto['type'] ?? '');
-  //     if ($type === 'textbox' || $type === 'text' || $type === 'i-text') {
-
-  //       $texto = $objeto['text'] ?? '';
-  //       if (trim($texto) === '') {
-  //         continue;
-  //       }
-
-  //       // Pegamos as coordenadas brutas do objeto
-  //       $left = $objeto['left'] ?? 0;
-  //       $top = $objeto['top'] ?? 0;
-
-  //       $scaleX = $objeto['scaleX'] ?? 1;
-  //       $scaleY = $objeto['scaleY'] ?? 1;
-
-  //       $larguraObjetoPx = ($objeto['width'] ?? 0) * $scaleX;
-  //       $alturaObjetoPx = ($objeto['height'] ?? 0) * $scaleY;
-
-  //       // CORREÇÃO DE ORIGEM (Fabric centro vs TCPDF topo-esquerdo)
-  //       // Se o Fabric indica que a coordenada é o centro, precisamos subtrair metade da largura/altura para achar o topo-esquerdo
-  //       if (($objeto['originX'] ?? 'left') === 'center') {
-  //         $left = $left - ($larguraObjetoPx / 2);
-  //       }
-  //       if (($objeto['originY'] ?? 'top') === 'center') {
-  //         $top = $top - ($alturaObjetoPx / 2);
-  //       }
-
-  //       // Converte os pixels corrigidos para Milímetros
-  //       $xMm = $left / $pixelParaMm;
-  //       $yMm = $top / $pixelParaMm;
-  //       $larguraMm = $larguraObjetoPx / $pixelParaMm;
-
-  //       // No TCPDF o tamanho da fonte é em Pontos (pt). 
-  //       // Se no front está em pixels de tela, dividimos pela escala para equiparar.
-  //       $fontSizePt = ($objeto['fontSize'] ?? 20) / 1.2;
-
-  //       // Converte e aplica a cor do texto
-  //       $corHex = $objeto['fill'] ?? '#000000';
-  //       [$r, $g, $b] = $this->converterHexParaRgb($corHex);
-  //       $this->pdf->SetTextColor($r, $g, $b);
-
-  //       // Aplica a fonte
-  //       $this->pdf->SetFont('helvetica', '', $fontSizePt);
-
-  //       // Posiciona e renderiza
-  //       $this->pdf->setXY($xMm, $yMm);
-
-  //       // MultiCell lida perfeitamente com quebras de linha '\n' enviadas pelo Fabric
-  //       $this->pdf->MultiCell(
-  //         $larguraMm,
-  //         0,
-  //         $texto,
-  //         0,
-  //         'L',
-  //         false
-  //       );
-  //     }
-  //   }
-  // }
 
   /**
-   * Interpreta o JSON do Fabric v6+ e desenha textos e imagens nas coordenadas corretas
+   * Interpreta o JSON do Fabric v7+ e desenha textos e imagens nas coordenadas corretas
    */
   protected function aplicarEdicoesFabric(string $fabricJson)
   {
@@ -790,17 +705,47 @@ class PdfEditorService
         [$r, $g, $b] = $this->converterHexParaRgb($corHex);
         $this->pdf->SetTextColor($r, $g, $b);
 
-        $this->pdf->SetFont('helvetica', '', $fontSizePt);
-        $this->pdf->setXY($xMm, $yMm);
+        // Cor do texto
+$corHex = $objeto['fill'] ?? '#000000';
+[$r, $g, $b] = $this->converterHexParaRgb($corHex);
+$this->pdf->SetTextColor($r, $g, $b);
 
-        $this->pdf->MultiCell(
-          $larguraMm,
-          0,
-          $texto,
-          0,
-          'L',
-          false
-        );
+// -----------------------------------------------------------------
+// APAGA O TEXTO ORIGINAL
+// -----------------------------------------------------------------
+if (!empty($objeto['originalBounds'])) {
+
+    $b = $objeto['originalBounds'];
+
+    $xRect = $b['left'] / $pixelParaMm;
+    $yRect = $b['top'] / $pixelParaMm;
+    $wRect = $b['width'] / $pixelParaMm;
+    $hRect = $b['height'] / $pixelParaMm;
+
+    // margem de segurança para cobrir totalmente o texto antigo
+    $xRect -= 0.5;
+    $yRect -= 0.5;
+    $wRect += 1;
+    $hRect += 1;
+
+    $this->pdf->SetFillColor(255, 255, 255);
+    $this->pdf->Rect($xRect, $yRect, $wRect, $hRect, 'F');
+}
+
+// -----------------------------------------------------------------
+// ESCREVE O NOVO TEXTO
+// -----------------------------------------------------------------
+$this->pdf->SetFont('helvetica', '', $fontSizePt);
+$this->pdf->SetXY($xMm, $yMm);
+
+$this->pdf->MultiCell(
+    $larguraMm,
+    0,
+    $texto,
+    0,
+    'L',
+    false
+);
       }
 
       // --- BLOCO 2: PROCESSAMENTO DE IMAGEM (NOVO ADICIONADO COM CUIDADO) ---

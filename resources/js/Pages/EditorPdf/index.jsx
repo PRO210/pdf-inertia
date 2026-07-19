@@ -15,12 +15,13 @@ import ResumoAtividade from '@/Components/PdfEditor/ResumoAtividade'
 import PdfPageThumbnail from '@/Components/EditorPdf/PdfPageThumbnail'
 import PdfHeaderConfig from '@/Components/EditorPdf/PdfHeaderConfig'
 import Modal from '@/Components/Modal';
-import * as fabric from 'fabric';
 import PdfHistoryEditor from '@/Components/EditorPdf/PdfHistoryEditor'
 import PdfActionsEditor from '@/Components/EditorPdf/PdfActionsEditor'
 import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
 import Upload from '@/Components/svgs/Upload'
+import * as fabric from 'fabric';
 
+fabric.FabricObject.customProperties.push('originalBounds');
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js'
 
@@ -118,13 +119,17 @@ export default function EditorPdf() {
 
   const [cabecalhoImagem, setCabecalhoImagem] = useState(null);
 
-
   const [resumoTamanho, setResumoTamanho] = useState({
     imagem: null,
     imagemBorda: null,
     imagemCabecalho: null,
     imagemCompleta: null,
   });
+
+  // Ativa o modo de visualização HTML experimental
+  const [modoHibridoTeste, setModoHibridoTeste] = useState(false);
+  // Guarda os textos extraídos para a camada HTML
+  const [textosHtmlTeste, setTextosHtmlTeste] = useState([]);
 
 
   const resetarConfiguracoes = () => {
@@ -188,9 +193,9 @@ export default function EditorPdf() {
       formData.append('layout_paginas', layoutPaginas); // 1 por folha, 2 por folha, etc.
 
       // console.log("=== INSPEÇÃO DOS DADOS ENVIADOS AO BACKEND ===");
-      // console.log(Object.fromEntries(formData));
+      console.log(Object.fromEntries(formData));
       // // Se quiser ler a string JSON exata das páginas no console:
-      // console.log("Configuração de Páginas (JSON):", JSON.parse(formData.get('paginas')));
+      console.log("Configuração de Páginas (JSON):", JSON.parse(formData.get('paginas')));
 
       const paginas = JSON.parse(formData.get('paginas'));
 
@@ -481,44 +486,89 @@ export default function EditorPdf() {
     const canvas = fabricCanvasRef.current;
     if (!canvas || !paginaEmEdicaoTotal) return;
 
+    // 1. Filtra apenas os textos que foram modificados pelo usuário
+    const textosModificados = textosHtmlTeste.filter(
+      (itemHtml) => itemHtml.texto.trim() !== itemHtml.textoOriginal.trim()
+    );
+
+    setTextosHtmlTeste([]);
+    setModoHibridoTeste(false);
+
+    // 2. Adiciona os modificados ao Canvas com propriedades corrigidas
+    textosModificados.forEach((itemHtml) => {
+      // Calculamos o comprimento estimado do novo texto para expandir a caixa dinamicamente
+      const fatorLarguraLetra = itemHtml.fontSize * 0.6; // Estimativa média de pixels por caractere
+      const larguraEstimadaNovoTexto = itemHtml.texto.length * fatorLarguraLetra;
+
+      // A largura final será o maior valor entre a largura original e o tamanho do novo texto digitado
+      const larguraDinamica = Math.max(itemHtml.width, larguraEstimadaNovoTexto, 150);
+
+      const textoFabric = new fabric.Textbox(itemHtml.texto, {
+        left: itemHtml.left - 3,
+        // Ajuste no eixo Y para compensar a diferença de altura da linha (baseline) do PDF.js para o Fabric
+        top: itemHtml.top + (itemHtml.fontSize * 0.1),
+        width: larguraDinamica,           // Define a largura dinâmica para o texto não quebrar linha sozinho
+        fontSize: itemHtml.fontSize,      // Usa o tamanho real do PDF
+        fontFamily: itemHtml.fontFamily,  // Usa a fonte real (ex: g_d3_f1)
+        fill: '#000000',
+
+        // >>> ADICIONE ESTA LINHA AQUI <<<
+        textBackgroundColor: '#ffffff',// Cor preta padrão
+
+        // Mantém a estilização IDÊNTICA ao seu 'adicionarTextoFabric' que já funciona bem:
+        borderColor: '#6366f1',
+        cornerColor: '#6366f1',
+        cornerSize: 8,
+        transparentCorners: false,
+        selectable: true,
+        evented: true,
+
+        // Configurações extras de comportamento de texto do Fabric v7
+        originX: 'left',
+        originY: 'top',
+
+        // Zera o preenchimento interno do bloco para alinhar perfeitamente com a caixa HTML original
+        padding: 0,
+
+        splitByGrapheme: false, // Evita quebrar palavras no meio de sílabas ao redimensionar
+
+      });
+
+      //
+      textoFabric.originalBounds = {
+        left: itemHtml.left,
+        top: itemHtml.top,
+        width: itemHtml.width,
+        height: itemHtml.height
+      };
+
+      canvas.add(textoFabric);
+
+    });
+
+    // 3. Exporta o canvas limpo com os dados estruturados no formato que o PHP.
     // No Fabric v7, canvas.toJSON() exporta os objetos adicionados de forma limpa
     // const jsonDados = canvas.toJSON();
-    const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
+    const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented', 'textBackgroundColor', 'originalBounds']);
 
     setEdicoesFabricPaginas((prev) => ({
       ...prev,
       [paginaEmEdicaoTotal.pageNumber]: JSON.stringify(jsonDados),
     }));
 
-    // console.log("Edição salva para a página", paginaEmEdicaoTotal.pageNumber, ":", jsonDados);
+    console.log("Edição salva para a página", paginaEmEdicaoTotal.pageNumber, ":", jsonDados);
 
     setAlteracoesPendentes(true);
     setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
     setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
 
+    // Limpa os estados temporários do modo híbrido
+    setTextosHtmlTeste([]);
+    setModoHibridoTeste(false);
+
   };
 
   // Ação 2: Replica o design atual do canvas para TODAS as páginas do documento
-  // const aplicarEdicaoATodasAsPaginas = () => {
-  //   const canvas = fabricCanvasRef.current;
-  //   if (!canvas || !paginaEmEdicaoTotal) return;
-
-  //   // const jsonDados = canvas.toJSON();
-  //   const jsonDados = canvas.toJSON(['stroke', 'strokeWidth', 'color', 'width', 'selectable', 'evented']);
-  //   const jsonString = JSON.stringify(jsonDados);
-
-  //   // Mapeia todas as páginas do config gerando o mesmo conteúdo nelas
-  //   const novasEdicoes = {};
-  //   pagesConfig.forEach((config) => {
-  //     novasEdicoes[config.page] = jsonString;
-  //   });
-
-  //   setEdicoesFabricPaginas(novasEdicoes);
-  //   setAlteracoesPendentes(true);
-  //   setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
-  //   setBorrachaAtiva(false); // Garante que a borracha seja desativada ao salvar
-  // };
-
   const aplicarEdicaoATodasAsPaginas = () => {
 
     const canvas = fabricCanvasRef.current;
@@ -559,6 +609,9 @@ export default function EditorPdf() {
     setPaginaEmEdicaoTotal(null);
     setBorrachaAtiva(false);
 
+    // Limpa os estados do teste híbrido para a próxima página
+    setTextosHtmlTeste([]);
+    setModoHibridoTeste(false);
 
   };
 
@@ -761,7 +814,6 @@ export default function EditorPdf() {
     // Limpa o input para permitir selecionar a mesma imagem novamente se necessário
     e.target.value = '';
   };
-
 
   //
   const alternarModoCorte = () => {
@@ -1058,6 +1110,144 @@ export default function EditorPdf() {
       updatePageConfig(paginaEmEdicaoTotal.pageNumber, 'corte', null);
     }
   };
+
+  const ativarTesteHibrido = async () => {
+    if (!paginaEmEdicaoTotal) return;
+
+    try {
+      setCarregando(true);
+      const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
+
+      // Usamos a mesma escala de 1.2 do seu visualizador
+      const viewport = page.getViewport({ scale: 1.2 });
+
+      // 1. Busca o conteúdo de texto e os metadados de estilos/fontes juntos
+      const textContent = await page.getTextContent();
+      const estilosDeTexto = textContent.styles; // Contém o mapeamento das fontes (ex: "g_d0_f1")
+
+      // 2. CORREÇÃO: Forçar o carregamento das fontes originais no documento HTML
+      // Criamos um container invisível temporário para o PDF.js injetar os @font-face
+      const divTemporaria = document.createElement("div");
+      divTemporaria.style.display = "none";
+      document.body.appendChild(divTemporaria);
+
+      const textLayer = new pdfjsLib.TextLayer({
+        textContentSource: textContent,
+        container: divTemporaria,
+        viewport: viewport,
+      });
+
+      // Isso renderiza a camada de texto invisível em segundo plano,
+      // forçando o navegador a baixar e registrar as fontes do PDF.
+      await textLayer.render();
+
+      // Remove o elemento do DOM após carregar as fontes
+      document.body.removeChild(divTemporaria);
+
+      const itensDeTexto = textContent.items;
+
+      // --- PASSO 1: AGRUPAR FRAGMENTOS NA MESMA LINHA VERTICAL ---
+      const linhasAgrupadas = [];
+
+      itensDeTexto.forEach((item) => {
+        if (!item.str || item.str.trim() === "") return;
+
+        const xPdf = item.transform[4];
+        const yPdf = item.transform[5];
+        const [xCanvas, yCanvas] = viewport.convertToViewportPoint(xPdf, yPdf);
+
+        // Multiplicar pela escala do viewport garante o tamanho correto na tela
+        const fontScaleX = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
+        const fontSize = fontScaleX * 1.2;
+        const larguraTexto = item.width * 1.2;
+
+        // Tolerância de 5 pixels para agrupar elementos na mesma linha
+        const limiarY = 4;
+        let linhaExistente = linhasAgrupadas.find(l => Math.abs(l.yCanvas - yCanvas) < limiarY);
+
+        // Descobre o fontFamily real mapeado pelo PDF.js (Ex: "g_d0_f1")
+        const estilo = estilosDeTexto[item.fontName];
+        const fontFamilyReal = estilo ? estilo.fontFamily : 'sans-serif';
+
+        if (linhaExistente) {
+          linhaExistente.segmentos.push({ item, xCanvas, larguraTexto });
+        } else {
+          linhasAgrupadas.push({
+            yCanvas: yCanvas,
+            fontSize: fontSize,
+            fontName: fontFamilyReal, // Armazena o ID da fonte injetada
+            segmentos: [{ item, xCanvas, larguraTexto }]
+          });
+        }
+      });
+
+      // --- PASSO 2: UNIFICAR OS TEXTOS E MONTAR OS BLOCOS HTML ---
+      const textosExtraidos = [];
+      let idParagrafoAtual = 0;
+
+      // Garanta que as linhas estão ordenadas de cima para baixo antes do loop
+      linhasAgrupadas.sort((a, b) => a.yCanvas - b.yCanvas);
+
+      linhasAgrupadas.forEach((linha, index) => {
+        // Ordena os pedaços da esquerda para a direita
+        linha.segmentos.sort((a, b) => a.xCanvas - b.xCanvas);
+
+        const xMin = linha.segmentos[0].xCanvas;
+        const ultimoSeg = linha.segmentos[linha.segmentos.length - 1];
+        const xMax = ultimoSeg.xCanvas + ultimoSeg.larguraTexto;
+        const larguraTotalLinha = xMax - xMin;
+
+        // Junta as palavras com espaçamento correto
+        let stringCompleta = "";
+        for (let i = 0; i < linha.segmentos.length; i++) {
+          const segAtual = linha.segmentos[i]; // Corrigido aqui!
+          stringCompleta += segAtual.item.str;
+
+          if (i < linha.segmentos.length - 1) {
+            const segProximo = linha.segmentos[i + 1];
+            const espacoVazio = segProximo.xCanvas - (segAtual.xCanvas + segAtual.larguraTexto);
+            // Adiciona espaço visual se houver um espaço real no PDF original
+            if (espacoVazio > linha.fontSize * 0.2) {
+              stringCompleta += " ";
+            }
+          }
+        }
+
+
+        // Dentro do seu loop de criar os blocos de texto (Passo 2):
+        textosExtraidos.push({
+          id: `html-txt-${index}`,
+          texto: stringCompleta,
+          textoOriginal: stringCompleta,
+          left: xMin,
+          top: linha.yCanvas - linha.fontSize,
+          width: larguraTotalLinha + 6, // Largura exata do retângulo original do PDF!
+          height: linha.fontSize * 1.35,
+          fontSize: linha.fontSize,
+          fontFamily: linha.fontName || 'sans-serif'
+        });
+      });
+
+      setTextosHtmlTeste(textosExtraidos);
+      setModoHibridoTeste(true);
+
+
+    } catch (err) {
+      console.error("Erro ao carregar teste híbrido agrupado:", err);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  // Função para atualizar o texto quando o usuário digitar
+  const atualizarTextoHtmlTeste = (id, novoTexto) => {
+    setTextosHtmlTeste(prev =>
+      prev.map(t => t.id === id ? { ...t, texto: novoTexto } : t)
+    );
+  };
+
 
   return (
     <>
@@ -1450,7 +1640,7 @@ export default function EditorPdf() {
 
       {/* NOVO: Modal do Fabric.js para Edição Livre da Página */}
       <Modal show={paginaEmEdicaoTotal !== null} onClose={() => setPaginaEmEdicaoTotal(null)} maxWidth="" >
-        <div className="m-3 flex flex-col h-[85vh]">
+        <div className="m-3 flex flex-col h-[90vh]">
           {/* Cabeçalho do Modal */}
           <div className="flex items-center justify-between gap-2 ">
             <h3 className=" text-lg font-bold text-gray-900 text-nowrap">
@@ -1466,6 +1656,14 @@ export default function EditorPdf() {
                 className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg flex items-center justify-center gap-1 shadow-sm transition-colors"
               >
                 🔤 Texto
+              </button>
+
+              <button
+                type="button"
+                onClick={modoHibridoTeste ? () => setModoHibridoTeste(false) : ativarTesteHibrido}
+                className="py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors"
+              >
+                {modoHibridoTeste ? "Voltar para o Fabric" : "🧪 Testar Edição HTML"}
               </button>
 
               {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
@@ -1545,11 +1743,64 @@ export default function EditorPdf() {
               )}
 
               {/* Canvas do PDF */}
+              {/* <div key={paginaEmEdicaoTotal?.pageNumber || 'vazio'} className="bg-white shadow-lg rounded border border-red-500" >
+                <canvas id="fabric-lousa" />
+              </div> */}
+              {/* Container do Canvas */}
               <div
                 key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
-                className="bg-white shadow-lg rounded border border-red-500"
+                className="relative bg-white shadow-lg rounded border border-red-500"
+                style={{
+                  width: fabricCanvasRef.current?.width || 'auto',
+                  height: fabricCanvasRef.current?.height || 'auto'
+                }}
               >
+                {/* O Canvas do Fabric continua aqui embaixo funcionando como imagem de fundo */}
                 <canvas id="fabric-lousa" />
+
+                {/* 🌟 CAMADA DE TESTE: Só aparece se você clicar no botão de teste */}
+                {modoHibridoTeste && (
+                  <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-50">
+                    {textosHtmlTeste.map((txt) => {
+                      const leftAjustado = txt.left - 1;
+                      const topAjustado = txt.top - 1;
+
+                      return (
+                        <div key={txt.id} contentEditable
+                          suppressContentEditableWarning // Evita avisos do React no console ao usar contentEditable
+                          onBlur={(e) => atualizarTextoHtmlTeste(txt.id, e.target.innerText)}
+                          // bg-white garante a cobertura do texto original de fundo
+                          className="absolute bg-white text-black outline-none hover:bg-[#f0f4ff] focus:bg-white focus:ring-1 focus:ring-blue-500 pointer-events-auto whitespace-nowrap min-w-[5px]"
+                          style={{
+                            left: `${leftAjustado}px`,
+                            top: `${topAjustado}px`,
+                            minWidth: `${txt.width}px`,    // Força a largura comece exata do retângulo original, mas cresça
+                            height: `${txt.height}px`,
+                            fontSize: `${txt.fontSize}px`,
+                            fontFamily: txt.fontFamily,
+                            lineHeight: '1.15',
+                            padding: '0px 2px',
+                            margin: '0px',
+                            border: 'none',
+                            boxSizing: 'border-box',
+                            display: 'inline-block',
+
+                            // --- COMPORTAMENTO DO RETÂNGULO PRECISO ---
+                            whiteSpace: 'pre',              // Mantém os espaços puros do PDF
+                            overflow: 'visible',             // Permite que o novo texto seja visto e expanda o bloco
+                            letterSpacing: '-0.05em',
+                            // Se o texto for uma linha inteira e você quer que ele estique/encolha uniformemente:
+                            textAlign: 'justify',
+                            textAlignLast: 'justify',       // Força a linha única a se espalhar perfeitamente pelas bordas do retângulo
+                            textJustify: 'inter-character', //  // PDFs quebram ligaduras (como 'fi', 'fl') em caracteres separados
+                          }}
+                        >
+                          {txt.texto}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
             </div>
