@@ -20,6 +20,7 @@ import PdfActionsEditor from '@/Components/EditorPdf/PdfActionsEditor'
 import { useDownloadPdf } from '@/Hooks/useDownloadPdf'
 import Upload from '@/Components/svgs/Upload'
 import * as fabric from 'fabric';
+import { obterFontesPdf } from '@/Services/PdfFonteNomeService'
 
 fabric.FabricObject.customProperties.push('originalBounds');
 
@@ -39,7 +40,6 @@ export default function EditorPdf() {
 
   //Instancia o Contabilizador  de dowloads
   const { processarDownload } = useDownloadPdf();
-
 
   // Movi a lógica de limpeza para uma função separada para não repetir código
   const executarLimpeza = () => {
@@ -154,6 +154,8 @@ export default function EditorPdf() {
   const processarPdf = async () => {
     if (!arquivosRaw) return;
 
+    console.log('==============Entrei no processarPdf================');
+
     try {
 
       setCarregando(true);
@@ -193,25 +195,26 @@ export default function EditorPdf() {
       formData.append('layout_paginas', layoutPaginas); // 1 por folha, 2 por folha, etc.
 
       // console.log("=== INSPEÇÃO DOS DADOS ENVIADOS AO BACKEND ===");
-      console.log(Object.fromEntries(formData));
+      // console.log(Object.fromEntries(formData));
       // // Se quiser ler a string JSON exata das páginas no console:
-      console.log("Configuração de Páginas (JSON):", JSON.parse(formData.get('paginas')));
+      // console.log("Configuração de Páginas (JSON):", JSON.parse(formData.get('paginas')));
 
       const paginas = JSON.parse(formData.get('paginas'));
 
-      paginas.forEach(p => {
-        console.log({
-          page: p.page,
-          include: p.include,
-          corte: p.corte
-        });
-      });
+      // paginas.forEach(p => {
+      //   console.log({
+      //     page: p.page,
+      //     include: p.include,
+      //     corte: p.corte
+      //   });
+      // });
       // console.log("=============================================");
 
       const response = await axios.post(route('gerar.pdf.canvas'), formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         responseType: 'blob'
       });
+
 
       // Em vez de baixar direto, criamos a URL e salvamos no estado do componente
       const blobR = new Blob([response.data], { type: 'application/pdf' });
@@ -223,7 +226,6 @@ export default function EditorPdf() {
 
       // Atualiza os dados de limite/auth se necessário
       router.reload({ only: ['auth'] });
-
 
       // Código de download do blob retornado...
     } catch (error) {
@@ -368,7 +370,13 @@ export default function EditorPdf() {
 
   const limparPdfAtual = () => {
 
-    // libera memória do blob atual
+    // 1. Limpa os objetos do Fabric.js
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.clear(); // Remove todos os objetos da canvas
+      Opcional: fabricCanvasRef.current.dispose(); // Use se for destruir o elemento canvas do DOM
+    }
+
+    // 2. Libera memória dos Blobs
     if (pdfUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(pdfUrl);
     }
@@ -377,6 +385,7 @@ export default function EditorPdf() {
       URL.revokeObjectURL(pdfModificadoUrl);
     }
 
+    // 3. Reseta os estados do React
     setPdfUrl(null);
     setArquivosRaw([]);
     setPdfModificadoUrl(null);
@@ -430,6 +439,11 @@ export default function EditorPdf() {
 
       const url = URL.createObjectURL(blob);
 
+      setEdicoesFabricPaginas({}); // Limpa o JSON das edições salvas por página
+      setPaginaEmEdicaoTotal(null); // Fecha a página em edição atual para forçar o unmount do Fabric
+      setModoHibridoTeste(false);   // Desativa o modo híbrido se estiver ativo
+      setTextosHtmlTeste([]);       // Limpa textos extraídos
+
       setPdfUrl(url);
 
       // guarda lista original
@@ -478,7 +492,6 @@ export default function EditorPdf() {
       heightPercent: (altura / alturaCanvas) * 100
     };
   };
-
 
 
   // Ação 1: Salva o estado atual do canvas APENAS para a página ativa
@@ -556,7 +569,7 @@ export default function EditorPdf() {
       [paginaEmEdicaoTotal.pageNumber]: JSON.stringify(jsonDados),
     }));
 
-    console.log("Edição salva para a página", paginaEmEdicaoTotal.pageNumber, ":", jsonDados);
+    // console.log("Edição salva para a página", paginaEmEdicaoTotal.pageNumber, ":", jsonDados);
 
     setAlteracoesPendentes(true);
     setPaginaEmEdicaoTotal(null); // Fecha o modal após salvar
@@ -866,6 +879,7 @@ export default function EditorPdf() {
         const pdf = await loadingTask.promise;
 
         if (!ativo) return;
+
         const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
         const viewport = page.getViewport({ scale: 1.2 });
 
@@ -906,15 +920,9 @@ export default function EditorPdf() {
 
           isDrawingCropRef.current = true;
 
-          const pointer = {
-            x: opt.scenePoint.x,
-            y: opt.scenePoint.y
-          };
+          const pointer = { x: opt.scenePoint.x, y: opt.scenePoint.y };
 
-          cropStartRef.current = {
-            x: pointer.x,
-            y: pointer.y
-          };
+          cropStartRef.current = { x: pointer.x, y: pointer.y };
 
           if (cropRectRef.current) {
             canvasInstancia.remove(cropRectRef.current);
@@ -1052,8 +1060,7 @@ export default function EditorPdf() {
           canvasInstancia.calcOffset();
 
         };
-        console.log('OBJETOS FABRIC:', canvasInstancia.getObjects()
-        );
+        // console.log('OBJETOS FABRIC:', canvasInstancia.getObjects()
 
         imgNativa.src = pdfPageImgUrl;
 
@@ -1070,6 +1077,7 @@ export default function EditorPdf() {
       ativo = false;
       clearTimeout(timer);
       if (canvasInstancia) {
+        canvasInstancia.clear();
         canvasInstancia.dispose();
       }
     };
@@ -1116,6 +1124,20 @@ export default function EditorPdf() {
 
     try {
       setCarregando(true);
+
+      const fontesPdf = await obterFontesPdf(paginaEmEdicaoTotal.url);
+
+      // Dados da página atual vindos do Laravel
+      const paginaFonte = fontesPdf.find(
+        p => p.page === paginaEmEdicaoTotal.pageNumber
+      );
+
+      // Se existir, usa a primeira fonte da página como padrão
+      const fontePagina = paginaFonte?.fonts?.[0] ?? {
+        family: "helvetica",
+        style: ""
+      };
+
       const loadingTask = pdfjsLib.getDocument(paginaEmEdicaoTotal.url);
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(paginaEmEdicaoTotal.pageNumber);
@@ -1123,28 +1145,10 @@ export default function EditorPdf() {
       // Usamos a mesma escala de 1.2 do seu visualizador
       const viewport = page.getViewport({ scale: 1.2 });
 
+      await page.getOperatorList();
+
       // 1. Busca o conteúdo de texto e os metadados de estilos/fontes juntos
       const textContent = await page.getTextContent();
-      const estilosDeTexto = textContent.styles; // Contém o mapeamento das fontes (ex: "g_d0_f1")
-
-      // 2. CORREÇÃO: Forçar o carregamento das fontes originais no documento HTML
-      // Criamos um container invisível temporário para o PDF.js injetar os @font-face
-      const divTemporaria = document.createElement("div");
-      divTemporaria.style.display = "none";
-      document.body.appendChild(divTemporaria);
-
-      const textLayer = new pdfjsLib.TextLayer({
-        textContentSource: textContent,
-        container: divTemporaria,
-        viewport: viewport,
-      });
-
-      // Isso renderiza a camada de texto invisível em segundo plano,
-      // forçando o navegador a baixar e registrar as fontes do PDF.
-      await textLayer.render();
-
-      // Remove o elemento do DOM após carregar as fontes
-      document.body.removeChild(divTemporaria);
 
       const itensDeTexto = textContent.items;
 
@@ -1158,18 +1162,30 @@ export default function EditorPdf() {
         const yPdf = item.transform[5];
         const [xCanvas, yCanvas] = viewport.convertToViewportPoint(xPdf, yPdf);
 
-        // Multiplicar pela escala do viewport garante o tamanho correto na tela
         const fontScaleX = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]);
         const fontSize = fontScaleX * 1.2;
         const larguraTexto = item.width * 1.2;
 
-        // Tolerância de 5 pixels para agrupar elementos na mesma linha
         const limiarY = 4;
-        let linhaExistente = linhasAgrupadas.find(l => Math.abs(l.yCanvas - yCanvas) < limiarY);
+        // LIMITADOR HORIZONTAL: Se a distância entre os blocos for maior que isso, separa em caixas diferentes
+        const limiarXMaximo = fontSize * 3; // Ex: se houver um espaço vazio maior que 3x o tamanho da fonte
 
-        // Descobre o fontFamily real mapeado pelo PDF.js (Ex: "g_d0_f1")
-        const estilo = estilosDeTexto[item.fontName];
-        const fontFamilyReal = estilo ? estilo.fontFamily : 'sans-serif';
+        // Procura uma linha que esteja na mesma altura E que não esteja muito longe horizontalmente
+        let linhaExistente = linhasAgrupadas.find(l => {
+          const naMesmaAltura = Math.abs(l.yCanvas - yCanvas) < limiarY;
+          if (!naMesmaAltura) return false;
+
+          // Calcula os limites horizontais atuais daquela linha
+          const xMinAtual = Math.min(...l.segmentos.map(s => s.xCanvas));
+          const xMaxAtual = Math.max(...l.segmentos.map(s => s.xCanvas + s.larguraTexto));
+
+          // Verifica se o fragmento atual está muito colado ou muito longe da caixa existente
+          const muitoLongeEsquerda = (xCanvas + larguraTexto) < (xMinAtual - limiarXMaximo);
+          const muitoLongeDireita = xCanvas > (xMaxAtual + limiarXMaximo);
+
+          return !(muitoLongeEsquerda || muitoLongeDireita);
+        });
+
 
         if (linhaExistente) {
           linhaExistente.segmentos.push({ item, xCanvas, larguraTexto });
@@ -1177,15 +1193,16 @@ export default function EditorPdf() {
           linhasAgrupadas.push({
             yCanvas: yCanvas,
             fontSize: fontSize,
-            fontName: fontFamilyReal, // Armazena o ID da fonte injetada
+            // Fonte definida pelo backend
+            fontFamily: fontePagina.family,
+            fontStyle: fontePagina.style,
             segmentos: [{ item, xCanvas, larguraTexto }]
           });
         }
+
       });
 
-      // --- PASSO 2: UNIFICAR OS TEXTOS E MONTAR OS BLOCOS HTML ---
       const textosExtraidos = [];
-      let idParagrafoAtual = 0;
 
       // Garanta que as linhas estão ordenadas de cima para baixo antes do loop
       linhasAgrupadas.sort((a, b) => a.yCanvas - b.yCanvas);
@@ -1215,18 +1232,82 @@ export default function EditorPdf() {
           }
         }
 
+        const AJUSTE_X = -1;
+        const AJUSTE_Y = 0.9;
 
         // Dentro do seu loop de criar os blocos de texto (Passo 2):
         textosExtraidos.push({
           id: `html-txt-${index}`,
           texto: stringCompleta,
           textoOriginal: stringCompleta,
-          left: xMin,
-          top: linha.yCanvas - linha.fontSize,
-          width: larguraTotalLinha + 6, // Largura exata do retângulo original do PDF!
+          left: xMin + AJUSTE_X,
+          top: linha.yCanvas - (linha.fontSize * AJUSTE_Y),
+          width: larguraTotalLinha + 8, // Largura exata do retângulo original do PDF!
           height: linha.fontSize * 1.35,
           fontSize: linha.fontSize,
-          fontFamily: linha.fontName || 'sans-serif'
+          fontFamily: linha.fontFamily,
+          fontStyle: linha.fontStyle,
+          justificar: false
+        });
+
+        // ===== TESTE =====
+        const ultimo = textosExtraidos[textosExtraidos.length - 1];
+
+        const letras = ultimo.texto.replace(/\s/g, "").length;
+        const palavras = ultimo.texto.trim().split(/\s+/).length;
+        const densidade = letras / ultimo.width;
+
+        // Conta somente letras maiúsculas
+        const maiusculas =
+          (ultimo.texto.match(/[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ]/g) || []).length;
+
+        const proporcaoMaiusculas = maiusculas / letras;
+
+        // Salva no objeto
+        ultimo.letras = letras;
+        ultimo.palavras = palavras;
+        ultimo.densidade = densidade;
+        ultimo.proporcaoMaiusculas = proporcaoMaiusculas;
+
+        // console.log({
+        //   texto: ultimo.texto,
+        //   width: ultimo.width.toFixed(1),
+        //   letras,
+        //   palavras,
+        //   fontSize: ultimo.fontSize.toFixed(1),
+        //   densidade: densidade.toFixed(3),
+        //   proporcaoMaiusculas: proporcaoMaiusculas.toFixed(2),
+        //   fontFamily: linha.fontName
+        // });
+
+      });
+
+      // ======================================================
+      // AGRUPA POR MARGEM ESQUERDA + TAMANHO DA FONTE
+      // ======================================================
+      const grupos = {};
+
+      textosExtraidos.forEach((txt) => {
+        const chave = `${Math.round(txt.left / 10) * 10}-${Math.round(txt.fontSize)}`;
+
+        if (!grupos[chave]) {
+          grupos[chave] = [];
+        }
+
+        grupos[chave].push(txt);
+      });
+
+      // ======================================================
+      // DEFINE QUAIS LINHAS DEVEM SER JUSTIFICADAS
+      // ======================================================
+      Object.values(grupos).forEach((grupo) => {
+        const maiorWidth = Math.max(...grupo.map((g) => g.width));
+
+        grupo.forEach((txt) => {
+          const percentual = txt.width / maiorWidth;
+          // console.log(txt.texto, (percentual * 100).toFixed(1) + "%");
+          txt.justificar = txt.width >= maiorWidth * 0.93; // 93% ou mais
+          txt.widthBase = maiorWidth; // apenas para debug
         });
       });
 
@@ -1371,22 +1452,16 @@ export default function EditorPdf() {
           </div>
 
           {/* Coluna do Preview */}
-          <div className="w-full lg:w-2/3 flex flex-col justify-center items-center " id="preview">
+          <div className="w-full flex flex-col justify-center items-center" id="preview">
             <div className="flex flex-col items-center justify-center gap-4 w-full " id="preview-column">
 
-              <div className="w-full relative flex items-center justify-center">
+              <div className="w-full relative flex items-center justify-center py-1">
 
-                <h1 className="sm:text-xl md:text-2xl text-center font-bold whitespace-nowrap">
-                  Preview{" "}
-                  <span>
-                    {/* {pdfUrl ? "do PDF" : ""} */}
-                  </span>
-                </h1>
                 {pdfUrl && (
                   <>
                     <button
                       title="Adicionar PDF" onClick={() => document.getElementById('pdf-add')?.click()}
-                      className="absolute right-12 rounded-full p-2 px-3 bg-white text-green-500 shadow"
+                      className="absolute right-12 top-0 rounded-full p-2 px-2 bg-white text-green-500 shadow"
                     >
                       ➕
                     </button>
@@ -1406,7 +1481,7 @@ export default function EditorPdf() {
                     />
 
                     <button title="Remover PDF atual" onClick={limparPdfAtual}
-                      className=" absolute right-0 rounded-full p-2 px-2 shadow  transition-all bg-white  bg-opacity-80   hover:bg-opacity-100   text-red-500"                    >
+                      className="absolute right-0 top-0  rounded-full p-2 px-2 shadow  transition-all bg-white  bg-opacity-80  hover:bg-opacity-100   text-red-500" >
                       ❌
                     </button>
                   </>
@@ -1415,7 +1490,7 @@ export default function EditorPdf() {
               </div>
 
               {/* Componente Preview / Input de Arquivo */}
-              <div className="flex flex-col gap-2 w-full">
+              <div className="flex flex-col gap-2 w-full mt-4">
                 {user && (
                   <>
                     {/* SE NÃO HOUVER PDF: Mostra o Input Centralizado (Estilo Canvas) */}
@@ -1587,7 +1662,7 @@ export default function EditorPdf() {
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                               </svg>
-                              Baixar o PDF do Preview Modificado
+                              Baixar o PDF Modificado
                             </button>
 
                             {/* Link auxiliar caso o usuário queira esconder o botão verde de download */}
@@ -1647,10 +1722,10 @@ export default function EditorPdf() {
               Página {paginaEmEdicaoTotal?.pageNumber}
             </h3>
             {/* 🌟 BARRA DE FERRAMENTAS REPOSICIONADA NO TOPO (Horizontal) */}
-            <div className="w-full flex flex-row flex-wrap items-center align-middle gap-3 bg-gray-50 p-2 rounded-lg border">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mx-2">
+            <div className="w-full flex flex-row flex-wrap items-center align-middle justify-center gap-3 bg-gray-50 p-2 rounded-lg border">
+              {/* <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mx-2">
                 Ferramentas:
-              </span>
+              </span> */}
 
               <button type="button" onClick={adicionarTextoFabric}
                 className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg flex items-center justify-center gap-1 shadow-sm transition-colors"
@@ -1658,13 +1733,17 @@ export default function EditorPdf() {
                 🔤 Texto
               </button>
 
-              <button
-                type="button"
-                onClick={modoHibridoTeste ? () => setModoHibridoTeste(false) : ativarTesteHibrido}
+              <button type="button" onClick={modoHibridoTeste ? () => setModoHibridoTeste(false) : ativarTesteHibrido}
                 className="py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors"
               >
-                {modoHibridoTeste ? "Voltar para o Fabric" : "🧪 Testar Edição HTML"}
+                {modoHibridoTeste ? "Voltar para o Original" : "🧪 Edição em Tela"}
               </button>
+
+              {/* <button type="button" onClick={modoHibridoTeste ? () => setModoHibridoTeste(false) : ativarTesteHibrido}
+                className="py-2 px-4 bg-yellow-400 hover:bg-yellow-300  font-medium rounded-lg shadow-sm transition-colors"
+              >
+                {modoHibridoTeste ? "Voltar para o Original" : "🧪 Edição em Tela Com IA"}
+              </button> */}
 
               {/* O Novo Botão de Borracha Simulada (Estilo Toggle) */}
               <button type="button" onClick={alternarBorrachaSimulada}
@@ -1743,10 +1822,6 @@ export default function EditorPdf() {
               )}
 
               {/* Canvas do PDF */}
-              {/* <div key={paginaEmEdicaoTotal?.pageNumber || 'vazio'} className="bg-white shadow-lg rounded border border-red-500" >
-                <canvas id="fabric-lousa" />
-              </div> */}
-              {/* Container do Canvas */}
               <div
                 key={paginaEmEdicaoTotal?.pageNumber || 'vazio'}
                 className="relative bg-white shadow-lg rounded border border-red-500"
@@ -1784,15 +1859,23 @@ export default function EditorPdf() {
                             border: 'none',
                             boxSizing: 'border-box',
                             display: 'inline-block',
-
-                            // --- COMPORTAMENTO DO RETÂNGULO PRECISO ---
-                            whiteSpace: 'pre',              // Mantém os espaços puros do PDF
-                            overflow: 'visible',             // Permite que o novo texto seja visto e expanda o bloco
-                            letterSpacing: '-0.05em',
-                            // Se o texto for uma linha inteira e você quer que ele estique/encolha uniformemente:
-                            textAlign: 'justify',
-                            textAlignLast: 'justify',       // Força a linha única a se espalhar perfeitamente pelas bordas do retângulo
-                            textJustify: 'inter-character', //  // PDFs quebram ligaduras (como 'fi', 'fl') em caracteres separados
+                            whiteSpace: txt.justificar ? 'pre-wrap' : 'pre',
+                            // overflow: 'hidden',                          
+                            textAlign: txt.justificar ? 'justify' : 'left',
+                            textAlignLast: txt.justificar ? 'justify' : 'left',
+                            textJustify: 'inter-character',
+                            letterSpacing:
+                              txt.proporcaoMaiusculas > 0.95
+                                ? `${-(txt.fontSize / 260).toFixed(3)}em`
+                                : txt.width < 250 && txt.letras < 30
+                                  ? "0"
+                                  : txt.densidade < 0.17
+                                    ? "-0.05em"
+                                    : txt.densidade < 0.18
+                                      ? "-0.04em"
+                                      : txt.densidade < 0.19
+                                        ? "-0.03em"
+                                        : "-0.02em",
                           }}
                         >
                           {txt.texto}

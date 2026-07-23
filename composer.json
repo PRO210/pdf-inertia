@@ -14,6 +14,7 @@
         "laravel/tinker": "^2.10.1",
         "mercadopago/dx-php": "^3.7",
         "setasign/fpdi": "^2.6",
+        "smalot/pdfparser": "^2.12",
         "tecnickcom/tcpdf": "^6.11",
         "tightenco/ziggy": "^2.0"
     },

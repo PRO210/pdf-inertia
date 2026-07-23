@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use setasign\Fpdi\Tcpdf\Fpdi;
+use TCPDF_FONTS;
 
 class PdfEditorService
 {
@@ -83,11 +84,9 @@ class PdfEditorService
       $configMap = collect($pagesConfig)->keyBy('page');
     }
 
-
     // Passa o caminho do arquivo convertido para o FPDI
     // $pageCount = $this->pdf->setSourceFile($pdfPathCompativel);
     // $configMap = collect($pagesConfig)->keyBy('page');
-
 
     // Definição de margem física da borda (Equivalente aos 0.5cm do seu antigo projeto)
     $margemBorda = ($bordaTipo !== 'none') ? 6 : 0;
@@ -706,46 +705,50 @@ class PdfEditorService
         $this->pdf->SetTextColor($r, $g, $b);
 
         // Cor do texto
-$corHex = $objeto['fill'] ?? '#000000';
-[$r, $g, $b] = $this->converterHexParaRgb($corHex);
-$this->pdf->SetTextColor($r, $g, $b);
+        $corHex = $objeto['fill'] ?? '#000000';
+        [$r, $g, $b] = $this->converterHexParaRgb($corHex);
+        $this->pdf->SetTextColor($r, $g, $b);
 
-// -----------------------------------------------------------------
-// APAGA O TEXTO ORIGINAL
-// -----------------------------------------------------------------
-if (!empty($objeto['originalBounds'])) {
+        // -----------------------------------------------------------------
+        // APAGA O TEXTO ORIGINAL
+        // -----------------------------------------------------------------
+        if (!empty($objeto['originalBounds'])) {
 
-    $b = $objeto['originalBounds'];
+          $b = $objeto['originalBounds'];
 
-    $xRect = $b['left'] / $pixelParaMm;
-    $yRect = $b['top'] / $pixelParaMm;
-    $wRect = $b['width'] / $pixelParaMm;
-    $hRect = $b['height'] / $pixelParaMm;
+          $xRect = $b['left'] / $pixelParaMm;
+          $yRect = $b['top'] / $pixelParaMm;
+          $wRect = $b['width'] / $pixelParaMm;
+          $hRect = $b['height'] / $pixelParaMm;
 
-    // margem de segurança para cobrir totalmente o texto antigo
-    $xRect -= 0.5;
-    $yRect -= 0.5;
-    $wRect += 1;
-    $hRect += 1;
+          // margem de segurança para cobrir totalmente o texto antigo
+          $xRect -= 0.5;
+          $yRect -= 0.5;
+          $wRect += 1;
+          $hRect += 1;
 
-    $this->pdf->SetFillColor(255, 255, 255);
-    $this->pdf->Rect($xRect, $yRect, $wRect, $hRect, 'F');
-}
+          $this->pdf->SetFillColor(255, 255, 255);
+          $this->pdf->Rect($xRect, $yRect, $wRect, $hRect, 'F');
+        }
 
-// -----------------------------------------------------------------
-// ESCREVE O NOVO TEXTO
-// -----------------------------------------------------------------
-$this->pdf->SetFont('helvetica', '', $fontSizePt);
-$this->pdf->SetXY($xMm, $yMm);
+        // -----------------------------------------------------------------
+        // ESCREVE O NOVO TEXTO
+        // -----------------------------------------------------------------
 
-$this->pdf->MultiCell(
-    $larguraMm,
-    0,
-    $texto,
-    0,
-    'L',
-    false
-);
+        // var_dump(TCPDF_FONTS::getFontFullPath('carlito_'));
+        // die;
+
+        $this->pdf->SetFont('helvetica', '', $fontSizePt);
+        $this->pdf->SetXY($xMm, $yMm);
+
+        $this->pdf->MultiCell(
+          $larguraMm,
+          0,
+          $texto,
+          0,
+          'L',
+          false
+        );
       }
 
       // --- BLOCO 2: PROCESSAMENTO DE IMAGEM (NOVO ADICIONADO COM CUIDADO) ---

@@ -25,6 +25,47 @@ Route::get('/', function () {
     ]);
 });
 
+
+// Route::get('/instalar-carlito', function () {
+
+//     $regular = TCPDF_FONTS::addTTFfont(
+//         storage_path('fonts/Carlito-Regular.ttf'),
+//         'TrueTypeUnicode',
+//         '',
+//         96
+//     );
+
+//     $bold = TCPDF_FONTS::addTTFfont(
+//         storage_path('fonts/Carlito-Bold.ttf'),
+//         'TrueTypeUnicode',
+//         '',
+//         96
+//     );
+
+//     $italic = TCPDF_FONTS::addTTFfont(
+//         storage_path('fonts/Carlito-Italic.ttf'),
+//         'TrueTypeUnicode',
+//         '',
+//         96
+//     );
+
+//     $boldItalic = TCPDF_FONTS::addTTFfont(
+//         storage_path('fonts/Carlito-BoldItalic.ttf'),
+//         'TrueTypeUnicode',
+//         '',
+//         96
+//     );
+
+//     return [
+//         'regular' => $regular,
+//         'bold' => $bold,
+//         'italic' => $italic,
+//         'boldItalic' => $boldItalic,
+//     ];
+// });
+
+Route::post('/pdf/analisar', [PdfEditorController::class, 'analisar'])->name('pdf.analisar');
+
 Route::get('/dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -44,7 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/dashboard/pdf-editor', [PdfEditorController::class, 'store'])->name('pdf.editor.store');
 
     Route::get('/dashboard/pdf-atividades', [PdfEditorController::class, 'atividades'])->name('pdf.atividades');
-    
+
     Route::get('/dashboard/editor-pdf-canvas', [PdfEditorController::class, 'editorPdfCanvas'])->name('editor.pdf.canvas');
     Route::post('/dashboard/editor-pdf-canvas', [PdfEditorController::class, 'gerarPdfCanvas'])->name('gerar.pdf.canvas');
 
